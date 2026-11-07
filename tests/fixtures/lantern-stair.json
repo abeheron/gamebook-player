@@ -1,0 +1,159 @@
+{
+  "id": "lantern-stair",
+  "title": "The Lantern Stair",
+  "author": "Gamebook Player sample",
+  "rights": "Original sample text written for this repository. It is not a published gamebook, and this repository has no chosen license for it.",
+  "system": "gnat-demo",
+  "start": "1",
+  "sections": [
+    {
+      "id": "1",
+      "title": "The stair",
+      "body": [
+        "A narrow stair climbs between two walls of old brick. A lantern hangs from a peg at the first step, still warm.",
+        "The dark above the third step does not show what made the scuff marks."
+      ],
+      "choices": [
+        {
+          "id": "take-lantern",
+          "label": "Take the lantern and climb",
+          "to": "2",
+          "effects": [{ "op": "addItem", "id": "lantern", "label": "Lantern" }]
+        },
+        {
+          "id": "climb-dark",
+          "label": "Climb in the dark",
+          "to": "5",
+          "effects": [{ "op": "adjustStat", "stat": "vitality", "by": -1 }]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "The landing",
+      "body": [
+        "You stop on a landing where someone drew a small box in chalk.",
+        "The box is a tick, the kind a traveller makes so they know they have been here before."
+      ],
+      "choices": [
+        {
+          "id": "tick-and-study",
+          "label": "Tick the box and study the mark",
+          "to": "3",
+          "when": { "op": "not", "condition": { "op": "ticked", "id": "landing-box" } },
+          "effects": [{ "op": "tick", "id": "landing-box", "label": "Landing box" }]
+        },
+        {
+          "id": "walk-on",
+          "label": "The box is ticked. Walk on.",
+          "to": "6",
+          "when": { "op": "ticked", "id": "landing-box" }
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "The mark",
+      "body": [
+        "You hold the lantern close to the chalk. The lines look like a letter you almost know."
+      ],
+      "test": {
+        "id": "read-mark",
+        "label": "Study the mark",
+        "dice": "2d6",
+        "stat": "talent",
+        "success": {
+          "to": "4",
+          "effects": [{ "op": "gainKeyword", "id": "mark", "label": "Mark" }]
+        },
+        "failure": {
+          "to": "5",
+          "effects": [{ "op": "adjustStat", "stat": "vitality", "by": -1 }]
+        }
+      }
+    },
+    {
+      "id": "4",
+      "title": "The reading",
+      "body": [
+        "The letter settles in your memory. You could find this mark again."
+      ],
+      "choices": [
+        { "id": "continue-up", "label": "Continue up the stair", "to": "6" }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "The scrape",
+      "body": [
+        "Your foot slips on the worn edge. The fall is short, and your knee stings."
+      ],
+      "choices": [
+        {
+          "id": "keep-climbing",
+          "label": "Keep climbing",
+          "to": "6",
+          "when": { "op": "statAtLeast", "stat": "vitality", "value": 1 }
+        },
+        { "id": "sit-down", "label": "Sit down", "to": "8" }
+      ]
+    },
+    {
+      "id": "6",
+      "title": "The arch",
+      "body": [
+        "Something small and pale flaps under the arch. It is not a bird. It keeps to the air in front of the next step.",
+        "You can wait it out, one breath at a time."
+      ],
+      "combat": {
+        "id": "arch-moth",
+        "label": "Arch moth",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "defeatSection": "8",
+        "then": "7"
+      }
+    },
+    {
+      "id": "7",
+      "title": "Above",
+      "body": [
+        "The stair ends at a plain wooden door, shut and warm from the other side. This sample ends here.",
+        "You can climb back down. The stair will still be there."
+      ],
+      "choices": [
+        {
+          "id": "recall-mark",
+          "label": "Recall the mark",
+          "to": "4",
+          "when": { "op": "keyword", "id": "mark" }
+        },
+        {
+          "id": "leave-lantern",
+          "label": "Leave the lantern by the door",
+          "to": "7",
+          "when": { "op": "hasItem", "id": "lantern" },
+          "effects": [{ "op": "removeItem", "id": "lantern" }]
+        },
+        { "id": "climb-down", "label": "Climb back down", "to": "1" }
+      ]
+    },
+    {
+      "id": "8",
+      "title": "The step",
+      "body": [
+        "You sit until the stair stops tilting. When you stand, the way up is still there."
+      ],
+      "choices": [
+        {
+          "id": "catch-breath",
+          "label": "Catch your breath and start again",
+          "to": "1",
+          "effects": [{ "op": "adjustStat", "stat": "vitality", "by": 1 }]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+.vite
+node_modules/.tmp
+playwright-report
+test-results
+blob-report
+src-tauri/target
+src-tauri/gen
+.DS_Store
+*.log

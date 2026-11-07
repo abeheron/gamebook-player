@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Window permissions for the local reader. No filesystem, shell, or network commands.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

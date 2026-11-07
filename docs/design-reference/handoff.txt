@@ -1,0 +1,22 @@
+Gamebook Player design REFERENCE handoff (packaged 2026-11-08, Asia/Jerusalem)
+Scope: reference files only, per Ares's message relayed by Merry Sue: "Ok then commit the reference files only".
+This is NOT approval of the designs, not runtime implementation, and not approval to merge. Extract into docs/design-reference/.
+
+Contents:
+- design-decisions.md, CHANGELOG.md, README.md: copies of the top-level docs from /workspace/gamebook-player-prototype/ (hashes in TOP-LEVEL-DOCS.SHA256)
+- versions/v0.4/: immutable v0.4 baseline copied byte-for-byte: index.html, README.md, SHA256SUMS (the original), audio/dice-roll.mp3, audio/dice-roll-preview.wav, contact-sheet.png, previews/1-8 *.png, render_previews.py, state-test.jsdom.js
+  The original SHA256SUMS passes `sha256sum -c` (all 15 files OK). index.html embeds the dice MP3 as a data URI, so it has no outside dependencies.
+
+Statuses (these come from the docs and are not user approvals):
+- Accepted by Ares: the recorded dice sound ("Wooden dice on wooden table roll" by Wuzzy, OpenGameArt, CC0, trimmed and edited; credit is in README and index.html).
+- Requested by Ares: sound on by default, with a saved opt-out. Also the v0.2-v0.3 requests listed in design-decisions.md. These were implemented in the mockup, but that is not a visual approval.
+- P01 compact test panel: TRYING in v0.5, not approved. P02-P06: Proposed only.
+- v0.5 is NOT included. Original path: /workspace/gamebook-player-prototype/versions/v0.5/ (its own SHA256SUMS also verifies OK).
+  The included docs do describe v0.5 as a trial.
+- Not included: v0.1 and v0.2.1 backups, the mutable index.html, v0.5-prototype.html, gamebook-player-versions.zip, and all PDFs and book data. v0.2-original and v0.3 were never kept and were not reconstructed.
+
+Limitations:
+- The illustrations are placeholder SVG diagrams drawn for the prototype. They are not scans or AI images, and the "Scanned" and "AI-generated" labels are demo labels.
+- The section IDs, text, imports, saves and some rules (Fortune reroll cost, Fortune max 3, demo fight rounds) are demo or illustrative. They are not authentic book data or canonical rules.
+- This is a visual reference, not production code. Some book text is paraphrased from the design doc. Temple of the Skull God content is copyrighted, and none of it is included.
+- Stale status: CHANGELOG.md and design-decisions.md (written 00:28) say the commit is "waiting on Lone Wolf's commit confirmation" and "nothing is committed yet". That will be out of date once the commit is made.
