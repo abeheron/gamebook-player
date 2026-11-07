@@ -56,7 +56,7 @@ There is no independent UI schedule. The slices are the screen parts of the othe
 | Proposal 01, Fortune | Spend control on the test you just rolled | Reload keeps the new face and the new Fortune |
 | Proposal 01, skills | Sheet lists the skill and the +2 or -2 | A skill test shows the modified Talent |
 | Proposal 02, rounds | Fight log does not jump away on the first miss | Reload mid-fight |
-| Proposal 02, rerolls after Q4 | Buttons only for legal rerolls | Fortune is refused if it is offered before the mandatory reroll |
+| Proposal 02, rerolls after Q4 | Buttons only for rerolls whose order the PDF states, or whose order Q4 has fixed | Fortune is not offered before other rerolls. Two-handed is not placed before Disadvantage by the UI |
 | Proposal 03 | Heavy count and armour uses on the sheet | Ignore one Wound and reload |
 | Proposal 04 | Cast and the failure choice on the section | The two failure results |
 | Proposal 05 | No Rest button until a section effect exists | Vitality 0 shows the default ending |
@@ -75,9 +75,9 @@ The layout you are extending is the current `src/ui` code, not the six-screen mo
 
 ## Open questions
 
-Q4, Q6, and Q7 change which buttons exist. Do not add a disabled button that guesses the missing answer.
+Q4 and Q6 change which buttons exist. Do not add a disabled button that guesses the missing answer. Vitality 0 uses the default ending from D4. Do not add a control that asks whether the fight should continue.
 
-Q8 changes whether the demo and the new adventure are both in the nav. Until then, do not remove The Lantern Stair from the build.
+Do not remove The Lantern Stair from the build as part of these drafts.
 
 ## Done when
 

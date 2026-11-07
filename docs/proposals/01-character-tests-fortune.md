@@ -4,7 +4,7 @@ Status: Draft. Not approved.
 
 ## Outcome
 
-You can start a character at the PDF's starting stats, take a Talent test that treats double 1 and double 6 correctly, apply a skill modifier to Talent, and spend one Fortune to reroll one die. The first original short adventure can use those rules. The Lantern Stair demo still plays by its current sample rules until you decide [Q8](../roadmap.md).
+You can start a character at the PDF's starting stats, take a Talent test that treats double 1 and double 6 correctly, apply a skill modifier to Talent, and spend one Fortune to reroll one die. The first original short adventure can use those rules. The Lantern Stair demo keeps its current sample rules. These drafts do not ask you to remove it.
 
 ## In scope
 
@@ -21,7 +21,7 @@ You can start a character at the PDF's starting stats, take a Talent test that t
 - Weapon choice, shield, ration, 10 gp, and the Talent-for-skill trade. Those are creation details for a later slice of this proposal or for [equipment](03-equipment-and-armour.md).
 - Previous-character import.
 - Fight rounds, armour, spells, rest, and XP prices.
-- Replacing `tests/fixtures/lantern-stair.json` without an explicit Q8 decision.
+- Replacing `tests/fixtures/lantern-stair.json`. That file stays. A later product choice can change what the app opens. This proposal does not ask for it.
 - Copying Temple section text into the new adventure.
 
 ## Current code
@@ -52,10 +52,10 @@ Use the second. It matches `parseDice` and `rollDice`, which are already pure, a
 
 ## PR slices
 
-1. Pure test result, doubles, and Talent floor, with unit tests and no UI yet if the demo path is untouched.
-2. Fortune spend on that result, cap 3, and the Read screen control. Browser test: spend, see the new face, reload, still see it.
-3. Skill list and +2 or -2. Extend the original short adventure by one skill test.
-4. Only if you accept Q8, point the app's opening book at that adventure. Until then, ship the adventure as a second fixture the tests load.
+1. Pure test result, doubles, and Talent floor, with unit tests. This slice does not change `Session` or `SaveRecord`. The demo path can stay untouched.
+2. Fortune spend on that result, cap 3, and the Read screen control. The pending roll moves into `GameState`, because a reload must keep the spent point and the new face. This slice bumps `SaveRecord.version`, migrates a version 1 save, and tests that migration, as [proposal 07](07-saves-undo-backups.md) requires. A browser test spends, reloads, and still shows the new face.
+3. Skill list and +2 or -2. Extend the original short adventure by one skill test. Any new field is validated in this same pull request.
+4. Ship that adventure as a second fixture the tests load. Do not point the opening book at it in this proposal.
 
 Slice 2 includes the UI. Slice 3 includes the sheet lines for skills. Neither waits for [proposal 08](08-player-ui.md) as a later project.
 
@@ -77,10 +77,10 @@ PDF pages 6, 7, 8, and 9. Skill names are on pages 7 and 8. Decisions D1, D2, an
 
 ## Open questions
 
-None of Q1 to Q7 block the slices above. Q8 only blocks replacing the demo entry point.
+None of Q1 to Q6 block the slices above. Vitality 0 is already D4. The demo staying in the app is the assumption here, not a question for this review.
 
 Creation trades (one Talent for one basic skill, at most three) are specified on page 6. They are out of the first three slices because the short adventure can start after character creation. They belong in a later slice of this proposal, not in a guess inside `initialState`.
 
 ## Done when
 
-The slices you accepted have unit tests, and any slice that spends Fortune has a browser reload test. The short adventure fixture is original text. `npm test` passes. The demo fixture is unchanged unless Q8 says otherwise.
+The slices you accepted have unit tests. Slice 1 does not change the save schema. Slice 2 is not done without the version bump, the version 1 migration test, and the browser reload. The short adventure fixture is original text. `npm test` passes. The demo fixture is unchanged.

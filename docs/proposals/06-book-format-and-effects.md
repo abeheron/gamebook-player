@@ -4,7 +4,7 @@ Status: Draft. Not approved.
 
 ## Outcome
 
-A book file can state the rules the other proposals add, and `validateBook` rejects anything else. You can load one JSON book from the machine. Section exceptions are effects in that file. They are not branches in `rollCombatRound`. Converting all 573 Temple sections is a different project and is not this proposal's done state.
+A book file can state the rules the other proposals add, and `validateBook` rejects anything else. Those fields land in the same pull request as the rule that needs them. After those fields exist, you can load one JSON book from the machine. Section exceptions are effects in that file. They are not branches in `rollCombatRound`. Converting all 573 Temple sections is a different project and is not this proposal's done state.
 
 ## In scope
 
@@ -46,12 +46,12 @@ Use the second. It is the same boundary as today's unknown-key errors.
 
 ## PR slices
 
-These slices are the format part of other proposals, not a blocked month of schema work.
+Schema slices are part of the rule pull request. They are not a project that 05 must wait for, and 05 is not a project they must wait for. The file picker is the only slice that comes later.
 
-1. With [proposal 01](01-character-tests-fortune.md), accept skill ids and a test that records doubles. Reject a string of JavaScript in a new field.
-2. With [proposal 02](02-combat-and-rerolls.md), accept per-combat flags the fight needs, including "unarmed penalty already included", without referencing section 361.
-3. With [proposal 05](05-recovery-and-advancement.md), accept a restore effect that states its amount, and an optional replacement for the Vitality 0 ending.
-4. A file picker that loads JSON, shows `BookValidationError` to the player, and does not write the book into the repo. Browser test with a tiny original file and with a file that has an unknown key.
+1. Inside [proposal 01](01-character-tests-fortune.md), when that slice adds a field, accept skill ids and a test that records doubles. The pure test-result slice adds no field. Reject a string of JavaScript in a new field.
+2. Inside [proposal 02](02-combat-and-rerolls.md), accept per-combat flags the fight needs, including "unarmed penalty already included", without referencing section 361. The Vitality 0 replacement effect, if that fight slice includes one, is validated there too.
+3. Inside [proposal 05](05-recovery-and-advancement.md), accept a restore effect that states its amount.
+4. After those fields exist, a file picker that loads JSON, shows `BookValidationError` to the player, and does not write the book into the repo. Browser test with a tiny original file and with a file that has an unknown key. This slice does not add a new rules concept.
 
 ## Tests
 
@@ -67,9 +67,9 @@ PDF pages 12 and 14 for keywords, titles, and ticks. The audit's book-specific l
 
 ## Open questions
 
-None of Q1 to Q7 are decided here. Q5 and Q6 change which effects are legal to author. Until they are answered, the allowlist does not include a resurrection op or a Vitality clamp the PDF does not state.
+Q5 and Q6 change which extra effects are legal to author. Until they are answered, the allowlist does not include a resurrection op or a Vitality clamp the PDF does not state. The default Vitality 0 ending is D4 and does not wait on those questions.
 
-Q8 decides whether the loaded-book screen replaces the demo or sits beside it.
+Local load does not remove the demo. Whether the app opens a different book later is not part of accepting this draft.
 
 ## Done when
 

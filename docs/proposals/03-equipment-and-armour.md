@@ -40,7 +40,7 @@ Use the second. One record cannot claim a sword is heavy in the fight and not he
 ## Proposed change
 
 - Extend the item effect so a book can add a tagged item. `addItem` with only id and label remains valid for the demo.
-- Capacity uses maximum Vitality. At the starting maximum of 3, the limit is 6 heavy items.
+- Capacity is 2 times maximum Vitality. At a maximum of 3, the limit is 6 heavy items. A Wound lowers current Vitality and does not change that limit. If the maximum itself changes, the limit changes with it.
 - When a round would deal one or more Wounds, the player may assign armour uses to individual Wounds, including the fumble Wound if it exists. Uses left fall by that many. This slice does not decide the skill penalty.
 - Selling treasure is an effect that removes the item and adds coins, only when the section includes that effect.
 
@@ -52,7 +52,9 @@ Use the second. One record cannot claim a sword is heavy in the fight and not he
 
 ## Tests
 
-- Six heavy items fit at maximum Vitality 3. The seventh is refused. Dropping maximum Vitality to 2 does not rewrite the limit to 4 if the maximum is what the rule names. Current Vitality is not the limit.
+- Six heavy items fit when maximum Vitality is 3. The seventh is refused.
+- Current Vitality falls from 3 to 1. The maximum stays 3. Capacity stays 6.
+- The maximum itself falls from 3 to 2. Capacity becomes 4, because the rule is 2 times the maximum.
 - A non-heavy item does not consume a slot.
 - Two skill items, +1 and +2, contribute +2, not +3.
 - Protection 2 ignores two chosen Wounds in the adventure, then the third Wound lands.

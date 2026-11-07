@@ -34,7 +34,7 @@ There is no XP field and no Fortune grant.
 
 **Current and maximum.** `GameState` stores both for Talent and Vitality. Wounds reduce current. Purchases and some story effects raise maximum. Restoration raises current, and cannot pass maximum once the effect says so. Fortune stays a single number with cap 3, because page 9 caps the points you have, not a separate maximum you buy.
 
-Use the second for any character on the PDF rules. Do not migrate the Lantern Stair demo onto it until Q8. `canRestore` must reject a mixed shape rather than guess which number is which. That is [proposal 07](07-saves-undo-backups.md).
+Use the second for any character on the PDF rules. Leave the Lantern Stair demo on one number per stat. `canRestore` must reject a mixed shape rather than guess which number is which. That check is the save migration in [proposal 07](07-saves-undo-backups.md), in the same pull request that introduces the new shape.
 
 ## Proposed change
 
@@ -46,7 +46,7 @@ Use the second for any character on the PDF rules. Do not migrate the Lantern St
 ## PR slices
 
 1. Current and maximum for a new character type, with the demo character left on one number. Tests that a Wound does not lower the maximum.
-2. Default ending at Vitality 0, overridable by a section effect that proposal 06 can already validate. No resurrection behavior beyond "the effect runs instead".
+2. Default ending at Vitality 0. The same pull request adds the optional section effect that replaces it, and the validator accepts that effect. It does not wait for the book-file loader. No resurrection behavior beyond "the effect runs instead". How long a resurrection grant lasts stays Q5.
 3. XP prices for an undamaged stat, a new basic skill at 2, and one Fortune per award. The damaged-stat price is not in this slice.
 4. After Q3, the damaged-stat purchase. After Q5, a resurrection effect someone can place on a section. After Q6, restore effects that were waiting.
 
@@ -65,7 +65,7 @@ PDF pages 8 and 13. Examples that show why rest is not global: section 31 on pag
 
 ## Open questions
 
-Q3, Q5, Q6, and Q7. Q7 matters if a fight and the default ending can both claim the moment Vitality hits 0. This proposal owns the ending. [Proposal 02](02-combat-and-rerolls.md) owns whether later rounds still roll. They should not answer Q7 differently.
+Q3, Q5, and Q6. Vitality 0 is D4. This proposal owns that default ending. [Proposal 02](02-combat-and-rerolls.md) stops later rounds when the ending happens. A book effect that replaces the ending is slice 2 here, not a second reading of page 8.
 
 ## Done when
 

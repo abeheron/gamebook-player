@@ -71,10 +71,8 @@ Rights: an exported save must not require Temple text to be embedded by the app.
 
 ## Open questions
 
-Q8 affects whether old demo saves remain valuable. The migration still has to be explicit.
-
-No rules question in the register is answered by the save format.
+No rules question in the register is answered by the save format. The version 1 demo save still needs an explicit migration when `Session` changes. That requirement first applies to the Fortune slice of [proposal 01](01-character-tests-fortune.md), not to its pure test-result slice.
 
 ## Done when
 
-The Fortune reload test and the Back-is-not-undo test exist. `SaveStore` is still the only storage interface. SQLite is still absent.
+The Fortune slice's migration test and reload test exist, and the Back-is-not-undo test exists. The pure test-result slice has neither a version bump nor a migration. `SaveStore` is still the only storage interface. SQLite is still absent.

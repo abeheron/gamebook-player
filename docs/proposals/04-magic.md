@@ -31,7 +31,7 @@ There is no spell type. `TestDef` always compares against a character stat. A te
 
 **Reuse `TestDef` with a fake stat.** Store a stat called `cast` whose value is always 10. Skill code from proposal 01 might then add Occult by accident, which is the mistake page 9 does not authorize.
 
-**A cast action with a fixed target.** The action names the item, rolls 2d6, and succeeds when the total is at or under 10. The engine refuses to add a skill modifier while Q1 is open. The item's spell id selects a small allowlist: `dispel`, `fireball`, `flight`, `heal`, `invulnerability`. Anything else is a book effect id that proposal 06 must already allow.
+**A cast action with a fixed target.** The action names the item, rolls 2d6, and succeeds when the total is at or under 10. The engine refuses to add a skill modifier while Q1 is open. The item's spell id selects a small allowlist: `dispel`, `fireball`, `flight`, `heal`, `invulnerability`. Any other effect is added to that allowlist in the pull request that needs it. The book-file loader is not a prerequisite.
 
 Use the second. The fixed target stays visible in the code as 10, not as a stat you can train.
 
