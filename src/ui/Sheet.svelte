@@ -1,23 +1,28 @@
 <script lang="ts">
   import type { GameState, SystemDef } from "../format/types";
+  import TickBox from "./TickBox.svelte";
 
-  let { system, state }: { system: SystemDef; state: GameState } = $props();
+  let { system, state, brief = false }: { system: SystemDef; state: GameState; brief?: boolean } = $props();
 </script>
 
-<aside class="sheet" data-testid="sheet">
-  <h2>Adventure sheet</h2>
-  <dl>
+<div class="sheet card" data-testid="sheet">
+  {#if brief}
+    <h2>Adventure sheet</h2>
+  {/if}
+  <p class="note">Numbers and maxima are this sample's. Stat names are from GNAT. Fortune is not spent, and no re-roll cost is defined here.</p>
+  <div class="statline">
     {#each system.stats as stat (stat.id)}
-      <dt>{stat.label}</dt>
-      <dd data-testid="sheet-stat-{stat.id}">{state.stats[stat.id]}</dd>
+      <div class="stat">
+        <span>{stat.label}</span>
+        <b data-testid="sheet-stat-{stat.id}">{state.stats[stat.id]}</b>
+      </div>
     {/each}
-  </dl>
-  <p class="note">Fortune is listed for this GNAT-shaped sheet. This demo never spends it.</p>
+  </div>
   <h2>Items</h2>
   {#if state.items.length === 0}
     <p>None.</p>
   {:else}
-    <ul>
+    <ul class="plain">
       {#each state.items as item (item.id)}
         <li data-testid="sheet-item-{item.id}">{item.label}</li>
       {/each}
@@ -27,7 +32,7 @@
   {#if state.keywords.length === 0}
     <p>None.</p>
   {:else}
-    <ul>
+    <ul class="plain">
       {#each state.keywords as keyword (keyword.id)}
         <li data-testid="sheet-keyword-{keyword.id}">{keyword.label}</li>
       {/each}
@@ -37,11 +42,16 @@
   {#if Object.keys(state.ticks).length === 0}
     <p>None.</p>
   {:else}
-    <ul>
+    <ul class="plain ticks">
       {#each Object.entries(state.ticks) as [id, tick] (id)}
-        <li data-testid="sheet-tick-{id}">{tick.label}: {tick.count}</li>
+        <li>
+          <TickBox small ticked={tick.count > 0} label={tick.label} />
+          <span data-testid="sheet-tick-{id}">{tick.label}: {tick.count}</span>
+        </li>
       {/each}
     </ul>
   {/if}
-  <p class="attribution">{system.attribution}</p>
-</aside>
+  {#if !brief}
+    <p class="attribution">{system.attribution}</p>
+  {/if}
+</div>

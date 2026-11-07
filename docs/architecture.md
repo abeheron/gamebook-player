@@ -23,7 +23,9 @@ The shell's capability file grants `core:default` to the main window. It does no
 
 `src/engine` imports the format types and the validator's section lookup. It does not import Svelte, IndexedDB, `fetch`, Node, or Tauri. Dice use an injected random function so tests can script the faces. Undo stores prior state, including combat rounds and recorded rolls, and each save writes that whole session.
 
-The implemented combat step is a fixed number of roll-under rounds. One failed round reduces a stat. Reaching the wound's threshold moves to the defeat section. This is enough for the sample. It is not a general combat-template language.
+The implemented combat step is a fixed number of roll-under rounds defined by the sample book. One failed round reduces a stat. Reaching the sample's wound threshold moves to that book's defeat section. This is not a general combat-template language, and it is not the prototype's three-round fight, a stated modifier, or a rule about stopping at Vitality 0.
+
+The reading screen can hold a roll until you take its pass, fail, or fight-over turn. That pause is only in the page. The engine's roll functions are unchanged: once the turn is taken, the same session is saved and can be undone. Back and Esc move between Read and Sheet and restore scroll. They do not call undo.
 
 ## Web app
 

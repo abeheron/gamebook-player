@@ -1,24 +1,31 @@
 <script lang="ts">
   import type { Choice } from "../format/types";
 
-  let { choices, ready, onChoose }: {
-    choices: Choice[];
+  let { rows, ready, onChoose }: {
+    rows: { choice: Choice; available: boolean; because: string }[];
     ready: boolean;
     onChoose: (choiceId: string) => void;
   } = $props();
 </script>
 
-{#if choices.length > 0}
+{#if rows.length > 0}
   <ul class="choices">
-    {#each choices as choice (choice.id)}
+    {#each rows as row (row.choice.id)}
       <li>
         <button
           type="button"
-          data-testid="choice-{choice.id}"
-          disabled={!ready}
-          onclick={() => onChoose(choice.id)}
+          class="choice"
+          data-testid="choice-{row.choice.id}"
+          disabled={!ready || !row.available}
+          onclick={() => onChoose(row.choice.id)}
         >
-          {choice.label}
+          <span>
+            {row.choice.label}
+            {#if !row.available}
+              <span class="why">{row.because}</span>
+            {/if}
+          </span>
+          <span class="to">{row.choice.to}</span>
         </button>
       </li>
     {/each}

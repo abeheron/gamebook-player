@@ -23,9 +23,9 @@ WebKit packages used for the shell check are the Tauri Linux prerequisites: `lib
 
 ## What the demo does
 
-The sample book is original text in `tests/fixtures/lantern-stair.json`. It uses a GNAT-shaped sheet (Talent, Vitality, Fortune) defined in `src/systems/gnat/demo.json`. You can choose, tick a box, roll 2d6 under Talent, resolve a two-round combat, undo, and continue after reload. Saves go to IndexedDB on web and in the Linux webview. A production build registers a service worker and can open again while offline.
+The sample book is original text in `tests/fixtures/lantern-stair.json`. The sheet uses the stat names Talent, Vitality, and Fortune. The numbers and maxima in `src/systems/gnat/demo.json` belong to this sample. They are not a statement of the GNAT rules, including where a maximum applies or what a Fortune re-roll would cost. You can choose, tick a box, roll 2d6 under Talent, take the pass or fail turn, resolve the sample's two-round fight and continue, undo the story, and reload. Saves go to IndexedDB on web and in the Linux webview. A production build registers a service worker and can open again while offline.
 
-Fortune is shown and is never spent. Double ones, double sixes, skills, items with weight, and the rest of the GNAT rules are not in this demo.
+Screen Back, including Esc, returns to the previous screen and its scroll. It does not rewind the story. Undo turn does. Fortune is shown and is never spent. The sample does not include double ones, double sixes, skills, or item weight.
 
 ## Layout
 
