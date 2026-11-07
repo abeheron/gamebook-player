@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gamebook Player — prototype screens (demo data)</title>
+<style>
+:root{--paper:#f6f1e7;--panel:#fffdf8;--ink:#1f1b16;--muted:#5c5348;--line:#ddd3c2;--accent:#8a2f1d;--accent-ink:#fff;--ok:#2f6b3a;--bad:#9b2a1f;--chip:#efe6d6;--focus:#1f5fbf;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,"Noto Serif","DejaVu Serif",Georgia,serif;--sans:system-ui,"Segoe UI",Roboto,"Noto Sans","DejaVu Sans",sans-serif;--mono:ui-monospace,"DejaVu Sans Mono",monospace}
+@media (prefers-color-scheme:dark){:root{--paper:#17140f;--panel:#211d17;--ink:#ece4d6;--muted:#b3a794;--line:#3a332a;--accent:#d9774f;--accent-ink:#17140f;--ok:#7fc08a;--bad:#ef8a7a;--chip:#2c261e;--focus:#8db8ff}}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--paper);color:var(--ink);font:16px/1.5 var(--sans)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.demo-banner{background:var(--ink);color:var(--paper);font-size:13px;padding:6px 16px;text-align:center}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 32px)}
+nav.side{border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px}
+.brand{font:600 18px var(--serif);margin:0 8px 2px}.brand small{display:block;font:12px var(--sans);color:var(--muted)}
+.book-tag{margin:10px 8px 14px;font-size:12px;color:var(--muted)}
+nav button{all:unset;cursor:pointer;padding:9px 12px;border-radius:8px;color:var(--ink);font-size:15px;display:flex;gap:10px;align-items:center}
+nav button:hover{background:var(--chip)}nav button[aria-current=page]{background:var(--accent);color:var(--accent-ink)}
+nav button:focus-visible{outline:3px solid var(--focus)}
+.side .foot{margin-top:auto;font-size:12px;color:var(--muted);padding:8px}
+main{padding:28px clamp(16px,4vw,48px) 96px;max-width:1180px;width:100%}
+.screen{display:none}.screen.on{display:block}
+h1{font:600 28px/1.2 var(--serif);margin:0 0 4px}h2{font:600 18px var(--serif);margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.demo{display:inline-block;font:600 10.5px var(--sans);letter-spacing:.06em;text-transform:uppercase;border:1px dashed var(--muted);color:var(--muted);border-radius:4px;padding:1px 6px;vertical-align:middle}
+.secno{font:600 13px var(--sans);letter-spacing:.12em;color:var(--accent);text-transform:uppercase}
+.prose{font:19px/1.7 var(--serif);max-width:64ch}.prose p{margin:0 0 1em}
+.tickrow{display:flex;gap:8px;align-items:center;margin:4px 0 18px;font-size:14px;color:var(--muted)}
+.box{--s:22px;position:relative;display:inline-block;flex:0 0 auto;width:var(--s);height:var(--s);border:2px solid var(--ink);border-radius:3px;vertical-align:middle;box-sizing:border-box}
+.box.sm{--s:16px;border-width:1.5px;margin-right:4px}
+.box.t{background:var(--ink)}
+.box.t::after{content:"";position:absolute;left:50%;top:50%;width:28%;height:52%;border:solid var(--paper);border-width:0 2px 2px 0;transform:translate(-50%,-62%) rotate(45deg)}
+.box.sm.t::after{border-width:0 1.5px 1.5px 0}
+.boxes{display:inline-flex;align-items:center}
+.backbar{min-height:0;margin:-8px 0 12px}.backbar:empty{display:none}
+.backbtn{all:unset;cursor:pointer;font:600 14px var(--sans);color:var(--accent);padding:6px 10px 6px 6px;border-radius:8px}.backbtn:hover{background:var(--chip)}.backbtn:focus-visible{outline:3px solid var(--focus)}
+.dest{display:grid;gap:8px;margin-top:14px}.dest .btn{width:100%;text-align:left}
+.dest .why{font-size:13px;color:var(--muted)}
+.choices{list-style:none;padding:0;margin:20px 0;max-width:64ch;display:grid;gap:10px}
+.choice{width:100%;text-align:left;font:16px var(--sans);padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.choice:hover{border-color:var(--accent)}.choice .to{font:600 14px var(--mono);color:var(--accent);white-space:nowrap}
+.choice[aria-disabled=true]{opacity:.62;cursor:not-allowed}.choice .why{display:block;font-size:13px;color:var(--muted)}
+.choice.test{border-left:4px solid var(--accent)}
+.btn{font:600 15px var(--sans);padding:10px 16px;border-radius:9px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.statline{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font:600 26px var(--serif)}.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.pips{display:flex;gap:4px;justify-content:center;margin-top:4px}.pip{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--accent)}.pip.f{background:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{background:var(--chip);border-radius:999px;padding:3px 10px;font-size:13px}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:14px}dl.kv dt{color:var(--muted)}dl.kv dd{margin:0}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.dice{display:flex;gap:14px;justify-content:center;margin:18px 0}
+.die{width:74px;height:74px;border-radius:14px;border:2px solid var(--ink);background:var(--panel);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:10px;cursor:pointer}
+.die i{width:12px;height:12px;border-radius:50%;background:var(--ink);place-self:center;visibility:hidden}
+.die[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.formula{font:15px var(--mono);text-align:center;background:var(--chip);border-radius:8px;padding:10px}
+.result{font:600 22px var(--serif);text-align:center;margin:12px 0}.result.ok{color:var(--ok)}.result.bad{color:var(--bad)}
+.rounds{display:flex;gap:8px;justify-content:center;margin:10px 0}.round{width:38px;height:38px;border-radius:8px;border:1.5px solid var(--line);display:grid;place-items:center;font:600 14px var(--sans)}
+.round.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);border-color:var(--ok)}.round.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);border-color:var(--bad)}.round.cur{outline:2px solid var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}.seg button{border:0;background:transparent;color:var(--ink);padding:8px 14px;font:14px var(--sans);cursor:pointer}.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+.tabsbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+input[type=search]{flex:1 1 20rem;min-width:min(100%,20rem);max-width:28rem}
+input[type=search],input[type=number]{font:15px var(--sans);padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+.book{display:grid;grid-template-columns:88px 1fr;gap:16px;align-items:start}
+.cover{width:88px;height:124px;border-radius:6px;background:linear-gradient(160deg,#3b2a1f,#8a2f1d);color:#f6e7cf;font:600 12px/1.25 var(--serif);padding:10px;display:flex;align-items:flex-end;box-shadow:inset 0 0 0 1px #0003}
+.cover.alt{background:linear-gradient(160deg,#28343a,#4a6470)}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
+.steps{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px;font-size:14px}.steps li{display:flex;gap:10px}.steps .s{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--chip)}.steps .s.ok{background:var(--ok);color:var(--panel)}
+.note{font-size:13px;color:var(--muted);margin-top:10px}
+.bar{height:8px;background:var(--chip);border-radius:4px;overflow:hidden}.bar>div{height:100%;background:var(--accent)}
+.mobilebar{display:none}
+@media (max-width:860px){
+ .app{grid-template-columns:1fr}nav.side{display:none}.grid2,.grid3{grid-template-columns:1fr}
+ main{padding:18px 16px 96px}.prose{font-size:18px}h1{font-size:24px}
+ .mobilebar{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+ .mobilebar button{all:unset;cursor:pointer;font-size:11px;text-align:center;padding:6px 8px;border-radius:8px;color:var(--muted);min-width:56px}
+ .mobilebar button .ic{display:block;font-size:18px}.mobilebar button[aria-current=page]{color:var(--accent);font-weight:700}
+ .mobilebar button:focus-visible{outline:3px solid var(--focus)}
+ .hide-sm{display:none}
+}
+.illus{margin:0 0 22px;max-width:64ch}.illus .frame{all:unset;display:block;cursor:zoom-in;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);width:100%}
+.illus .frame:focus-visible{outline:3px solid var(--focus);outline-offset:2px}.illus svg{display:block;width:100%;height:auto}
+.illus figcaption{font-size:13px;color:var(--muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.prov{font:600 11px var(--sans);border-radius:4px;padding:1px 6px;background:var(--chip);color:var(--ink)}
+.illus-link{all:unset;cursor:pointer;color:var(--accent);font:600 14px var(--sans);text-decoration:underline}.illus-link:focus-visible{outline:3px solid var(--focus)}
+.prefrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:0 0 16px}
+.seg.sm button{padding:5px 10px;font-size:13px}
+.lightbox{position:fixed;inset:0;background:rgba(15,12,9,.86);display:grid;place-items:center;padding:24px;z-index:50}.lightbox[hidden]{display:none}
+.lightbox .inner{max-width:min(1100px,96vw);max-height:92vh;display:flex;flex-direction:column;gap:10px}.lightbox svg{width:100%;height:auto;max-height:80vh;background:#f6f1e7;border-radius:8px}
+.lightbox .bar2{display:flex;justify-content:space-between;align-items:center;color:#f6f1e7;font-size:14px;gap:12px}
+.lightbox .close{font:600 15px var(--sans);padding:8px 14px;border-radius:8px;border:1px solid #f6f1e7;background:transparent;color:#f6f1e7;cursor:pointer}
+.toggles{display:flex;gap:16px;flex-wrap:wrap;font-size:14px}.toggles label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.toggles input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+.die.rolling{animation:wob .14s linear infinite}@keyframes wob{0%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}100%{transform:rotate(-8deg)}}
+.rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.rules h2{margin-bottom:6px}.rules ul{margin:0;padding-left:18px;font-size:15px}.rules li{margin:3px 0}
+.rules .gap{border-style:dashed}
+@media (max-width:860px){.rules{grid-template-columns:1fr}.mobilebar button{min-width:44px;padding:6px 4px}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="demo-banner" role="note">Prototype · all narrative, section numbers, stats, rolls, items and keywords are <strong>illustrative demo data</strong>, not text or rules from the book. Nothing is saved, imported or sent.</div>
+<div class="app">
+<nav class="side" aria-label="Screens">
+ <div class="brand">Gamebook Player<small>prototype v0.1</small></div>
+ <div class="book-tag">Temple of the Skull God · GNAT</div>
+ <button data-go="read">📖 Read</button>
+ <button data-go="sheet">🜲 Character</button>
+ <button data-go="test">🎲 Test &amp; fight</button>
+ <button data-go="log">✓ Keywords &amp; ticks</button>
+ <button data-go="lib">▤ Library</button>
+ <button data-go="rules">§ Rules</button>
+ <div class="foot">Keys: 1–6 screens · R roll · Esc back<br>Honest mode (undo off)</div>
+</nav>
+<main id="main" tabindex="-1">
+<div class="backbar" id="backbar"></div>
+
+<!-- 1 READ -->
+<section class="screen" id="read" aria-labelledby="h-read">
+ <div class="grid2">
+  <article id="sectionView" aria-live="polite"></article>
+  <aside aria-label="Quick adventure sheet">
+   <div class="card">
+    <h2>Adventurer <span class="demo">demo</span></h2>
+    <div class="statline">
+     <div class="stat"><span>Talent</span><b>9</b></div>
+     <div class="stat"><span>Vitality</span><b id="qv">3</b></div>
+     <div class="stat"><span>Fortune</span><b id="qf">3</b><div class="pips" id="qfp"></div></div>
+    </div>
+    <dl class="kv"><dt>Gold</dt><dd>12</dd><dt>Skills</dt><dd>Naturalist, Stealth</dd><dt>Weapon</dt><dd>Short sword</dd></dl>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn ghost" data-go="sheet">Full sheet</button><button class="btn ghost" id="bm" aria-pressed="false">☆ Bookmark</button></div>
+    <p class="note">Autosaved · slot “Marsh run” <span class="demo">simulated</span></p>
+   </div>
+  </aside>
+ </div>
+</section>
+
+<!-- 2 SHEET -->
+<section class="screen" id="sheet" aria-labelledby="h-sheet">
+ <h1 id="h-sheet">Adventure sheet</h1>
+ <p class="sub">Shows only what Temple of the Skull God needs: stats, skills, items, money, keywords and titles. Values are demo.</p>
+ <div class="grid3">
+  <div class="card"><h2>Stats</h2>
+   <div class="statline">
+    <div class="stat"><span>Talent</span><b>9</b></div>
+    <div class="stat"><span>Vitality</span><b id="sv">3</b><span>/ 3</span></div>
+    <div class="stat"><span>Fortune</span><b id="sf">3</b><span>/ 3</span></div>
+   </div>
+   <p class="note">Starting values per the design doc: Talent 9, Vitality 3, Fortune 3 (max 3). Wounds reduce Vitality.</p>
+   <dl class="kv"><dt>XP</dt><dd>4 <span class="demo">demo</span></dd><dt>Gold</dt><dd>12 <span class="demo">demo</span></dd></dl>
+   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" disabled title="Not built in prototype">Rest (ration)</button><button class="btn ghost" disabled title="Not built in prototype">Spend XP</button></div>
+   <p class="note">Rest and advancement: placeholders, not interactive.</p>
+  </div>
+  <div class="card"><h2>Skills</h2>
+   <p class="note" style="margin-top:0">Having a skill gives +2 on its tests, lacking it −2. Item bonuses: highest only.</p>
+   <table><thead><tr><th>Skill</th><th>Mod</th></tr></thead><tbody>
+    <tr><td>Naturalist <span class="demo">demo</span></td><td>+2</td></tr>
+    <tr><td>Stealth <span class="demo">demo</span></td><td>+2</td></tr>
+    <tr><td>Any other skill</td><td>−2</td></tr></tbody></table>
+   <h2 style="margin-top:18px">Titles</h2>
+   <div class="chips"><span class="chip">Friend of the Fisherfolk <span class="demo">demo</span></span></div>
+   <p class="note">Titles carry between books (campaigns are a later phase).</p>
+  </div>
+  <div class="card"><h2>Inventory</h2>
+   <table><thead><tr><th>Item</th><th>Tags</th></tr></thead><tbody>
+    <tr><td>Short sword</td><td>weapon</td></tr>
+    <tr><td>Wooden shield</td><td>shield · heavy</td></tr>
+    <tr><td>Leather armour</td><td>armour · ignores 1 wound/adv.</td></tr>
+    <tr><td>Rations ×2</td><td>rest</td></tr>
+    <tr><td>Scroll of Light</td><td>spell · test vs 10 · consumed</td></tr>
+    <tr><td>Rope</td><td>—</td></tr></tbody></table>
+   <div style="margin-top:12px;font-size:13px"><div style="display:flex;justify-content:space-between"><span>Heavy items</span><span>1 / 6</span></div><div class="bar" role="img" aria-label="1 of 6 heavy slots used"><div style="width:16.6%"></div></div></div>
+   <p class="note">Item names and tags are demo; heavy limit shown as 2 × max Vitality per the doc.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 3 TEST / FIGHT -->
+<section class="screen" id="test" aria-labelledby="h-test">
+ <h1 id="h-test">Test &amp; fight</h1>
+ <p class="sub">Simulated dice in the browser. Rule shape from the doc; the scenario is demo.</p>
+ <div class="tabsbar"><div class="seg" role="group" aria-label="Mode"><button aria-pressed="true" data-mode="test">Skill test</button><button aria-pressed="false" data-mode="fight">Fight</button></div>
+  <div class="seg" role="group" aria-label="Dice source"><button aria-pressed="true" id="dsApp">App dice</button><button aria-pressed="false" id="dsMan">My dice</button></div>
+  <div class="toggles" role="group" aria-label="Dice settings"><label><input type="checkbox" id="prefAnim"> Animate rolls</label><label><input type="checkbox" id="prefSound"> Rolling sound</label><span class="note" style="margin:0">Sound: “Wooden dice on wooden table roll” by Wuzzy, <a href="https://opengameart.org/content/wooden-dice-on-wodden-table-roll">OpenGameArt</a>, CC0 (trimmed).</span><span class="note" id="soundNote" style="margin:0"></span></div></div>
+ <div class="grid2">
+  <div class="card">
+   <div id="testHead"><h2>Naturalist test <span class="demo">demo</span></h2></div>
+   <div class="formula" id="formula">2d6 ≤ Talent 9 + Naturalist +2 = 11</div>
+   <div class="rounds" id="rounds" hidden></div>
+   <div class="dice" id="dice"></div>
+   <div id="manual" hidden style="text-align:center"><label>Die 1 <input type="number" min="1" max="6" id="m1" value="3" style="width:64px"></label> <label>Die 2 <input type="number" min="1" max="6" id="m2" value="4" style="width:64px"></label></div>
+   <div class="result" id="result" role="status" aria-live="polite">Ready to roll</div>
+   <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="btn" id="roll">Roll 2d6 (R)</button>
+    <button class="btn ghost" id="reroll" disabled>Spend 1 Fortune: re-roll selected die</button>
+   </div>
+   <p class="note" style="text-align:center">Double 1 always passes · double 6 always fails. Select a die, then spend Fortune to re-roll it.</p>
+  </div>
+  <aside class="card"><h2>Outcome</h2>
+   <dl class="kv"><dt>Fortune</dt><dd id="tf">3 / 3</dd><dt>Vitality</dt><dd id="tv">3 / 3</dd></dl>
+   <p class="note">Fight: N rounds at −X; each failed round is one Wound, a fumble adds a Wound. Advantage/Disadvantage re-rolls and armour not simulated here.</p>
+   <div class="dest" id="dest" aria-live="polite"></div>
+   <button class="btn ghost" id="resetDice" style="margin-top:12px">Reset demo</button>
+  </aside>
+ </div>
+</section>
+
+<!-- 4 LOG -->
+<section class="screen" id="log" aria-labelledby="h-log">
+ <h1 id="h-log">Keywords &amp; ticks</h1>
+ <p class="sub">Open-world log. In the book, section 574 lists all keywords and tickboxes; entries here are demo.</p>
+ <div class="tabsbar"><input type="search" id="q" placeholder="Filter by name or section" aria-label="Filter log">
+  <div class="seg" role="group" aria-label="Show"><button aria-pressed="true" data-f="all">All</button><button aria-pressed="false" data-f="kw">Keywords</button><button aria-pressed="false" data-f="tick">Ticks</button></div></div>
+ <div class="grid2">
+  <div class="card"><table><thead><tr><th>Entry</th><th>Type</th><th>Where</th><th>State</th></tr></thead><tbody id="logrows"></tbody></table></div>
+  <aside class="card"><h2>Summary</h2><dl class="kv"><dt>Keywords</dt><dd id="nk"></dd><dt>Ticked boxes</dt><dd id="nt"></dd><dt>Sections visited</dt><dd>38 <span class="demo">demo</span></dd></dl>
+  <p class="note">Ticks are per-section counters: a section may have several boxes. Keywords survive losing your items.</p>
+  <p class="note">Honest mode: log is read-only. Rewind mode would allow edits (not in prototype).</p></aside>
+ </div>
+</section>
+
+<!-- 5 LIBRARY -->
+<section class="screen" id="lib" aria-labelledby="h-lib">
+ <h1 id="h-lib">Library</h1>
+ <p class="sub">Books stay local on this device. Import is simulated in this prototype.</p>
+ <div class="grid2">
+  <div style="display:grid;gap:14px">
+   <div class="card book"><div class="cover" aria-hidden="true">Temple of the Skull God</div><div>
+    <h2 style="margin-bottom:2px">Temple of the Skull God</h2>
+    <div class="note" style="margin-top:0">Paul Partington, 2024 · GNAT system (CC BY-SA 4.0) · 573 sections + 574 reference</div>
+    <div style="margin:10px 0 6px;font-size:13px">Explored 38 sections <span class="demo">demo</span></div><div class="bar"><div style="width:6.6%"></div></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn" data-go="read">Continue · §214</button><button class="btn ghost" disabled>New adventurer</button><button class="btn ghost" disabled>Save slots</button></div></div></div>
+   <div class="card book"><div class="cover alt" aria-hidden="true">Sample book</div><div>
+    <h2 style="margin-bottom:2px">Sample: user-written book <span class="demo">demo</span></h2>
+    <div class="note" style="margin-top:0">Placeholder entry · Fighting Fantasy system (phase 2)</div>
+    <div style="margin-top:12px"><button class="btn ghost" disabled>System not yet supported</button></div></div></div>
+  </div>
+  <aside class="card"><h2>Import a book</h2>
+   <div class="drop" id="drop"><div style="font-size:28px">⇪</div>Drop a book file (YAML or JSON)<br><button class="btn ghost" id="fakeImport" style="margin-top:10px">Simulate import</button></div>
+   <ol class="steps" id="isteps">
+    <li><span class="s">1</span>Read file locally</li>
+    <li><span class="s">2</span>Validate against JSON Schema</li>
+    <li><span class="s">3</span>Check system file (GNAT)</li>
+    <li><span class="s">4</span>Add to library</li></ol>
+   <p class="note" id="imsg" aria-live="polite">No file is read; the steps animate for illustration.</p>
+   <p class="note">AI converter (scan/PDF/EPUB) is an optional later feature and not shown.</p>
+  </aside>
+ </div>
+</section>
+<!-- 6 RULES -->
+<section class="screen" id="rules" aria-labelledby="h-rules">
+ <h1 id="h-rules">Rules: Temple of the Skull God</h1>
+ <p class="sub">Summary of the GNAT rules as listed in the app's design doc. It isn't the book's own wording; check the book for exact rules. GNAT rules by David M. Donachie, CC BY-SA 4.0.</p>
+ <div class="rules">
+  <div class="card"><h2>Character</h2><ul><li>Talent 9, Vitality 3, Fortune 3 (max 3).</li><li>Each Wound costs 1 Vitality (the doc's fight sample).</li><li>Dice: 2d6.</li></ul></div>
+  <div class="card"><h2>Tests</h2><ul><li>Roll 2d6; pass if the total ≤ Talent ± modifier.</li><li>Double 1 always passes; double 6 always fails.</li><li>Spend Fortune to re-roll a die.</li><li>Advantage / Disadvantage re-rolls.</li></ul></div>
+  <div class="card"><h2>Skills</h2><ul><li>+2 to a test if you have the skill, −2 if not.</li><li>Item bonuses: only the highest one counts.</li></ul></div>
+  <div class="card"><h2>Fighting</h2><ul><li>“Fight N rounds at −X”: a test at −X each round.</li><li>Each failed round costs one Wound; a fumble (double 6) adds a Wound.</li><li>Weapons and shield are listed as modifiers; armour ignores N wounds per adventure.</li></ul></div>
+  <div class="card"><h2>Items and spells</h2><ul><li>Items, treasure and gold. Heavy items limited to 2 × max Vitality.</li><li>Spells come on scrolls: test vs 10; the scroll is destroyed when cast.</li></ul></div>
+  <div class="card"><h2>Keywords, titles, ticks</h2><ul><li>Keywords are gained in one section and checked in another; they survive losing items.</li><li>Titles carry between books.</li><li>Tickboxes: “If ticked, turn to …; if not, tick it and read on.” Some sections have several boxes. Section 574 is a reference list of keywords and tickboxes.</li></ul></div>
+  <div class="card"><h2>Rest and advancement</h2><ul><li>Rest with rations.</li><li>XP buys stats and skills.</li></ul></div>
+  <div class="card gap"><h2>Not in the design doc / not modelled</h2><ul><li>Exact Advantage/Disadvantage, weapon, shield and armour values.</li><li>What happens at Vitality 0.</li><li>How much rest restores; XP costs.</li><li>How tests vs 10 apply modifiers.</li><li>How much Fortune a re-roll costs.</li></ul><p class="note">The prototype shows these as gaps rather than guessing. Demo-only choices on the Test screen: a re-roll costs 1 Fortune, the fight is fixed at 3 rounds at −2, and rolling stops at Vitality 0. Advantage/Disadvantage, weapons, shield, armour, spells, rest and XP are not implemented.</p></div>
+ </div>
+</section>
+</main>
+</div>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lbTitle" hidden>
+ <div class="inner"><div class="bar2"><span id="lbTitle"></span><button class="close" id="lbClose">Close (Esc)</button></div><div id="lbBody"></div></div>
+</div>
+<nav class="mobilebar" aria-label="Screens (mobile)">
+ <button data-go="read"><span class="ic">📖</span>Read</button><button data-go="sheet"><span class="ic">🜲</span>Sheet</button><button data-go="test"><span class="ic">🎲</span>Dice</button><button data-go="log"><span class="ic">✓</span>Log</button><button data-go="lib"><span class="ic">▤</span>Library</button><button data-go="rules"><span class="ic">§</span>Rules</button>
+</nav>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const order=["read","sheet","test","log","lib","rules"];
+const NAMES={read:"reading",sheet:"character sheet",test:"test",log:"keywords & ticks",lib:"library",rules:"rules"};
+// App-view history (screens only). Story rewind is separate and off (honest mode).
+const VIEW={cur:null,stack:[]};
+function show(id,scroll){if(R.busy&&id!=="test")settle(true);closeLB();$$(".screen").forEach(s=>s.classList.toggle("on",s.id===id));$$("nav [data-go]").forEach(b=>b.dataset.go===id?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
+ try{if(location.hash!=="#"+id)history.replaceState(null,"","#"+id)}catch(e){}VIEW.cur=id;drawBack();$("#main").focus({preventScroll:true});scrollTo(0,scroll||0)}
+function go(id){if(!order.includes(id))id="read";if(VIEW.cur===id){scrollTo(0,0);return}
+ if(VIEW.cur){VIEW.stack=VIEW.stack.filter(v=>v.id!==id);VIEW.stack.push({id:VIEW.cur,y:scrollY});if(VIEW.stack.length>10)VIEW.stack.shift()}show(id,0)}
+function back(){const v=VIEW.stack.pop();if(!v)return false;show(v.id,v.y);return true}
+function drawBack(){const v=VIEW.stack[VIEW.stack.length-1];$("#backbar").innerHTML=v?`<button class="backbtn" id="backBtn">← Back to ${NAMES[v.id]}</button>`:"";if(v)$("#backBtn").onclick=back}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b)go(b.dataset.go)});
+addEventListener("hashchange",()=>{const id=location.hash.slice(1);if(id!==VIEW.cur)go(id)});
+document.addEventListener("keydown",e=>{if(e.target.matches("input"))return;const n=+e.key;if(LB.open)return;if(n>=1&&n<=6)go(order[n-1]);if(e.key==="Escape")back();if((e.key==="r"||e.key==="R")&&!e.ctrlKey&&!e.metaKey&&$("#test").classList.contains("on")&&!$("#roll").disabled)roll()});
+// Preferences (stored in localStorage when available)
+const reduced=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}})();
+// Only settings the player actually changed are stored, so defaults (sound on) apply to anything unset; an explicit stored false is respected.
+const STORED=(()=>{try{const o=JSON.parse(localStorage.getItem("gbp-prefs")||"{}");return o&&typeof o==="object"?o:{}}catch(e){return{}}})();
+const PREF=Object.assign({illus:"inline",anim:!reduced,sound:true},STORED);
+function savePrefs(k){if(k)STORED[k]=PREF[k];try{localStorage.setItem("gbp-prefs",JSON.stringify(STORED))}catch(e){}}
+// Placeholder illustrations: simple SVG drawn for the prototype. Not a scan, not AI art.
+const ART={
+ causeway:`<svg viewBox="0 0 640 300" role="img" aria-label="Placeholder diagram: a causeway between reeds leading to a carved head"><rect width="640" height="300" fill="#efe6d6"/><rect y="170" width="640" height="130" fill="#d9cfbd"/><path d="M250 300 L300 170 L340 170 L390 300Z" fill="#c2b49c"/>${[...Array(18)].map((_,i)=>`<line x1="${20+i*12}" y1="300" x2="${26+i*12}" y2="${150+(i%4)*12}" stroke="#7d7462" stroke-width="3"/><line x1="${420+i*12}" y1="300" x2="${414+i*12}" y2="${150+(i%3)*14}" stroke="#7d7462" stroke-width="3"/>`).join("")}<ellipse cx="320" cy="160" rx="34" ry="28" fill="#8f8574"/><circle cx="308" cy="155" r="6" fill="#3d372e"/><circle cx="332" cy="155" r="6" fill="#3d372e"/><path d="M302 172 Q320 182 338 172" stroke="#3d372e" stroke-width="3" fill="none"/><path d="M470 70 l30 -12 l-8 14 l24 -4" stroke="#5c5348" stroke-width="3" fill="none"/><text x="16" y="28" font-family="sans-serif" font-size="14" fill="#5c5348">PLACEHOLDER ART · DEMO</text></svg>`,
+ path:`<svg viewBox="0 0 640 300" role="img" aria-label="Placeholder diagram: a dry path winding through reeds"><rect width="640" height="300" fill="#e7e1d3"/><path d="M60 300 C200 220 160 160 320 140 S520 80 600 40" stroke="#b9a684" stroke-width="26" fill="none"/>${[...Array(30)].map((_,i)=>`<line x1="${i*22}" y1="300" x2="${i*22+4}" y2="${200+(i%5)*10}" stroke="#7d7462" stroke-width="3"/>`).join("")}<text x="16" y="28" font-family="sans-serif" font-size="14" fill="#5c5348">PLACEHOLDER ART · DEMO</text></svg>`};
+// Demo sections (placeholder prose, not book text)
+const SEC={
+ 214:{img:{art:"causeway",prov:"Scanned",title:"Section 214 illustration"},p:["The causeway narrows where the reeds close in, and the water on either side lies black and still. Ahead, half-sunk in the mud, a carved head grins up at the sky, its eye sockets packed with old offerings.","A heron lifts from the shallows. Somewhere beyond the reeds you hear the slow knock of a boat against a post, and a voice humming a tune you almost recognise."],box:true,
+  ch:[{t:"Test Naturalist to read the heron's flight",why:"Roll 2d6 ≤ Talent ± modifier · opens the test panel",test:"test"},{t:"Bathe in the lake",to:232},{t:"Follow the humming toward the boat",to:118},{t:"Fight whatever stirs in the reeds",why:"3 rounds at −2 · opens the fight panel",test:"fight"},{t:"Say the keyword to the carved head",why:"Needs keyword “Ferryman” · you don't have it",lock:true}]},
+ 326:{img:{art:"path",prov:"AI-generated",title:"Section 326 illustration"},p:["(Demo pass/after-fight destination.) The heron's path shows you a dry line through the reeds."],ch:[{t:"Return to the causeway",to:214}]},
+ 47:{p:["(Demo fail destination.) You misread the signs and wade into sucking mud before scrambling back."],ch:[{t:"Return to the causeway",to:214}]},
+ 232:{p:["(Demo stub.) The water is cold and very still."],ch:[{t:"Return to the causeway",to:214}]},
+ 118:{p:["(Demo stub.) The humming stops as you approach."],ch:[{t:"Return to the causeway",to:214}]}};
+// Single source of truth for tickboxes (demo counts): read by both the section view and the log.
+const TICKS={214:{n:0,max:1},150:{n:2,max:3},402:{n:1,max:1},27:{n:1,max:1},333:{n:0,max:2}};
+const isTicked=n=>!!TICKS[n]&&TICKS[n].n>0;
+function tickSection(n){const t=TICKS[n];if(t&&t.n<t.max)t.n++;drawLog()}
+const STORY={sec:214,from:null};
+function renderSection(){const n=STORY.sec,d=SEC[n];const box=d.box?`<div class="tickrow"><span class="box ${isTicked(n)?'t':''}" role="img" aria-label="Section tickbox: ${isTicked(n)?'ticked':'not ticked'}"></span><span>${isTicked(n)?'Ticked when you left. In the book a ticked box usually redirects (demo).':'Not ticked yet. The engine ticks it when you read on (not tappable in honest mode).'}</span></div>`:"";
+ $("#sectionView").innerHTML=`<div class="secno">Section ${n} <span class="demo">demo</span></div><h1 class="sr">Reading: section ${n}</h1>${box}${STORY.from?`<p class="note">Arrived from: ${STORY.from} <span class="demo">demo</span></p>`:""}
+ ${illusHTML(n,d)}<div class="prose">${d.p.map(x=>`<p>${x}</p>`).join("")}<p class="note" style="font-family:var(--sans)">Placeholder prose written for this prototype; not from Temple of the Skull God.</p></div>
+ <ul class="choices" aria-label="Choices">${d.ch.map((c,i)=>`<li><button class="choice ${c.test?'test':''}" ${c.lock?'aria-disabled="true"':''} data-ci="${i}"><span>${c.t}${c.why?`<span class="why">${c.why}</span>`:""}</span><span class="to">${c.lock?'locked':c.test?c.test+' →':c.to}</span></button></li>`).join("")}</ul>
+ <p class="note">Story rewind is off (honest mode). “Back” only returns to the previous app screen.</p>`;
+ $$("#sectionView [data-ci]").forEach(b=>b.onclick=()=>{const c=d.ch[+b.dataset.ci];if(c.lock)return;if(c.test){setMode(c.test);go("test");return}turnTo(c.to,null)})}
+function illusHTML(n,d){const pref=`<div class="prefrow"><span>Illustrations:</span><div class="seg sm" role="group" aria-label="Illustration display">${[["inline","Inline"],["link","Link only"],["hidden","Hidden"]].map(([k,l])=>`<button data-illus="${k}" aria-pressed="${PREF.illus===k}">${l}</button>`).join("")}</div></div>`;
+ if(!d.img)return "";const i=d.img,prov=`<span class="prov">${i.prov} <span class="demo">demo label</span></span>`;
+ if(PREF.illus==="hidden")return pref;
+ if(PREF.illus==="link")return pref+`<p class="illus"><button class="illus-link" data-open="${n}">View illustration for section ${n}</button> ${prov}</p>`;
+ return pref+`<figure class="illus"><button class="frame" data-open="${n}" aria-label="Open ${i.title} full size">${ART[i.art]}</button><figcaption>${prov}<span>Placeholder SVG drawn for this prototype, not a scan or AI image. Select it to view full size.</span></figcaption></figure>`}
+// Lightbox
+const LB={open:false,ret:null};
+function openLB(n){const i=SEC[n].img;LB.ret=document.activeElement;$("#lbTitle").textContent=`${i.title} · ${i.prov} (demo placeholder)`;$("#lbBody").innerHTML=ART[i.art];$("#lightbox").hidden=false;LB.open=true;$("#lbClose").focus()}
+function closeLB(){if(!LB.open)return;$("#lightbox").hidden=true;LB.open=false;const r=LB.ret;LB.ret=null;if(r&&r.isConnected)r.focus()}
+$("#lbClose").onclick=closeLB;$("#lightbox").addEventListener("click",e=>{if(e.target.id==="lightbox")closeLB()});
+document.addEventListener("keydown",e=>{if(!LB.open)return;if(e.key==="Escape"){e.preventDefault();e.stopImmediatePropagation();closeLB()}else if(e.key==="Tab"){e.preventDefault();$("#lbClose").focus()}},true);
+$("#sectionView").addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){openLB(+o.dataset.open);return}const p=e.target.closest("[data-illus]");if(p){PREF.illus=p.dataset.illus;savePrefs("illus");const y=scrollY;renderSection();scrollTo(0,y);const nb=$(`[data-illus="${PREF.illus}"]`);if(nb)nb.focus()}});
+function turnTo(n,from){if(SEC[STORY.sec].box)tickSection(STORY.sec);STORY.sec=n;STORY.from=from;renderSection();VIEW.stack=VIEW.stack.filter(v=>v.id!=="read");show("read",0)}
+// state (demo)
+const S={vit:3,fort:3,mode:"test",dice:[0,0],sel:-1,manual:false,round:0,res:[],rolled:false};
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function drawDice(){$("#dice").innerHTML=S.dice.map((v,i)=>`<button class="die${R.busy&&R.idx.includes(i)?' rolling':''}" aria-pressed="${S.sel===i}" aria-label="Die ${i+1}: ${R.busy&&R.idx.includes(i)?'rolling':v||'not rolled'}${S.sel===i?', selected':''}" data-d="${i}">${[...Array(9)].map((_,k)=>`<i style="visibility:${v&&PIPS[v].includes(k)?'visible':'hidden'}"></i>`).join("")}</button>`).join("")}
+$("#dice").addEventListener("click",e=>{const d=e.target.closest(".die");if(!d||!S.rolled||R.busy)return;S.sel=S.sel===+d.dataset.d?-1:+d.dataset.d;drawDice();upd()});
+const target=()=>S.mode==="test"?11:9-2;
+function judge(){const[a,b]=S.dice;if(a===1&&b===1)return"crit";if(a===6&&b===6)return"fumble";return a+b<=target()?"pass":"fail"}
+function final(){if(!S.rolled||R.busy)return null;if(S.mode==="test"){const j=judge();return{ok:j==="pass"||j==="crit"}}
+ if(S.vit<=0)return{dead:true};if(S.round>=3)return{done:true,lost:S.res.filter(r=>r==="fail").length+2*S.res.filter(r=>r==="fumble").length};return null}
+function drawDest(){const f=final(),el=$("#dest");
+ if(S.mode==="test"){el.innerHTML=`<button class="btn" id="dPass" ${f&&f.ok?'':'disabled'}>Pass → turn to 326</button><button class="btn ${f&&!f.ok?'':'ghost'}" id="dFail" ${f&&!f.ok?'':'disabled'}>Fail → turn to 47</button><span class="why">${f?'Result is final unless you spend Fortune to re-roll.':'Roll first; the matching destination unlocks.'} Destinations are demo.</span>`;
+  if(f){$(f.ok?"#dPass":"#dFail").onclick=()=>{const t=f.ok?"Naturalist test passed":"Naturalist test failed";reset(false);turnTo(f.ok?326:47,t)}}}
+ else{el.innerHTML=f&&f.dead?`<button class="btn" disabled>Continue</button><span class="why">Vitality 0: the book's defeat handling is not modelled in this prototype.</span>`:`<button class="btn" id="dCont" ${f?'':'disabled'}>Fight over → turn to 326</button><span class="why">${f?`Encounter complete · ${f.lost} Wound${f.lost===1?'':'s'} taken.`:`Unlocks after all 3 rounds (round ${S.round} of 3).`} Destination is demo.</span>`;
+  if(f&&!f.dead)$("#dCont").onclick=()=>{const t=`Fight finished (${f.lost} Wound${f.lost===1?'':'s'})`;reset(false);turnTo(326,t)}}}
+function upd(){drawDest();$("#reroll").disabled=!(!R.busy&&S.rolled&&S.sel>=0&&S.fort>0&&(S.mode==="test"||S.round<=3));["#qv","#sv"].forEach(s=>$(s).textContent=S.vit);["#qf","#sf"].forEach(s=>$(s).textContent=S.fort);$("#tf").textContent=S.fort+" / 3";$("#tv").textContent=S.vit+" / 3";$("#qfp").innerHTML=[0,1,2].map(i=>`<span class="pip ${i<S.fort?'f':''}"></span>`).join("")}
+function showResult(){const j=judge(),sum=S.dice[0]+S.dice[1],r=$("#result");const ok=j==="pass"||j==="crit";r.className="result "+(ok?"ok":"bad");
+ const lbl={crit:"Double 1 — automatic pass",fumble:"Double 6 — automatic fail",pass:`${sum} ≤ ${target()} — pass`,fail:`${sum} > ${target()} — fail`}[j];
+ r.textContent=S.mode==="test"?lbl:`Round ${S.round}: `+lbl}
+// Rolls: compute final faces first, then optionally animate, then commit once.
+const ANIM_MS=750;const R={busy:false,iv:null,to:null,done:null,idx:[]};
+function rand(){return 1+Math.random()*6|0}
+function fightOver(){return S.mode==="fight"&&(S.round>=3||S.vit<=0)}
+function animate(idx,done){playRattle();if(!PREF.anim){done();return}
+ R.busy=true;R.done=done;R.idx=idx;S.sel=-1;$("#result").className="result";$("#result").textContent="Rolling…";lockUI();
+ R.iv=setInterval(()=>{idx.forEach(i=>S.dice[i]=rand());drawDice()},70);R.to=setTimeout(()=>settle(true),ANIM_MS)}
+function settle(commit){clearInterval(R.iv);clearTimeout(R.to);R.iv=R.to=null;const d=R.done;R.done=null;const was=R.busy;R.busy=false;if(!commit)stopRattle();if(was&&commit&&d)d();else if(was){drawDice();lockUI()}}
+function lockUI(){$("#roll").disabled=R.busy||fightOver();$$("[data-mode],#dsApp,#dsMan,#resetDice").forEach(b=>b.disabled=R.busy);drawDice();upd()}
+function roll(){if(R.busy||fightOver())return;const fin=S.manual?[+$("#m1").value||1,+$("#m2").value||1].map(v=>Math.min(6,Math.max(1,v|0))):[rand(),rand()];
+ animate([0,1],()=>commitRoll(fin))}
+function commitRoll(fin){S.dice=fin.slice();S.sel=-1;S.rolled=true;
+ if(S.mode==="fight"){S.round++;const j=judge();S.res[S.round-1]=j;if(j==="fail")S.vit=Math.max(0,S.vit-1);if(j==="fumble")S.vit=Math.max(0,S.vit-2);drawRounds()}
+ showResult();lockUI()}
+$("#roll").onclick=roll;
+$("#reroll").onclick=()=>{if(R.busy||S.sel<0||S.fort<1||!S.rolled)return;const i=S.sel,v=rand();S.fort--;upd();animate([i],()=>commitReroll(i,v))};
+function commitReroll(i,v){
+ if(S.mode==="fight"){const p=S.res[S.round-1];if(p==="fail")S.vit++;if(p==="fumble")S.vit+=2}
+ S.dice[i]=v;S.sel=-1;
+ if(S.mode==="fight"){const j=judge();S.res[S.round-1]=j;if(j==="fail")S.vit--;if(j==="fumble")S.vit-=2;S.vit=Math.max(0,S.vit);drawRounds()}
+ showResult();lockUI()}
+// Sound: real recording, embedded. "Wooden dice on wooden table roll" (Holzwürfel_auf_Holztisch_3.flac) by Wuzzy,
+// https://opengameart.org/content/wooden-dice-on-wodden-table-roll, CC0. Edited: first 1.0 s, 180 ms fade-out, mono, limiter, MP3 96 kbps. See README.
+const DICE_MP3="data:audio/mpeg;base64,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EuECpgMajwPp/CqClAyiPBliEl/Kw6gqSwEGKZDVIjXNQtRpP6vf+U0pMG+nbkraKOoGZQRKmGCPFJvAzCyhzhgdDhVKhxXEXvO8yEY3sBPP4TZYTwZBnywCKQEB0BaB6IYlonpyGMORJiFA63QBMPEGyKl0QgryLyF30iSYJLxAWsMpBU8EQK9r9wZEbsQp7Va4WS/9/+N//q+1vT////WqgAAAAGWWwXUT5nCdfDFPAvxzDpKVcKOBGybp3nUcadJGT9dKYHkqiCk9H8aSgZdrtjHaGQWFZIFuswcYIMGBDR4qCijyEuHOqsgxaRLGfV/QykgLGV1O7PPjWM////tyxC6BC9h1M0ek1hHYj6NJnGRYX6QDOt+VVjjaB8g6w8gDyjswAkwhPjVkxkvAmsYCI+roLlm8GI9gUkcZRhlAA86hCEhbomcdaBvgIrl/UhAVEasBoWmNKZCYWfCDFhy3SgSbiCViKWtPG6eLOU1qK7prVNLqbJGYuuWz/enQv/+/9VX9N13+3UOXAEAYAAAm/39Gcax4pcNkOkcrOLiWCh+pMgqKJsuV47y6iSjpVirCpWD9Z5UctrByF2HMdoCjglIInUJkmaUc0kWOG/s3RWOZV9fp0///t1/9FPf2WgNVxzB+jVFuKMK1XOjvKdFGYmmxs1jSNyGzs0C8UVUHXtEJDaJTZ+WwqW8qUzhP0yp/UqUfWsrFgiNu7OkKFkiBI17qLKjSl9L+5qtv+30p8j+27X+89/X/+3DEVoAKnGErp70nwWOOIoj8JTg1wo5DAzarqL+hUwosgSIgJfrkYe1x14w3VhLAGbr9XUqVHoQBGTEpEBagjBwYDcWk45v2wXiPjlMhNwQsPxPV2WOhq0sqGrBRIHjQFCgeNAyFRIaAoqKB4CioqJDQVZivWwy2xP/9Qv///xUWNViiHxUWNPWKKkxBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//tyxJGDzqSQ5AwwdIAAADSAAAAEqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=";
+let AC=null,BUF=null,BUFP=null,CUR=null,EL=null,GEN=0;
+function soundFail(){$("#soundNote").textContent="Sound unavailable in this browser."}
+function loadBuf(){if(BUFP)return BUFP;const bin=atob(DICE_MP3.split(",")[1]),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+ BUFP=new Promise((res,rej)=>{try{const p=AC.decodeAudioData(u.buffer,res,rej);if(p&&p.then)p.then(res,rej)}catch(e){rej(e)}});return BUFP}
+// Called only from roll / re-roll (a click or the R key). Stops any previous clip first, so sounds never overlap.
+function playRattle(){if(!PREF.sound)return;stopRattle();const g=++GEN;
+ try{const C=window.AudioContext||window.webkitAudioContext;if(!C)throw 0;AC=AC||new C();if(AC.state==="suspended")AC.resume();
+  loadBuf().then(buf=>{if(g!==GEN||!PREF.sound)return;const src=AC.createBufferSource(),gain=AC.createGain();gain.gain.value=0.8;src.buffer=buf;src.connect(gain).connect(AC.destination);src.start();CUR=src;$("#soundNote").textContent=""}).catch(()=>playEl(g))}
+ catch(e){playEl(g)}}
+function playEl(g){try{if(g!==GEN)return;if(typeof Audio==="undefined")throw 0;EL=EL||new Audio(DICE_MP3);EL.volume=0.8;EL.currentTime=0;const p=EL.play();if(p&&p.catch)p.catch(soundFail)}catch(e){soundFail()}}
+function stopRattle(){GEN++;if(CUR){try{CUR.stop()}catch(e){}CUR=null}if(EL){try{EL.pause();EL.currentTime=0}catch(e){}}}
+function drawRounds(){$("#rounds").innerHTML=[0,1,2].map(i=>{const r=S.res[i];return`<span class="round ${r?(r==="pass"||r==="crit"?'ok':'bad'):''} ${i===S.round-1?'cur':''}" aria-label="Round ${i+1}: ${r||'pending'}">${r?(r==="pass"||r==="crit"?'✓':r==="fumble"?'✗✗':'✗'):i+1}</span>`}).join("")}
+function setMode(m){S.mode=m;$$("[data-mode]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mode===m));reset(false)}
+$$("[data-mode]").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+function reset(full=true){settle(false);if(full){S.vit=3;S.fort=3}S.dice=[0,0];S.sel=-1;S.round=0;S.res=[];S.rolled=false;$("#roll").disabled=false;
+ const f=S.mode==="fight";$("#rounds").hidden=!f;$("#testHead").innerHTML=f?'<h2>Fight the marsh lurker: 3 rounds at −2 <span class="demo">demo</span></h2>':'<h2>Naturalist test <span class="demo">demo</span></h2>';
+ $("#formula").textContent=f?"Each round: 2d6 ≤ Talent 9 − 2 = 7 · fail = 1 Wound · double 6 = +1 Wound":"2d6 ≤ Talent 9 + Naturalist +2 = 11";
+ $("#result").className="result";$("#result").textContent="Ready to roll";drawRounds();lockUI()}
+$("#resetDice").onclick=()=>reset(true);
+$("#dsApp").onclick=()=>{S.manual=false;$("#dsApp").setAttribute("aria-pressed",true);$("#dsMan").setAttribute("aria-pressed",false);$("#manual").hidden=true;$("#roll").textContent="Roll 2d6 (R)"};
+$("#dsMan").onclick=()=>{S.manual=true;$("#dsMan").setAttribute("aria-pressed",true);$("#dsApp").setAttribute("aria-pressed",false);$("#manual").hidden=false;$("#roll").textContent="Enter my roll"};
+// reading (rendered above)
+$("#bm").onclick=e=>{const p=e.currentTarget.getAttribute("aria-pressed")!=="true";e.currentTarget.setAttribute("aria-pressed",p);e.currentTarget.textContent=p?"★ Bookmarked":"☆ Bookmark"};
+// log
+const KW=[["Ferryman","—","not gained"],["Heron-Sign","§88","gained"],["Broken Idol","§301","gained"],["Salt Debt","§412","gained"]];
+const logRows=()=>[...KW.map(k=>[k[0],"kw",k[1],k[2]]),...Object.keys(TICKS).sort((a,b)=>a-b).map(n=>[`§${n} box${TICKS[n].max>1?'es':''}`,"tick",`§${n}`,`${TICKS[n].n} / ${TICKS[n].max}`])];
+let F="all";function drawLog(){const q=$("#q").value.toLowerCase();$("#logrows").innerHTML=logRows().filter(r=>(F==="all"||r[1]===F)&&(r[0]+r[2]).toLowerCase().includes(q)).map(r=>`<tr><td><b>${r[0]}</b> <span class="demo">demo</span></td><td>${r[1]==="kw"?"Keyword":"Tickbox"}</td><td>${r[2]}</td><td>${r[1]==="tick"?`<span class="boxes" role="img" aria-label="${r[3].replace(' / ',' of ')} boxes ticked">${(()=>{const[a,b]=r[3].split(" / ").map(Number);return [...Array(b)].map((_,i)=>`<span class="box sm ${i<a?'t':''}"></span>`).join("")})()}</span>`:r[3]==="gained"?"✓ gained":"<span style='color:var(--muted)'>not gained</span>"}</td></tr>`).join("")||"<tr><td colspan=4>No matches</td></tr>";
+ $("#nk").textContent=logRows().filter(r=>r[1]==="kw"&&r[3]==="gained").length+" gained";$("#nt").textContent=logRows().filter(r=>r[1]==="tick").reduce((s,r)=>s+ +r[3].split(" / ")[0],0)+" boxes"}
+$("#q").oninput=drawLog;$$("[data-f]").forEach(b=>b.onclick=()=>{F=b.dataset.f;$$("[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b));drawLog()});
+// import sim
+$("#fakeImport").onclick=()=>{const li=$$("#isteps .s");li.forEach(s=>{s.classList.remove("ok");s.textContent=s.textContent.replace("✓","")});let i=0;$("#imsg").textContent="Simulating…";const t=setInterval(()=>{li[i].classList.add("ok");li[i].textContent="✓";i++;if(i===li.length){clearInterval(t);$("#imsg").textContent="Simulated: “demo-book.yaml” valid · 0 errors. Nothing was imported."}},450)};
+$("#prefAnim").checked=PREF.anim;$("#prefSound").checked=PREF.sound;
+$("#prefAnim").onchange=e=>{PREF.anim=e.target.checked;savePrefs("anim")};
+$("#prefSound").onchange=e=>{PREF.sound=e.target.checked;savePrefs("sound");if(!PREF.sound)stopRattle();$("#soundNote").textContent=""};
+reset(true);drawLog();renderSection();show(order.includes(location.hash.slice(1))?location.hash.slice(1):"read",0);
+</script>
+</body>
+</html>

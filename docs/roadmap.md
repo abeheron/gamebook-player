@@ -14,7 +14,7 @@ Rules are credited to David M. Donachie, CC BY-SA 4.0, on PDF page 4. That credi
 
 The audit is not a conversion of all 573 playable sections. Book-specific exceptions below are the ones the audit checked. They are data requirements, not permission to special-case those section numbers in the engine.
 
-Older design notes and the HTML mock treated some of these points as unknown or as demo choices. Where the PDF states a rule, this roadmap follows the PDF. Where the audit lists a residual case, this roadmap leaves it open.
+Older design notes and the HTML mock treated some of these points as unknown or as demo choices. The saved mock is under [design reference](design-reference/PRESERVATION.md). It is not edited to match this audit. Where the PDF states a rule, this roadmap follows the PDF. Where the audit lists a residual case, this roadmap leaves it open.
 
 ## What already runs
 

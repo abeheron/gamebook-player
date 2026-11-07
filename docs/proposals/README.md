@@ -2,7 +2,7 @@
 
 Status: Draft. Not approved.
 
-These files plan later work. They do not change the app. The order and the open questions are in [the roadmap](../roadmap.md).
+These files plan later work. They do not change the app. The order and the open questions are in [the roadmap](../roadmap.md). The archived prototype under [design reference](../design-reference/PRESERVATION.md) is not one of these proposals and is not the PDF audit.
 
 A proposal can split into several pull requests. Those pulls are listed under PR slices. They are not one branch per proposal.
 
