@@ -39,6 +39,8 @@ Combat resolves one round per action. Each round uses the same roll-under test. 
 
 ## Not in this format yet
 
+The list below is the format the app accepts today. Draft plans that would add fields are in [the roadmap](roadmap.md). Those plans are not implemented.
+
 String expressions such as `has("lantern")`, gold, codeword titles that persist across books, roll-over tests, opposed rolls, crits, fumbles, re-roll resources, and per-book migrations. Section ids are decimal strings so they can match a printed book. The sample only has sections 1 through 8.
 
 Saves are version `1` records: a timestamp plus the session. On load, `canRestore` checks the session against the book and system currently in memory and ignores anything else.
