@@ -5,6 +5,7 @@
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
   import { choose, currentSection, rollCombatRound, rollTest, startSession, undo } from "../engine/rules";
+  import { canStartRoll, settledDestination } from "./skill-test";
   import { detectRuntime } from "../platform/runtime";
   import { createIndexedDbStore } from "../storage/indexeddb";
   import type { SaveRecord } from "../storage/types";
@@ -12,11 +13,13 @@
   import Combat from "./Combat.svelte";
   import Reader from "./Reader.svelte";
   import Sheet from "./Sheet.svelte";
+  import SkillTest from "./SkillTest.svelte";
   import { blockedBecause, rollFormula, sectionTitle, statLabel, ticksOnSection } from "./wording";
 
-  type ViewName = "read" | "sheet";
+  type ViewName = "read" | "sheet" | "test";
   type ViewMark = { view: ViewName; scroll: number };
-  type Arrival = { kind: "test" | "combat"; session: Session };
+  type Arrival = { kind: "combat"; session: Session };
+  type PendingTest = { sectionId: string; next: Session; roll: RollRecord };
 
   const SLOT = "demo";
   const store = createIndexedDbStore();
@@ -30,7 +33,11 @@
   let view = $state<ViewName>("read");
   let history = $state<ViewMark[]>([]);
   let arrival = $state<Arrival | null>(null);
+  let pendingTest = $state<PendingTest | null>(null);
+  let panelOpen = $state(false);
   let mainEl = $state<HTMLElement | null>(null);
+  let rollBusy = false;
+  let commitBusy = false;
 
   const section = $derived(currentSection(demoBook, session));
   const mentionedTicks = $derived(
@@ -61,7 +68,14 @@
     const value = session.state.stats[combat.stat];
     return rollFormula(combat.dice, statLabel(demoSystem, combat.stat), value ?? 0, combat.modifier ?? 0);
   });
-  const heldTest = $derived<RollRecord | null>(arrival?.kind === "test" ? lastRoll(arrival.session, section.test?.id) : null);
+  const heldRoll = $derived<RollRecord | null>(
+    pendingTest !== null && pendingTest.sectionId === section.id ? pendingTest.roll : null,
+  );
+  const destinationTitle = $derived.by(() => {
+    const test = section.test;
+    if (!test || !heldRoll) return "";
+    return sectionTitle(demoBook.sections, settledDestination(test, heldRoll).to);
+  });
   const combatRolls = $derived.by(() => {
     const combat = section.combat;
     if (!combat) return [];
@@ -78,9 +92,20 @@
   onMount(() => {
     let ignore = false;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || history.length === 0) return;
+      if (event.key !== "Escape") return;
       const target = event.target;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+      if (view === "test") {
+        event.preventDefault();
+        backView();
+        return;
+      }
+      if (panelOpen && view === "read") {
+        event.preventDefault();
+        closePanel();
+        return;
+      }
+      if (history.length === 0) return;
       event.preventDefault();
       backView();
     };
@@ -135,6 +160,10 @@
 
   function show(next: ViewName): void {
     if (next === view) return;
+    if (view === "test" && next === "read") {
+      backView();
+      return;
+    }
     history = [...history, { view, scroll: window.scrollY }].slice(-10);
     view = next;
     queueMicrotask(() => {
@@ -150,19 +179,48 @@
     view = previous.view;
     const scroll = previous.scroll;
     queueMicrotask(() => {
+      mainEl?.focus({ preventScroll: true });
       window.scrollTo(0, scroll);
-      mainEl?.focus();
     });
+  }
+
+  function openPanel(): void {
+    panelOpen = true;
+  }
+
+  function closePanel(): void {
+    const scroll = window.scrollY;
+    panelOpen = false;
+    queueMicrotask(() => {
+      document.getElementById("open-test")?.focus({ preventScroll: true });
+      window.scrollTo(0, scroll);
+    });
+  }
+
+  function openFullTest(): void {
+    if (view === "read") show("test");
   }
 
   function onChoose(choiceId: string): void {
     arrival = null;
+    pendingTest = null;
+    panelOpen = false;
     session = choose(plainSession(), demoBook, demoSystem, choiceId);
   }
 
   function onRollTest(): void {
-    if (arrival) return;
-    arrival = { kind: "test", session: rollTest(plainSession(), demoBook, demoSystem, Math.random) };
+    if (!canStartRoll(pendingTest !== null, rollBusy)) return;
+    const test = section.test;
+    if (!test) return;
+    rollBusy = true;
+    try {
+      const next = rollTest(plainSession(), demoBook, demoSystem, Math.random);
+      const roll = lastRoll(next, test.id);
+      if (!roll) return;
+      pendingTest = { sectionId: session.state.sectionId, next, roll };
+    } finally {
+      rollBusy = false;
+    }
   }
 
   function onRollCombat(): void {
@@ -172,19 +230,40 @@
     else session = next;
   }
 
-  function onArrive(): void {
-    if (!arrival) return;
+  function onArriveTest(): void {
+    if (commitBusy || !pendingTest) return;
+    commitBusy = true;
+    const next = pendingTest.next;
+    pendingTest = null;
+    panelOpen = false;
+    if (view === "test") {
+      const previous = history[history.length - 1];
+      if (previous?.view === "read") history = history.slice(0, -1);
+      view = "read";
+    }
+    session = next;
+    commitBusy = false;
+  }
+
+  function onArriveCombat(): void {
+    if (commitBusy || !arrival) return;
+    commitBusy = true;
     session = arrival.session;
     arrival = null;
+    commitBusy = false;
   }
 
   function onUndo(): void {
     arrival = null;
+    pendingTest = null;
+    panelOpen = false;
     session = undo(plainSession());
   }
 
   function onNewGame(): void {
     arrival = null;
+    pendingTest = null;
+    panelOpen = false;
     session = startSession(demoBook, demoSystem);
   }
 
@@ -239,17 +318,22 @@
     {#if view === "read"}
       <div class="layout">
         <div>
-          <Reader
-            {section}
-            ticks={mentionedTicks}
-            formula={testFormula}
-            {ready}
-            held={heldTest}
-            passTitle={section.test ? sectionTitle(demoBook.sections, section.test.success.to) : ""}
-            failTitle={section.test ? sectionTitle(demoBook.sections, section.test.failure.to) : ""}
-            {onRollTest}
-            onArrive={onArrive}
-          />
+          <Reader {section} ticks={mentionedTicks} {panelOpen} onOpenTest={openPanel} />
+          {#if panelOpen && section.test}
+            <SkillTest
+              compact
+              label={section.test.label}
+              dice={section.test.dice}
+              formula={testFormula}
+              {ready}
+              roll={heldRoll}
+              destination={destinationTitle}
+              onRoll={onRollTest}
+              onArrive={onArriveTest}
+              onClose={closePanel}
+              onFull={openFullTest}
+            />
+          {/if}
           {#if section.combat}
             <Combat
               combat={section.combat}
@@ -262,9 +346,9 @@
               {continueTitle}
               {defeated}
               onRoll={onRollCombat}
-              onContinue={onArrive}
+              onContinue={onArriveCombat}
             />
-          {:else}
+          {:else if !section.test}
             <Choices rows={choiceRows} {ready} {onChoose} />
           {/if}
         </div>
@@ -273,6 +357,20 @@
           <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
         </aside>
       </div>
+    {:else if view === "test" && section.test}
+      <SkillTest
+        compact={false}
+        label={section.test.label}
+        dice={section.test.dice}
+        formula={testFormula}
+        {ready}
+        roll={heldRoll}
+        destination={destinationTitle}
+        onRoll={onRollTest}
+        onArrive={onArriveTest}
+        onClose={closePanel}
+        onFull={openFullTest}
+      />
     {:else}
       <h1>Adventure sheet</h1>
       <div data-testid="sheet-view">

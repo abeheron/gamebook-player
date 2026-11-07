@@ -4,6 +4,8 @@ Status: Draft. Not approved.
 
 These files plan later work. They do not change the app. The order and the open questions are in [the roadmap](../roadmap.md). The archived prototype under [design reference](../design-reference/PRESERVATION.md) is not one of these proposals and is not the PDF audit.
 
+Design P01, the compact skill-test panel, is a separate interaction. It is recorded in [the P01 note](../p01-compact-skill-test.md). Approving that panel does not approve the rules drafts in this folder.
+
 A proposal can split into several pull requests. Those pulls are listed under PR slices. They are not one branch per proposal.
 
 | Proposal | Depends on | What it adds |

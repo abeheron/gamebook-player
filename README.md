@@ -2,7 +2,7 @@
 
 Lean foundation for an offline gamebook reader. It plays one original sample, The Lantern Stair, in a Svelte app with a small TypeScript rules engine. The same build is an installable web app and the page loaded by a thin Tauri shell on Linux.
 
-This is not the full player. Fighting Fantasy, a plugin SDK, authoring, remote AI, and native secret storage are not implemented. See [docs/architecture.md](docs/architecture.md). Draft plans for a later rules-correct original adventure are in [docs/roadmap.md](docs/roadmap.md). They are not approved and they do not change this demo. An archived HTML prototype, not used by the app, is described in [docs/design-reference/PRESERVATION.md](docs/design-reference/PRESERVATION.md).
+This is not the full player. Fighting Fantasy, a plugin SDK, authoring, remote AI, and native secret storage are not implemented. See [docs/architecture.md](docs/architecture.md). Draft plans for a later rules-correct original adventure are in [docs/roadmap.md](docs/roadmap.md). They are not approved and they do not change this demo. An archived HTML prototype, not used by the app, is described in [docs/design-reference/PRESERVATION.md](docs/design-reference/PRESERVATION.md). The approved compact skill-test panel is described in [docs/p01-compact-skill-test.md](docs/p01-compact-skill-test.md).
 
 ## Commands
 

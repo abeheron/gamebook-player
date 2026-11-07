@@ -34,12 +34,12 @@ test("saves, reloads, undoes, and still opens offline", async ({ page, context }
   await page.getByTestId("choice-tick-and-study").click();
   await expect(page.getByTestId("sheet-tick-landing-box")).toContainText("Landing box: 1");
   await expect(page.getByTestId("section-title")).toHaveText("The mark");
+  await expect(page.getByTestId("sheet-tick-landing-box")).toHaveCount(1);
+  await page.getByTestId("open-test").click();
+  await expect(page.getByTestId("section-body")).toBeVisible();
   await expect(page.getByTestId("test-formula")).toContainText("2d6 ≤ Talent 9");
   await page.getByTestId("roll-test").click();
-  const pass = page.getByTestId("destination-pass");
-  const fail = page.getByTestId("destination-fail");
-  if (await pass.isEnabled()) await pass.click();
-  else await fail.click();
+  await page.getByTestId("destination-go").click();
   await expect(page.getByTestId("section-title")).not.toHaveText("The mark");
   await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
   await page.getByTestId("undo").click();

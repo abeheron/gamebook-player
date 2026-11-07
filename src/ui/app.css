@@ -207,9 +207,31 @@ h2 {
   padding: 18px;
 }
 
-.mechanic {
+.mechanic,
+.test-panel {
   margin-top: 18px;
   max-width: 64ch;
+}
+
+.test-panel.compact {
+  padding: 12px;
+}
+
+.test-panel.compact .die {
+  width: 56px;
+  height: 56px;
+  padding: 8px;
+}
+
+.test-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reader .choice {
+  margin-top: 16px;
 }
 
 .sheet h2 {
