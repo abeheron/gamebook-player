@@ -5,6 +5,7 @@ test("opens the character sheet from the summary and lists only real fields", as
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
   await page.getByTestId("choice-take-lantern").click();
+  await expect(page.getByText("Unlimited.", { exact: true })).toHaveCount(0);
   await page.getByTestId("open-sheet").click();
   await expect(page.getByTestId("sheet-view")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Character" })).toBeVisible();
@@ -12,6 +13,7 @@ test("opens the character sheet from the summary and lists only real fields", as
   await expect(page.getByTestId("sheet-skill-climbing")).toHaveText("Climbing +2");
   await expect(page.getByTestId("sheet-skill-linguistics")).toHaveText("Linguistics +2");
   await expect(page.getByTestId("sheet-gold")).toHaveText("10 gp");
+  await expect(page.getByText("Unlimited.", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("sheet-item-ration")).toHaveText("Ration");
   await expect(page.getByTestId("sheet-item-lantern")).toHaveText("Lantern");
   await expect(page.getByTestId("sheet-missing")).toHaveText("This book does not define titles.");

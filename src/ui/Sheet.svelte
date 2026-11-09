@@ -34,9 +34,6 @@
   {/if}
   <h2>Coin pouch</h2>
   <p data-testid="sheet-gold">{state.gold} gp</p>
-  {#if !brief}
-    <p class="note">Unlimited.</p>
-  {/if}
   <h2>Items</h2>
   {#if state.items.length === 0}
     <p>None.</p>
