@@ -282,11 +282,27 @@
   <nav class="side" aria-label="Screens" data-testid="side-nav">
     <p class="brand">Gamebook Player<small>sample reader</small></p>
     <p class="book-tag" data-testid="book-title">{demoBook.title}</p>
-    <button type="button" data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
+    <button type="button" data-testid="side-read" aria-current={view === "sheet" ? undefined : "page"} onclick={() => show("read")}>
       Read
     </button>
-    <button type="button" data-testid="side-sheet" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
-      Sheet
+    <button type="button" data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
+      Character
+    </button>
+    <button type="button" data-testid="side-test" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+      Test &amp; fight
+      <span class="nav-note">Not in this build</span>
+    </button>
+    <button type="button" data-testid="side-keywords" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+      Keywords &amp; ticks
+      <span class="nav-note">Not in this build</span>
+    </button>
+    <button type="button" data-testid="side-library" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+      Library
+      <span class="nav-note">Not in this build</span>
+    </button>
+    <button type="button" data-testid="side-rules" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+      Rules
+      <span class="nav-note">Not in this build</span>
     </button>
     <div class="foot">
       <p>Back returns to the previous screen and keeps its scroll. It does not rewind the story.</p>
@@ -300,7 +316,7 @@
         {@const previous = history[history.length - 1]}
         {#if previous}
           <button type="button" class="back" data-testid="view-back" onclick={backView}>
-            ← Back to {previous.view === "read" ? "reading" : "the sheet"}
+            ← Back to {previous.view === "sheet" ? "character" : "reading"}
           </button>
         {/if}
       {/if}
@@ -381,10 +397,22 @@
   </main>
 </div>
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
-  <button type="button" data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
+  <button type="button" data-testid="mobile-read" aria-current={view === "sheet" ? undefined : "page"} onclick={() => show("read")}>
     Read
   </button>
-  <button type="button" data-testid="mobile-sheet" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
-    Sheet
+  <button type="button" data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
+    Character
+  </button>
+  <button type="button" data-testid="mobile-test" aria-disabled="true" aria-label="Test and fight, not in this build" onclick={(event) => event.preventDefault()}>
+    Test &amp; fight
+  </button>
+  <button type="button" data-testid="mobile-keywords" aria-disabled="true" aria-label="Keywords and ticks, not in this build" onclick={(event) => event.preventDefault()}>
+    Keywords &amp; ticks
+  </button>
+  <button type="button" data-testid="mobile-library" aria-disabled="true" aria-label="Library, not in this build" onclick={(event) => event.preventDefault()}>
+    Library
+  </button>
+  <button type="button" data-testid="mobile-rules" aria-disabled="true" aria-label="Rules, not in this build" onclick={(event) => event.preventDefault()}>
+    Rules
   </button>
 </nav>
