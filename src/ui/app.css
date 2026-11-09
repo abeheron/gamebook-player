@@ -510,11 +510,24 @@ h2 {
   visibility: visible;
 }
 
+.round-caption {
+  margin: 12px 0 6px;
+  text-align: center;
+  font: 600 16px var(--serif);
+}
+
 .rounds {
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin: 10px 0;
+  margin: 0;
+}
+
+.round-legend {
+  margin: 6px 0 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .round {
@@ -524,19 +537,28 @@ h2 {
   border: 1.5px solid var(--line);
   display: grid;
   place-items: center;
-  font: 600 14px var(--sans);
+  font: 600 16px var(--sans);
 }
 
-.round.ok {
+.round.held {
   border-color: var(--ok);
+  color: var(--ok);
 }
 
-.round.bad {
+.round.wound {
   border-color: var(--bad);
+  color: var(--bad);
 }
 
-.round.cur {
+.round.current {
+  border-color: var(--accent);
   outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.round.upcoming {
+  color: var(--muted);
+  border-style: dashed;
 }
 
 .tickrow {

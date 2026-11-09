@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CombatDef, RollRecord } from "../format/types";
+  import { roundCaption, roundLabel, roundMarks, type RoundMark } from "./combat-rounds";
   import Die from "./Die.svelte";
 
   let { combat, formula, round, rounds, rolls, ready, held, continueTitle, defeated, onRoll, onContinue }: {
@@ -15,6 +16,15 @@
     onRoll: () => void;
     onContinue: () => void;
   } = $props();
+
+  const marks = $derived(roundMarks(rolls.map((roll) => roll.success), rounds, held));
+  const caption = $derived(roundCaption(rolls.length, rounds, held));
+
+  function glyph(mark: RoundMark, roundNumber: number): string {
+    if (mark === "held") return "✓";
+    if (mark === "wound") return "✗";
+    return String(roundNumber);
+  }
 </script>
 
 <section class="card mechanic" data-testid="combat">
@@ -23,14 +33,20 @@
   <p class="note">
     {combat.rounds} rounds at this passage's penalty. A miss is one Wound. Vitality at 0 ends the fight at the passage's defeat. Otherwise you win by finishing the rounds.
   </p>
-  <div class="rounds" data-testid="combat-round" aria-label="Round {round} of {rounds}">
-    {#each Array.from({ length: rounds }, (_, index) => index) as index (index)}
-      {@const mark = rolls[index]}
-      <span class="round" class:ok={mark?.success === true} class:bad={mark?.success === false} class:cur={!mark && index === rolls.length}>
-        {index + 1}
+  <p class="round-caption" data-testid="combat-round-caption">{caption}</p>
+  <div class="rounds" data-testid="combat-round">
+    {#each marks as mark, index (index)}
+      <span
+        class="round {mark}"
+        role="img"
+        aria-label={roundLabel(index + 1, mark)}
+        data-testid="combat-marker-{index + 1}"
+      >
+        {glyph(mark, index + 1)}
       </span>
     {/each}
   </div>
+  <p class="round-legend">✓ held · ✗ wound · outline is this round</p>
   {#if rolls.length > 0}
     {@const last = rolls[rolls.length - 1]}
     {#if last}

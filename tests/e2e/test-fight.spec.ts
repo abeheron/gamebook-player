@@ -51,9 +51,22 @@ test("runs the passage fight on the test screen and withholds the ending until t
   await expect(page.getByTestId("combat")).toBeVisible();
   await expect(page.getByTestId("combat-formula")).toHaveText("2d6 ≤ Talent 9 − 1 = 8");
   await expect(page.getByTestId("fight-continue")).toHaveCount(0);
+  await expect(page.getByTestId("combat-round-caption")).toHaveText("Round 1 of 2");
+  await expect(page.getByTestId("combat-marker-1")).toHaveAttribute("aria-label", "Round 1: current");
+  await expect(page.getByTestId("combat-marker-2")).toHaveAttribute("aria-label", "Round 2: upcoming");
   await page.getByTestId("roll-combat").click();
   await expect(page.getByTestId("combat-roll")).toBeVisible();
   await expect(page.getByTestId("fight-continue")).toHaveCount(0);
+  await expect(page.getByTestId("combat-round-caption")).toHaveText("Round 2 of 2");
+  const firstRound = await page.getByTestId("combat-roll").innerText();
+  if (firstRound.includes("You are hit.")) {
+    await expect(page.getByTestId("combat-marker-1")).toHaveAttribute("aria-label", "Round 1: wound");
+    await expect(page.getByTestId("combat-marker-1")).toHaveText("✗");
+  } else {
+    await expect(page.getByTestId("combat-marker-1")).toHaveAttribute("aria-label", "Round 1: held");
+    await expect(page.getByTestId("combat-marker-1")).toHaveText("✓");
+  }
+  await expect(page.getByTestId("combat-marker-2")).toHaveAttribute("aria-label", "Round 2: current");
   await expect(page.getByTestId("section-title")).toHaveCount(0);
   await page.getByTestId("roll-combat").click();
   await expect(page.getByTestId("fight-continue")).toBeVisible();
