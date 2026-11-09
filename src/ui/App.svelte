@@ -99,6 +99,13 @@
     if (arrival?.kind === "combat") return rollsFor(arrival.session, combat.id);
     return rollsFor(session, combat.id);
   });
+  const combatVitality = $derived.by(() => {
+    const combat = section.combat;
+    if (!combat) return { current: 0, max: 0 };
+    const source = arrival?.kind === "combat" ? arrival.session : session;
+    const max = demoSystem.stats.find((stat) => stat.id === combat.wound.stat)?.max ?? 0;
+    return { current: source.state.stats[combat.wound.stat] ?? 0, max };
+  });
   const continueTitle = $derived(
     arrival?.kind === "combat" ? sectionTitle(demoBook.sections, arrival.session.state.sectionId) : "",
   );
@@ -382,6 +389,8 @@
               round={(session.state.pending?.round ?? 0) + 1}
               rounds={section.combat.rounds}
               rolls={combatRolls}
+              vitality={combatVitality.current}
+              vitalityMax={combatVitality.max}
               {ready}
               held={arrival?.kind === "combat"}
               {continueTitle}
@@ -427,6 +436,8 @@
             round={(session.state.pending?.round ?? 0) + 1}
             rounds={section.combat.rounds}
             rolls={combatRolls}
+            vitality={combatVitality.current}
+            vitalityMax={combatVitality.max}
             {ready}
             held={arrival?.kind === "combat"}
             {continueTitle}

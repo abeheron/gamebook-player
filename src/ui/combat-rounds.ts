@@ -1,19 +1,25 @@
-export type RoundMark = "held" | "wound" | "current" | "upcoming";
-
-/** Caption for the round about to be rolled, or the round the fight ended on. */
-export function roundCaption(resolved: number, total: number, settled: boolean): string {
-  const shown = settled ? Math.max(1, Math.min(resolved, total)) : Math.min(total, resolved + 1);
-  return `Round ${shown} of ${total}`;
-}
+export type RoundMark = "held" | "wound" | "now" | "later";
 
 export function roundMarks(successes: readonly boolean[], total: number, settled: boolean): RoundMark[] {
   return Array.from({ length: total }, (_, index) => {
     if (index < successes.length) return successes[index] ? "held" : "wound";
-    if (!settled && index === successes.length) return "current";
-    return "upcoming";
+    if (!settled && index === successes.length) return "now";
+    return "later";
   });
 }
 
-export function roundLabel(round: number, mark: RoundMark): string {
+export function roundName(round: number, mark: RoundMark): string {
   return `Round ${round}: ${mark}`;
+}
+
+function woundsText(count: number): string {
+  return count === 1 ? "1 wound" : `${count} wounds`;
+}
+
+/** Plain-language line under the round cards. */
+export function roundSummary(resolved: number, total: number, wounds: number, settled: boolean, vitality: number): string {
+  if (vitality <= 0) return "Vitality 0 · fight ends";
+  if (settled) return `${resolved} of ${total} rounds finished · ${woundsText(wounds)}`;
+  const current = Math.min(total, resolved + 1);
+  return `Round ${current} of ${total} · ${woundsText(wounds)} taken`;
 }

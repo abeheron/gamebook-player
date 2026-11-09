@@ -8,7 +8,9 @@
   --accent: #8a2f1d;
   --accent-ink: #fff;
   --ok: #2f6b3a;
+  --ok-bg: #e4efe6;
   --bad: #9b2a1f;
+  --bad-bg: #f5e4e1;
   --chip: #efe6d6;
   --focus: #1f5fbf;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif", "DejaVu Serif", Georgia, serif;
@@ -510,55 +512,186 @@ h2 {
   visibility: visible;
 }
 
-.round-caption {
-  margin: 12px 0 6px;
-  text-align: center;
-  font: 600 16px var(--serif);
+.fight-tracker {
+  display: grid;
+  gap: 12px;
 }
 
-.rounds {
+.rt-head {
   display: flex;
-  gap: 8px;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rt-head h2 {
   margin: 0;
 }
 
-.round-legend {
-  margin: 6px 0 10px;
-  text-align: center;
+.vit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.vit .labs {
+  color: var(--muted);
   font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pips {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: transparent;
+}
+
+.pip.on {
+  background: var(--accent);
+}
+
+.pip.lost {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 18%, transparent);
+  position: relative;
+}
+
+.pip.lost::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--bad);
+}
+
+.fight-tracker .rounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  justify-content: flex-start;
+}
+
+.fight-tracker .r {
+  min-width: 64px;
+  min-height: 64px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font: 600 12px var(--sans);
+}
+
+.fight-tracker .r .n {
+  font: 600 18px var(--serif);
+  line-height: 1;
+}
+
+.fight-tracker .r .lbl {
+  font: 600 11px var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
-.round {
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  border: 1.5px solid var(--line);
-  display: grid;
-  place-items: center;
-  font: 600 16px var(--sans);
+.fight-tracker .r.up {
+  opacity: 0.72;
+  border-style: dashed;
+  color: var(--muted);
 }
 
-.round.held {
+.fight-tracker .r.up .n {
+  color: var(--muted);
+}
+
+.fight-tracker .r.cur {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.fight-tracker .r.cur .lbl {
+  color: var(--accent);
+}
+
+.fight-tracker .r.cur.rolling .n {
+  animation: round-pulse 0.7s ease-in-out infinite;
+}
+
+@keyframes round-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.fight-tracker .r.held {
   border-color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.fight-tracker .r.held .lbl,
+.fight-tracker .r.held .n {
   color: var(--ok);
 }
 
-.round.wound {
+.fight-tracker .r.wound {
   border-color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.fight-tracker .r.wound .lbl,
+.fight-tracker .r.wound .n {
   color: var(--bad);
 }
 
-.round.current {
-  border-color: var(--accent);
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.rt-sum {
+  font-size: 14px;
+  margin: 0;
 }
 
-.round.upcoming {
-  color: var(--muted);
-  border-style: dashed;
+.rt-sum strong {
+  font-weight: 700;
+}
+
+.outcome {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font: 600 15px var(--serif);
+}
+
+.outcome.win {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.outcome.lose {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+@media (max-width: 720px) {
+  .fight-tracker .r {
+    min-width: 56px;
+    min-height: 56px;
+  }
 }
 
 .tickrow {
@@ -717,5 +850,10 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .fight-tracker .r.cur.rolling .n {
+    animation: none;
+    opacity: 0.7;
   }
 }
