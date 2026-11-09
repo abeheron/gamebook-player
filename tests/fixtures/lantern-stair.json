@@ -48,6 +48,11 @@
           "label": "The box is ticked. Walk on.",
           "to": "6",
           "when": { "op": "ticked", "id": "landing-box" }
+        },
+        {
+          "id": "search-crack",
+          "label": "Search the crack in the brick",
+          "to": "9"
         }
       ]
     },
@@ -62,6 +67,7 @@
         "label": "Study the mark",
         "dice": "2d6",
         "stat": "talent",
+        "skill": "linguistics",
         "success": {
           "to": "4",
           "effects": [{ "op": "gainKeyword", "id": "mark", "label": "Mark" }]
@@ -154,6 +160,25 @@
           "effects": [{ "op": "adjustStat", "stat": "vitality", "by": 1 }]
         }
       ]
+    },
+    {
+      "id": "9",
+      "title": "The crack",
+      "body": [
+        "A crack runs between two bricks. It is wide enough for a hand, and dark past the first knuckle."
+      ],
+      "test": {
+        "id": "search-crack",
+        "label": "Search the crack",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "search",
+        "success": { "to": "6" },
+        "failure": {
+          "to": "5",
+          "effects": [{ "op": "adjustStat", "stat": "vitality", "by": -1 }]
+        }
+      }
     }
   ]
 }

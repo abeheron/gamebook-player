@@ -1,4 +1,5 @@
 import { rollDice, parseDice, type Rng } from "./dice";
+import { skillAdjustment } from "./skills";
 import { applyEffects, cloneState, conditionHolds, initialSession, recordRoll } from "./state";
 import { sectionMap } from "../format/validate";
 import type {
@@ -51,8 +52,10 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
   if (session.state.pending) throw new Error("Finish the current combat before rolling.");
   const stat = session.state.stats[test.stat];
   if (stat === undefined) throw new Error(`Missing stat ${test.stat}`);
+  const adjustment = skillAdjustment(system, session.state.skills, test.skill);
+  const target = stat + (test.modifier ?? 0) + adjustment;
   const rolled = rollDice(parseDice(test.dice), rng);
-  const success = rolled.total <= stat + (test.modifier ?? 0);
+  const success = rolled.total <= target;
   const branch = success ? test.success : test.failure;
   const roll: RollRecord = {
     id: test.id,

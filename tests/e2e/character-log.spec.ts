@@ -9,10 +9,55 @@ test("opens the character sheet from the summary and lists only real fields", as
   await expect(page.getByTestId("sheet-view")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Character" })).toBeVisible();
   await expect(page.getByTestId("sheet-stat-talent")).toHaveText("9");
+  await expect(page.getByTestId("sheet-skill-climbing")).toHaveText("Climbing +2");
+  await expect(page.getByTestId("sheet-skill-linguistics")).toHaveText("Linguistics +2");
+  await expect(page.getByTestId("sheet-gold")).toHaveText("10 gp");
+  await expect(page.getByTestId("sheet-item-ration")).toHaveText("Ration");
   await expect(page.getByTestId("sheet-item-lantern")).toHaveText("Lantern");
-  await expect(page.getByTestId("sheet-missing")).toContainText("skills, titles, or money");
-  await expect(page.getByText("Gold")).toHaveCount(0);
+  await expect(page.getByTestId("sheet-missing")).toHaveText("This book does not define titles.");
+  await expect(page.getByTestId("sheet-skills-note")).toContainText("sample choice");
   await expect(page.getByTestId("side-character")).toHaveAttribute("aria-current", "page");
+});
+
+test("migrates a version 1 save to the sample skills, gold, and ration", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await page.evaluate(async () => {
+    const record = {
+      version: 1,
+      savedAt: "2026-11-08T00:00:00.000Z",
+      session: {
+        bookId: "lantern-stair",
+        state: {
+          sectionId: "2",
+          stats: { talent: 9, vitality: 3, fortune: 3 },
+          items: [{ id: "lantern", label: "Lantern" }],
+          keywords: [],
+          ticks: {},
+          rolls: [],
+          pending: null,
+        },
+        undo: [],
+      },
+    };
+    await new Promise<void>((resolve, reject) => {
+      const opening = indexedDB.open("gamebook-player", 1);
+      opening.onerror = () => reject(opening.error);
+      opening.onsuccess = () => {
+        const database = opening.result;
+        const transaction = database.transaction("saves", "readwrite");
+        transaction.objectStore("saves").put(record, "demo");
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      };
+    });
+  });
+  await page.reload();
+  await expect(page.getByTestId("section-title")).toHaveText("The landing");
+  await expect(page.getByTestId("sheet-skill-linguistics")).toHaveText("Linguistics +2");
+  await expect(page.getByTestId("sheet-gold")).toHaveText("10 gp");
+  await expect(page.getByTestId("sheet-item-ration")).toHaveText("Ration");
+  await expect(page.getByTestId("sheet-item-lantern")).toHaveText("Lantern");
 });
 
 test("searches the shared keyword and tick log without changing the story", async ({ page }) => {

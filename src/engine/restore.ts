@@ -23,6 +23,8 @@ function isState(value: unknown, book: Book, system: SystemDef): value is GameSt
     if (typeof current !== "number" || !Number.isInteger(current)) return false;
     if (current < stat.min || current > stat.max) return false;
   }
+  if (!Array.isArray(value.skills) || !skillsFit(value.skills, system)) return false;
+  if (typeof value.gold !== "number" || !Number.isSafeInteger(value.gold) || value.gold < 0) return false;
   if (!Array.isArray(value.items) || !value.items.every(isNamed)) return false;
   if (!Array.isArray(value.keywords) || !value.keywords.every(isNamed)) return false;
   if (!isRecord(value.ticks)) return false;
@@ -52,6 +54,19 @@ function isRoll(value: unknown): value is RollRecord {
   if (typeof value.total !== "number" || !Number.isInteger(value.total)) return false;
   if (typeof value.success !== "boolean") return false;
   return Array.isArray(value.faces) && value.faces.every((face) => typeof face === "number" && Number.isInteger(face));
+}
+
+function skillsFit(value: unknown[], system: SystemDef): boolean {
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (!isRecord(entry) || Object.keys(entry).length !== 2) return false;
+    if (typeof entry.id !== "string" || !ID.test(entry.id) || seen.has(entry.id)) return false;
+    if (!system.skills.some((skill) => skill.id === entry.id)) return false;
+    if (typeof entry.bonus !== "number" || !Number.isInteger(entry.bonus)) return false;
+    if (entry.bonus < system.basicSkillBonus || entry.bonus > 99) return false;
+    seen.add(entry.id);
+  }
+  return true;
 }
 
 function isNamed(value: unknown): boolean {

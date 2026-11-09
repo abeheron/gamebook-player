@@ -12,7 +12,9 @@ export function initialState(system: SystemDef, sectionId: string): GameState {
   return {
     sectionId,
     stats,
-    items: [],
+    skills: system.startingSkills.map((skill) => ({ id: skill.id, bonus: skill.bonus })),
+    gold: system.startingGold,
+    items: system.startingItems.map((item) => ({ id: item.id, label: item.label })),
     keywords: [],
     ticks: {},
     rolls: [],

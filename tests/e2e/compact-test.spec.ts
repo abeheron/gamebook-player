@@ -17,6 +17,7 @@ test("opens a compact test beside the passage on a desktop width", async ({ page
   const scroll = await page.evaluate(() => window.scrollY);
   await page.getByTestId("open-test").click();
   await expect(page.getByTestId("test-panel")).toBeVisible();
+  await expect(page.getByTestId("test-formula")).toHaveText("2d6 ≤ Talent 9 + 2 Linguistics = 11");
   await expect(page.getByTestId("section-body")).toBeVisible();
   await expect(page.getByTestId("destination-go")).toHaveCount(0);
   expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
@@ -29,6 +30,7 @@ test("opens a compact test beside the passage on a desktop width", async ({ page
     }
   });
   await expect(page.getByTestId("test-result")).toHaveCount(1);
+  await expect(page.getByTestId("test-result")).toContainText("Linguistics +2");
   await expect(page.getByTestId("destination-go")).toHaveCount(1);
   const result = await page.getByTestId("test-result").innerText();
 
@@ -72,6 +74,23 @@ test("keeps the compact test on a phone width and restores focus with Esc", asyn
   await expect(page.getByTestId("open-test")).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
   await expect(page.getByTestId("section-title")).toHaveText("The mark");
+});
+
+test("shows the absent-skill penalty on its own test", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await page.getByTestId("choice-take-lantern").click();
+  await page.getByTestId("choice-search-crack").click();
+  await expect(page.getByTestId("section-title")).toHaveText("The crack");
+  await page.getByTestId("open-test").click();
+  await expect(page.getByTestId("test-formula")).toHaveText("2d6 ≤ Talent 9 − 2 Search = 7");
+  await page.getByTestId("roll-test").click();
+  await expect(page.getByTestId("test-result")).toContainText("Search −2");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("test-panel")).toHaveCount(0);
+  await expect(page.getByTestId("open-test")).toBeFocused();
+  await expect(page.getByTestId("section-title")).toHaveText("The crack");
 });
 
 test("leaves the full-screen fight on its own path", async ({ page }) => {

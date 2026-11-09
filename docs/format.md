@@ -2,7 +2,7 @@
 
 Books and system files are JSON. The TypeScript validator in `src/format/validate.ts` is the check a file has to pass before play. Unknown fields are errors. There is no `eval`, no script field, and no executable plugin.
 
-A system file names stats and their starting values, minimums, and maximums. A book names that system and lists numbered sections. A section has plain-text paragraphs and exactly one of: choices, a test, or a combat.
+A system file names stats and their starting values, minimums, and maximums. It also names the skill list, the basic-skill bonus, the penalty for a named skill the character lacks, and the sample character's starting skills, gold, and items. A book names that system and lists numbered sections. A section has plain-text paragraphs and exactly one of: choices, a test, or a combat.
 
 ## Dice
 
@@ -31,7 +31,7 @@ Dice strings are `NdS`, `NdS+M`, or `NdS-M`, with small bounds (at most 20 dice,
 
 ## Test
 
-A test rolls its dice once. The roll passes when the total is less than or equal to the named stat plus an optional modifier. Success and failure each name a destination section and optional effects. The faces are stored on the session.
+A test rolls its dice once. The roll passes when the total is less than or equal to the named stat plus an optional modifier. If the test names a skill, the character's bonus for that skill is included in the target before the roll is judged. A skill the character does not have contributes the system's absent-skill penalty instead. A test that names no skill does not apply either number. Success and failure each name a destination section and optional effects. The faces are stored on the session. The stored total is the dice total. It does not have the skill bonus added to it.
 
 ## Combat
 
@@ -41,6 +41,6 @@ Combat resolves one round per action. Each round uses the same roll-under test. 
 
 The list below is the format the app accepts today. Draft plans that would add fields are in [the roadmap](roadmap.md). Those plans are not implemented.
 
-String expressions such as `has("lantern")`, gold, codeword titles that persist across books, roll-over tests, opposed rolls, crits, fumbles, re-roll resources, and per-book migrations. Section ids are decimal strings so they can match a printed book. The sample only has sections 1 through 8.
+String expressions such as `has("lantern")`, titles that persist across books, roll-over tests, opposed rolls, crits, fumbles, re-roll resources, and a way to spend gold. Gold is a number on the character. The sample starts at 10 and does not change it. Section ids are decimal strings so they can match a printed book. The sample has sections 1 through 9.
 
-Saves are version `1` records: a timestamp plus the session. On load, `canRestore` checks the session against the book and system currently in memory and ignores anything else.
+Saves are version `2` records: a timestamp plus the session. Version `1` records are migrated on load. The migration adds the sample's starting skills, gold, and any starting item that is missing, on the current state and on each undo entry. On load, `canRestore` checks the migrated session against the book and system currently in memory and ignores anything else.

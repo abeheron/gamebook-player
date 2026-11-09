@@ -24,9 +24,10 @@ describe("sample book rules", () => {
     let session = startSession(demoBook, demoSystem);
     session = choose(session, demoBook, demoSystem, "take-lantern");
     expect(currentSection(demoBook, session).title).toBe("The landing");
-    expect(session.state.items.map((item) => item.id)).toEqual(["lantern"]);
+    expect(session.state.items.map((item) => item.id)).toEqual(["ration", "lantern"]);
     expect(visibleChoices(currentSection(demoBook, session), session.state).map((choice) => choice.id)).toEqual([
       "tick-and-study",
+      "search-crack",
     ]);
 
     session = choose(session, demoBook, demoSystem, "tick-and-study");
@@ -38,7 +39,8 @@ describe("sample book rules", () => {
     expect(session.state.ticks["landing-box"]).toBeUndefined();
     session = undo(session);
     expect(currentSection(demoBook, session).id).toBe("1");
-    expect(session.state.items).toEqual([]);
+    expect(session.state.items.map((item) => item.id)).toEqual(["ration"]);
+    expect(session.state.gold).toBe(10);
     expect(undo(session)).toBe(session);
   });
 

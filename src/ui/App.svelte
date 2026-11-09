@@ -5,17 +5,19 @@
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
   import { choose, currentSection, rollCombatRound, rollTest, startSession, undo } from "../engine/rules";
+  import { skillAdjustment } from "../engine/skills";
   import { canStartRoll, settledDestination } from "./skill-test";
   import { detectRuntime } from "../platform/runtime";
   import { createIndexedDbStore } from "../storage/indexeddb";
-  import type { SaveRecord } from "../storage/types";
+  import { migrateSave } from "../storage/migrate";
+  import { SAVE_VERSION, type SaveRecord } from "../storage/types";
   import Choices from "./Choices.svelte";
   import Combat from "./Combat.svelte";
   import Reader from "./Reader.svelte";
   import Log from "./Log.svelte";
   import Sheet from "./Sheet.svelte";
   import SkillTest from "./SkillTest.svelte";
-  import { blockedBecause, rollFormula, sectionTitle, statLabel, ticksOnSection } from "./wording";
+  import { blockedBecause, rollFormula, sectionTitle, skillClause, statLabel, ticksOnSection } from "./wording";
 
   type ViewName = "read" | "sheet" | "test" | "log";
   type ViewMark = { view: ViewName; scroll: number };
@@ -57,12 +59,25 @@
       };
     }),
   );
+  const testSkill = $derived.by(() => {
+    const test = section.test;
+    if (!test?.skill) return null;
+    const label = demoSystem.skills.find((skill) => skill.id === test.skill)?.label ?? test.skill;
+    return { label, bonus: skillAdjustment(demoSystem, session.state.skills, test.skill) };
+  });
   const testFormula = $derived.by(() => {
     const test = section.test;
     if (!test) return "";
     const value = session.state.stats[test.stat];
-    return rollFormula(test.dice, statLabel(demoSystem, test.stat), value ?? 0, test.modifier ?? 0);
+    return rollFormula(
+      test.dice,
+      statLabel(demoSystem, test.stat),
+      value ?? 0,
+      test.modifier ?? 0,
+      testSkill ?? undefined,
+    );
   });
+  const testAdjustment = $derived(testSkill ? skillClause(testSkill.label, testSkill.bonus) : "");
   const combatFormula = $derived.by(() => {
     const combat = section.combat;
     if (!combat) return "";
@@ -116,8 +131,9 @@
       try {
         const record = await store.load(SLOT);
         if (ignore) return;
-        if (record?.version === 1 && canRestore(record.session, demoBook, demoSystem)) {
-          session = record.session;
+        const migrated = migrateSave(record, demoSystem);
+        if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
+          session = migrated.session;
           saveStatus = "Restored on this device";
         } else {
           saveStatus = "New game";
@@ -138,7 +154,7 @@
   $effect(() => {
     if (!ready) return;
     const record: SaveRecord = {
-      version: 1,
+      version: SAVE_VERSION,
       savedAt: new Date().toISOString(),
       session: $state.snapshot(session),
     };
@@ -342,6 +358,7 @@
               label={section.test.label}
               dice={section.test.dice}
               formula={testFormula}
+              adjustment={testAdjustment}
               {ready}
               roll={heldRoll}
               destination={destinationTitle}
@@ -382,6 +399,7 @@
         label={section.test.label}
         dice={section.test.dice}
         formula={testFormula}
+        adjustment={testAdjustment}
         {ready}
         roll={heldRoll}
         destination={destinationTitle}

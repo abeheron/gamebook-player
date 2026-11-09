@@ -4,7 +4,10 @@ import type {
   CombatDef,
   Condition,
   Effect,
+  NamedValue,
   Section,
+  SkillDef,
+  SkillRank,
   StatDef,
   SystemDef,
   TestDef,
@@ -30,20 +33,67 @@ const CONDITION_OPS = new Set(["hasItem", "keyword", "ticked", "statAtLeast", "n
 
 export function validateSystem(input: unknown): SystemDef {
   const root = record(input, "system");
-  requireKeys(root, ["id", "name", "attribution", "stats"], "system");
+  requireKeys(
+    root,
+    [
+      "id",
+      "name",
+      "attribution",
+      "stats",
+      "skills",
+      "basicSkillBonus",
+      "absentSkillPenalty",
+      "startingSkills",
+      "startingGold",
+      "startingItems",
+    ],
+    "system",
+  );
   const stats = arrayOf(root.stats, "system.stats", 1, 12).map((entry, index) =>
     validateStat(entry, `system.stats[${index}]`),
   );
-  const ids = new Set<string>();
+  const statIds = new Set<string>();
   for (const stat of stats) {
-    if (ids.has(stat.id)) fail(`system.stats`, `duplicate stat ${stat.id}`);
-    ids.add(stat.id);
+    if (statIds.has(stat.id)) fail(`system.stats`, `duplicate stat ${stat.id}`);
+    statIds.add(stat.id);
+  }
+  const skills = arrayOf(root.skills, "system.skills", 1, 24).map((entry, index) =>
+    validateSkill(entry, `system.skills[${index}]`),
+  );
+  const skillIds = new Set<string>();
+  for (const skill of skills) {
+    if (skillIds.has(skill.id)) fail("system.skills", `duplicate skill ${skill.id}`);
+    skillIds.add(skill.id);
+  }
+  const basicSkillBonus = integer(root.basicSkillBonus, "system.basicSkillBonus", 0, 20);
+  const absentSkillPenalty = integer(root.absentSkillPenalty, "system.absentSkillPenalty", -20, 20);
+  const startingSkills = arrayOf(root.startingSkills, "system.startingSkills", 0, 12).map((entry, index) =>
+    validateSkillRank(entry, `system.startingSkills[${index}]`, skills, basicSkillBonus),
+  );
+  const owned = new Set<string>();
+  for (const skill of startingSkills) {
+    if (owned.has(skill.id)) fail("system.startingSkills", `duplicate skill ${skill.id}`);
+    owned.add(skill.id);
+  }
+  const startingItems = arrayOf(root.startingItems, "system.startingItems", 0, 24).map((entry, index) =>
+    validateNamed(entry, `system.startingItems[${index}]`),
+  );
+  const itemIds = new Set<string>();
+  for (const item of startingItems) {
+    if (itemIds.has(item.id)) fail("system.startingItems", `duplicate item ${item.id}`);
+    itemIds.add(item.id);
   }
   return {
     id: identifier(root.id, "system.id"),
     name: text(root.name, "system.name", 1, 80),
-    attribution: text(root.attribution, "system.attribution", 1, 600),
+    attribution: text(root.attribution, "system.attribution", 1, 800),
     stats,
+    skills,
+    basicSkillBonus,
+    absentSkillPenalty,
+    startingSkills,
+    startingGold: integer(root.startingGold, "system.startingGold", 0, 1_000_000),
+    startingItems,
   };
 }
 
@@ -153,7 +203,7 @@ function validateChoice(input: unknown, path: string, system: SystemDef): Choice
 
 function validateTest(input: unknown, path: string, system: SystemDef): TestDef {
   const root = record(input, path);
-  requireKeys(root, ["id", "label", "dice", "stat", "modifier", "success", "failure"], path, ["modifier"]);
+  requireKeys(root, ["id", "label", "dice", "stat", "modifier", "skill", "success", "failure"], path, ["modifier", "skill"]);
   const test: TestDef = {
     id: identifier(root.id, `${path}.id`),
     label: text(root.label, `${path}.label`, 1, 160),
@@ -163,6 +213,7 @@ function validateTest(input: unknown, path: string, system: SystemDef): TestDef 
     failure: validateBranch(root.failure, `${path}.failure`, system),
   };
   if ("modifier" in root) test.modifier = integer(root.modifier, `${path}.modifier`, -20, 20);
+  if ("skill" in root) test.skill = knownSkill(root.skill, `${path}.skill`, system);
   return test;
 }
 
@@ -264,9 +315,44 @@ function validateCondition(input: unknown, path: string, system: SystemDef, dept
   };
 }
 
+function validateSkill(input: unknown, path: string): SkillDef {
+  const root = record(input, path);
+  requireKeys(root, ["id", "label"], path);
+  return {
+    id: identifier(root.id, `${path}.id`),
+    label: text(root.label, `${path}.label`, 1, 40),
+  };
+}
+
+function validateSkillRank(input: unknown, path: string, skills: readonly SkillDef[], basicSkillBonus: number): SkillRank {
+  const root = record(input, path);
+  requireKeys(root, ["id", "bonus"], path);
+  const id = identifier(root.id, `${path}.id`);
+  if (!skills.some((skill) => skill.id === id)) fail(path, "unknown skill");
+  return {
+    id,
+    bonus: integer(root.bonus, `${path}.bonus`, basicSkillBonus, 99),
+  };
+}
+
+function validateNamed(input: unknown, path: string): NamedValue {
+  const root = record(input, path);
+  requireKeys(root, ["id", "label"], path);
+  return {
+    id: identifier(root.id, `${path}.id`),
+    label: text(root.label, `${path}.label`, 1, 80),
+  };
+}
+
 function knownStat(input: unknown, path: string, system: SystemDef): string {
   const id = identifier(input, path);
   if (!system.stats.some((stat) => stat.id === id)) fail(path, "unknown stat");
+  return id;
+}
+
+function knownSkill(input: unknown, path: string, system: SystemDef): string {
+  const id = identifier(input, path);
+  if (!system.skills.some((skill) => skill.id === id)) fail(path, "unknown skill");
   return id;
 }
 

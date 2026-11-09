@@ -33,7 +33,7 @@ Vite builds a static `dist`. The production build adds a content security policy
 
 ## Deferred
 
-- Full GNAT rules: skills, Fortune rerolls, double 1, double 6, armour, spells, encumbrance, titles, rest, and experience. Draft proposals, not an implementation, are in [docs/roadmap.md](roadmap.md).
+- The rest of the GNAT rules: Fortune rerolls, double 1, double 6, armour, spells, encumbrance, titles, rest, experience, and the Talent-for-skill trade. The sample does include the ten skill names, the +2/−2 skill test, starting gold, and one ration. Draft proposals for what remains are in [docs/roadmap.md](roadmap.md).
 - Fighting Fantasy and any other system
 - Expression strings. Conditions and effects are JSON objects on an allowlist
 - YAML authoring, JSON Schema files, Project Aon import, ink or Twine export
