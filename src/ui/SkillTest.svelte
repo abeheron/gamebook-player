@@ -10,6 +10,8 @@
     adjustment,
     ready,
     roll,
+    rolling,
+    previewFaces,
     destination,
     onRoll,
     onArrive,
@@ -23,6 +25,8 @@
     adjustment: string;
     ready: boolean;
     roll: RollRecord | null;
+    rolling: boolean;
+    previewFaces: number[];
     destination: string;
     onRoll: (faces?: number[]) => void;
     onArrive: () => void;
@@ -68,7 +72,14 @@
   <h2>{label}</h2>
   <p class="formula" data-testid="test-formula">{formula}</p>
   <p class="note">Pass on this total or under. This sample does not spend Fortune.</p>
-  {#if roll}
+  {#if rolling}
+    <div class="dice" aria-hidden="true">
+      {#each previewFaces as face, index (`roll-${index}`)}
+        <Die {face} rolling />
+      {/each}
+    </div>
+    <p class="result" data-testid="test-result" role="status" aria-live="polite">Rolling…</p>
+  {:else if roll}
     <div class="dice" aria-hidden="true">
       {#each roll.faces as face, index (`${roll.total}-${index}`)}
         <Die {face} />
@@ -80,8 +91,8 @@
     <button type="button" class="btn" data-testid="destination-go" disabled={!ready} onclick={onArrive}>
       {roll.success ? "Pass" : "Fail"} → {destination}
     </button>
-  {:else}
-    {#if !compact}
+  {/if}
+  {#if !roll && !rolling && !compact}
       <div class="seg" role="group" aria-label="Dice source">
         <button type="button" aria-pressed={!manual} data-testid="dice-app" onclick={() => (manual = false)}>App dice</button>
         <button type="button" aria-pressed={manual} data-testid="dice-manual" onclick={() => (manual = true)}>My dice</button>
@@ -107,8 +118,9 @@
           <p class="error" data-testid="manual-error">{manualError}</p>
         {/if}
       {/if}
-    {/if}
-    <button type="button" class="btn" data-testid="roll-test" disabled={!ready} onclick={useDice}>
+  {/if}
+  {#if !roll}
+    <button type="button" class="btn" data-testid="roll-test" disabled={!ready || rolling} onclick={useDice}>
       {manual && !compact ? "Use these dice" : `Roll ${dice}`}
     </button>
   {/if}

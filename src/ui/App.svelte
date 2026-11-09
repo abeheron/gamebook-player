@@ -1,11 +1,13 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { demoBook, demoSystem } from "../format/demo";
   import type { RollRecord, Session } from "../format/types";
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
   import { choose, currentSection, rollCombatRound, rollTest, startSession, undo } from "../engine/rules";
   import { skillAdjustment } from "../engine/skills";
+  import { playDiceSound, stopDiceSound } from "./dice-audio";
+  import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withPref, type StoredDicePrefs } from "./dice-prefs";
   import { canStartRoll, settledDestination } from "./skill-test";
   import { detectRuntime } from "../platform/runtime";
   import { createIndexedDbStore } from "../storage/indexeddb";
@@ -42,6 +44,77 @@
   let mainEl = $state<HTMLElement | null>(null);
   let rollBusy = false;
   let commitBusy = false;
+  let diceRolling = $state(false);
+  let dicePreview = $state<number[]>([]);
+  let motionFrame = 0;
+  let motionTimer = 0;
+
+  const ROLL_MS = 750;
+  const FRAME_MS = 70;
+
+  function reducedMotionNow(): boolean {
+    return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function readStoredPrefs(): StoredDicePrefs {
+    try {
+      return parseStoredPrefs(localStorage.getItem(DICE_PREFS_KEY));
+    } catch {
+      return {};
+    }
+  }
+
+  const initialStored = readStoredPrefs();
+  let storedPrefs = $state(initialStored);
+  let prefs = $state(resolveDicePrefs(initialStored, reducedMotionNow()));
+  let soundNote = $state("");
+
+  function savePref(key: "anim" | "sound", value: boolean): void {
+    prefs = { ...prefs, [key]: value };
+    storedPrefs = withPref(storedPrefs, key, value);
+    try {
+      localStorage.setItem(DICE_PREFS_KEY, JSON.stringify(storedPrefs));
+    } catch {
+      // The roll still works if this browser will not store settings.
+    }
+    if (key === "sound" && !value) stopDiceSound();
+  }
+
+  function clearMotion(): void {
+    window.clearInterval(motionFrame);
+    window.clearTimeout(motionTimer);
+    motionFrame = 0;
+    motionTimer = 0;
+    diceRolling = false;
+    dicePreview = [];
+  }
+
+  function playRollSound(): void {
+    if (!prefs.sound) return;
+    soundNote = "";
+    playDiceSound().catch(() => {
+      soundNote = "Sound unavailable in this browser.";
+    });
+  }
+
+  function startRoll(faces: number[], commit: () => void): void {
+    clearMotion();
+    playRollSound();
+    if (!prefs.anim) {
+      commit();
+      return;
+    }
+    diceRolling = true;
+    const flicker = () => {
+      dicePreview = Array.from({ length: faces.length }, () => 1 + Math.floor(Math.random() * 6));
+    };
+    flicker();
+    motionFrame = window.setInterval(flicker, FRAME_MS);
+    motionTimer = window.setTimeout(() => {
+      clearMotion();
+      commit();
+    }, ROLL_MS);
+  }
 
   const section = $derived(currentSection(demoBook, session));
   const mentionedTicks = $derived(
@@ -159,6 +232,11 @@
     };
   });
 
+  onDestroy(() => {
+    clearMotion();
+    stopDiceSound();
+  });
+
   $effect(() => {
     if (!ready) return;
     const record: SaveRecord = {
@@ -228,6 +306,7 @@
   }
 
   function onChoose(choiceId: string): void {
+    clearMotion();
     arrival = null;
     pendingTest = null;
     panelOpen = false;
@@ -235,7 +314,7 @@
   }
 
   function onRollTest(faces?: number[]): void {
-    if (!canStartRoll(pendingTest !== null, rollBusy)) return;
+    if (diceRolling || !canStartRoll(pendingTest !== null, rollBusy)) return;
     const test = section.test;
     if (!test) return;
     rollBusy = true;
@@ -243,17 +322,23 @@
       const next = rollTest(plainSession(), demoBook, demoSystem, Math.random, faces);
       const roll = lastRoll(next, test.id);
       if (!roll) return;
-      pendingTest = { sectionId: session.state.sectionId, next, roll };
+      const sectionId = session.state.sectionId;
+      startRoll(roll.faces, () => {
+        pendingTest = { sectionId, next, roll };
+      });
     } finally {
       rollBusy = false;
     }
   }
 
   function onRollCombat(): void {
-    if (arrival) return;
+    if (diceRolling || arrival) return;
     const next = rollCombatRound(plainSession(), demoBook, demoSystem, Math.random);
-    if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
-    else session = next;
+    const roll = next.state.rolls[next.state.rolls.length - 1];
+    startRoll(roll?.faces ?? [], () => {
+      if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
+      else session = next;
+    });
   }
 
   function onArriveTest(): void {
@@ -280,6 +365,7 @@
   }
 
   function onUndo(): void {
+    clearMotion();
     arrival = null;
     pendingTest = null;
     panelOpen = false;
@@ -287,6 +373,7 @@
   }
 
   function onNewGame(): void {
+    clearMotion();
     arrival = null;
     pendingTest = null;
     panelOpen = false;
@@ -375,6 +462,8 @@
               adjustment={testAdjustment}
               {ready}
               roll={heldRoll}
+              rolling={diceRolling}
+              previewFaces={dicePreview}
               destination={destinationTitle}
               onRoll={onRollTest}
               onArrive={onArriveTest}
@@ -389,6 +478,8 @@
               round={(session.state.pending?.round ?? 0) + 1}
               rounds={section.combat.rounds}
               rolls={combatRolls}
+              rolling={diceRolling}
+              previewFaces={dicePreview}
               vitality={combatVitality.current}
               vitalityMax={combatVitality.max}
               {ready}
@@ -413,6 +504,33 @@
       <Rules />
     {:else if view === "test"}
       <h1>Test &amp; fight</h1>
+      <div class="toggles" role="group" aria-label="Dice settings" data-testid="dice-settings">
+        <label>
+          <input
+            type="checkbox"
+            data-testid="dice-anim"
+            checked={prefs.anim}
+            onchange={(event) => savePref("anim", event.currentTarget.checked)}
+          />
+          Animate rolls
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="dice-sound"
+            checked={prefs.sound}
+            onchange={(event) => savePref("sound", event.currentTarget.checked)}
+          />
+          Rolling sound
+        </label>
+        <span class="note" data-testid="dice-credit">
+          Sound: “Wooden dice on wooden table roll” by Wuzzy,
+          <a href="https://opengameart.org/content/wooden-dice-on-wodden-table-roll">OpenGameArt</a>, CC0 (trimmed).
+        </span>
+        {#if soundNote}
+          <span class="note" data-testid="dice-sound-note">{soundNote}</span>
+        {/if}
+      </div>
       <div data-testid="test-view">
         {#if section.test}
           <SkillTest
@@ -422,8 +540,10 @@
             formula={testFormula}
             adjustment={testAdjustment}
             {ready}
-            roll={heldRoll}
-            destination={destinationTitle}
+        roll={heldRoll}
+        rolling={diceRolling}
+        previewFaces={dicePreview}
+        destination={destinationTitle}
             onRoll={onRollTest}
             onArrive={onArriveTest}
             onClose={closePanel}
@@ -436,6 +556,8 @@
             round={(session.state.pending?.round ?? 0) + 1}
             rounds={section.combat.rounds}
             rolls={combatRolls}
+            rolling={diceRolling}
+            previewFaces={dicePreview}
             vitality={combatVitality.current}
             vitalityMax={combatVitality.max}
             {ready}
