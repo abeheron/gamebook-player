@@ -120,6 +120,61 @@ input {
   cursor: default;
 }
 
+.log-tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.log-tools input[type="search"] {
+  flex: 1 1 20rem;
+  min-width: min(100%, 20rem);
+  max-width: 28rem;
+  font: 15px var(--sans);
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.seg button {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 8px 14px;
+  font: 14px var(--sans);
+  cursor: pointer;
+}
+
+.seg button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.log-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.log-list li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
 .side .foot {
   margin-top: auto;
   padding: 8px;

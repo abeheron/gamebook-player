@@ -52,6 +52,7 @@
     </ul>
   {/if}
   {#if !brief}
+    <p class="note" data-testid="sheet-missing">This book does not define skills, titles, or money.</p>
     <p class="attribution">{system.attribution}</p>
   {/if}
 </div>
