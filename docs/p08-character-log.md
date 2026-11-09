@@ -10,7 +10,7 @@ Keywords & ticks opens a log of those same records. The search box matches the n
 
 Back and Esc return to the previous screen and its scroll. They do not call undo. Esc on the compact skill-test panel still closes that panel first. Esc from the full test screen still returns to the panel. Esc from the log search returns to the previous screen.
 
-Test & fight, Library, and Rules stay marked not in this build.
+Test & fight and Library stay marked not in this build. Rules opens in a later change. See [the rules summary](p12-rules.md).
 
 ## Skills, gold, and saves
 

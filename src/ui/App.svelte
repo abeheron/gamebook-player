@@ -15,11 +15,12 @@
   import Combat from "./Combat.svelte";
   import Reader from "./Reader.svelte";
   import Log from "./Log.svelte";
+  import Rules from "./Rules.svelte";
   import Sheet from "./Sheet.svelte";
   import SkillTest from "./SkillTest.svelte";
   import { blockedBecause, rollFormula, sectionTitle, skillClause, statLabel, ticksOnSection } from "./wording";
 
-  type ViewName = "read" | "sheet" | "test" | "log";
+  type ViewName = "read" | "sheet" | "test" | "log" | "rules";
   type ViewMark = { view: ViewName; scroll: number };
   type Arrival = { kind: "combat"; session: Session };
   type PendingTest = { sectionId: string; next: Session; roll: RollRecord };
@@ -294,13 +295,20 @@
     const rolls = rollsFor(source, id);
     return rolls[rolls.length - 1] ?? null;
   }
+
+  function screenName(name: ViewName): string {
+    if (name === "sheet") return "character";
+    if (name === "log") return "keywords and ticks";
+    if (name === "rules") return "rules";
+    return "reading";
+  }
 </script>
 
 <div class="app">
   <nav class="side" aria-label="Screens" data-testid="side-nav">
     <p class="brand">Gamebook Player<small>sample reader</small></p>
     <p class="book-tag" data-testid="book-title">{demoBook.title}</p>
-    <button type="button" data-testid="side-read" aria-current={view === "sheet" || view === "log" ? undefined : "page"} onclick={() => show("read")}>
+    <button type="button" data-testid="side-read" aria-current={view === "sheet" || view === "log" || view === "rules" ? undefined : "page"} onclick={() => show("read")}>
       Read
     </button>
     <button type="button" data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
@@ -317,9 +325,8 @@
       Library
       <span class="nav-note">Not in this build</span>
     </button>
-    <button type="button" data-testid="side-rules" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+    <button type="button" data-testid="side-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
       Rules
-      <span class="nav-note">Not in this build</span>
     </button>
     <div class="foot">
       <p>Back returns to the previous screen and keeps its scroll. It does not rewind the story.</p>
@@ -333,7 +340,7 @@
         {@const previous = history[history.length - 1]}
         {#if previous}
           <button type="button" class="back" data-testid="view-back" onclick={backView}>
-            ← Back to {previous.view === "sheet" ? "character" : previous.view === "log" ? "keywords and ticks" : "reading"}
+            ← Back to {screenName(previous.view)}
           </button>
         {/if}
       {/if}
@@ -393,6 +400,8 @@
       </div>
     {:else if view === "log"}
       <Log game={session.state} />
+    {:else if view === "rules"}
+      <Rules />
     {:else if view === "test" && section.test}
       <SkillTest
         compact={false}
@@ -418,7 +427,7 @@
   </main>
 </div>
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
-  <button type="button" data-testid="mobile-read" aria-current={view === "sheet" || view === "log" ? undefined : "page"} onclick={() => show("read")}>
+  <button type="button" data-testid="mobile-read" aria-current={view === "sheet" || view === "log" || view === "rules" ? undefined : "page"} onclick={() => show("read")}>
     Read
   </button>
   <button type="button" data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
@@ -433,7 +442,7 @@
   <button type="button" data-testid="mobile-library" aria-disabled="true" aria-label="Library, not in this build" onclick={(event) => event.preventDefault()}>
     Library
   </button>
-  <button type="button" data-testid="mobile-rules" aria-disabled="true" aria-label="Rules, not in this build" onclick={(event) => event.preventDefault()}>
+  <button type="button" data-testid="mobile-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
     Rules
   </button>
 </nav>

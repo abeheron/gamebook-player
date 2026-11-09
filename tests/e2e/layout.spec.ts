@@ -15,7 +15,7 @@ test("uses the parchment shell and only opens screens the app has", async ({ pag
     "Test & fight Not in this build",
     "Keywords & ticks",
     "Library Not in this build",
-    "Rules Not in this build",
+    "Rules",
   ]);
   await expect(page.getByTestId("side-read")).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("sheet-stat-talent")).toHaveText("9");
