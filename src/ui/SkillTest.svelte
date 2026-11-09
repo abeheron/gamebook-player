@@ -7,6 +7,7 @@
     label,
     dice,
     formula,
+    adjustment,
     ready,
     roll,
     destination,
@@ -19,6 +20,7 @@
     label: string;
     dice: string;
     formula: string;
+    adjustment: string;
     ready: boolean;
     roll: RollRecord | null;
     destination: string;
@@ -46,7 +48,7 @@
       {/each}
     </div>
     <p class="result {roll.success ? "ok" : "bad"}" data-testid="test-result" role="status" aria-live="polite">
-      {roll.faces.join(" + ")} = {roll.total}. {roll.success ? "Pass." : "Fail."}
+      {roll.faces.join(" + ")} = {roll.total}.{adjustment ? ` ${adjustment}.` : ""} {roll.success ? "Pass." : "Fail."}
     </p>
     <button type="button" class="btn" data-testid="destination-go" disabled={!ready} onclick={onArrive}>
       {roll.success ? "Pass" : "Fail"} → {destination}

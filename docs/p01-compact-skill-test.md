@@ -8,7 +8,7 @@ Source for the interaction: the specification section "Approved interaction: com
 
 The v0.5 HTML mock is a visual reference only. It is not in this repository. The archived v0.4 snapshot under [design reference](design-reference/PRESERVATION.md) was not edited, and its checksum files were not changed.
 
-The book on screen is still The Lantern Stair. The test is "Study the mark" on section 3. No prototype section numbers or modifiers were copied.
+The book on screen is still The Lantern Stair. The test is "Study the mark" on section 3. It names Linguistics, so the panel shows that skill's +2. A test that names no skill still shows the plain target. No prototype section numbers were copied.
 
 ## What the app does
 

@@ -3,6 +3,10 @@
   import TickBox from "./TickBox.svelte";
 
   let { system, state, brief = false }: { system: SystemDef; state: GameState; brief?: boolean } = $props();
+
+  function skillLabel(id: string): string {
+    return system.skills.find((skill) => skill.id === id)?.label ?? id;
+  }
 </script>
 
 <div class="sheet card" data-testid="sheet">
@@ -18,6 +22,18 @@
       </div>
     {/each}
   </div>
+  <h2>Skills</h2>
+  {#if state.skills.length === 0}
+    <p>None.</p>
+  {:else}
+    <ul class="plain">
+      {#each state.skills as skill (skill.id)}
+        <li data-testid="sheet-skill-{skill.id}">{skillLabel(skill.id)} +{skill.bonus}</li>
+      {/each}
+    </ul>
+  {/if}
+  <h2>Coin pouch</h2>
+  <p data-testid="sheet-gold">{state.gold} gp</p>
   <h2>Items</h2>
   {#if state.items.length === 0}
     <p>None.</p>
@@ -52,6 +68,8 @@
     </ul>
   {/if}
   {#if !brief}
+    <p class="note" data-testid="sheet-skills-note">The two basic skills on this character are a sample choice.</p>
+    <p class="note" data-testid="sheet-missing">This book does not define titles.</p>
     <p class="attribution">{system.attribution}</p>
   {/if}
 </div>

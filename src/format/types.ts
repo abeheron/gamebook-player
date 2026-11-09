@@ -8,12 +8,31 @@ export interface StatDef {
   max: number;
 }
 
+export interface SkillDef {
+  id: string;
+  label: string;
+}
+
+/** A skill the character has. Basic skills use `basicSkillBonus`. An advanced skill stores a higher bonus. */
+export interface SkillRank {
+  id: string;
+  bonus: number;
+}
+
 /** Incomplete GNAT-shaped configuration. Not the full GNAT rules. */
 export interface SystemDef {
   id: string;
   name: string;
   attribution: string;
   stats: StatDef[];
+  skills: SkillDef[];
+  /** Added to the target when a test names a basic skill the character has. */
+  basicSkillBonus: number;
+  /** Added to the target when a test names a skill the character does not have. */
+  absentSkillPenalty: number;
+  startingSkills: SkillRank[];
+  startingGold: number;
+  startingItems: NamedValue[];
 }
 
 export type Effect =
@@ -51,6 +70,8 @@ export interface TestDef {
   dice: string;
   stat: string;
   modifier?: number;
+  /** When set, the character's bonus for this skill, or the absent-skill penalty, adjusts the target before the roll is judged. */
+  skill?: string;
   success: TestBranch;
   failure: TestBranch;
 }
@@ -116,6 +137,9 @@ export interface PendingCombat {
 export interface GameState {
   sectionId: string;
   stats: Record<string, number>;
+  skills: SkillRank[];
+  /** Coin pouch. The rules give it no capacity. */
+  gold: number;
   items: NamedValue[];
   keywords: NamedValue[];
   ticks: Record<string, TickMark>;

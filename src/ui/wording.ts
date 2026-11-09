@@ -1,15 +1,29 @@
 import type { Condition, Section, SystemDef } from "../format/types";
 
-/** Sample-facing words. These describe this book's data, not the GNAT rules. */
+/** Words for the values on the loaded book and system. */
 
 export function statLabel(system: SystemDef, statId: string): string {
   return system.stats.find((stat) => stat.id === statId)?.label ?? statId;
 }
 
-export function rollFormula(dice: string, statLabelText: string, statValue: number, modifier = 0): string {
-  if (modifier === 0) return `${dice} ≤ ${statLabelText} ${statValue}`;
-  const signed = modifier > 0 ? `+ ${modifier}` : `− ${Math.abs(modifier)}`;
-  return `${dice} ≤ ${statLabelText} ${statValue} ${signed} = ${statValue + modifier}`;
+export function skillClause(label: string, bonus: number): string {
+  const signed = bonus > 0 ? `+${bonus}` : bonus < 0 ? `−${Math.abs(bonus)}` : "0";
+  return `${label} ${signed}`;
+}
+
+export function rollFormula(
+  dice: string,
+  statLabelText: string,
+  statValue: number,
+  modifier = 0,
+  skill?: { label: string; bonus: number },
+): string {
+  const adjustments: string[] = [];
+  if (modifier !== 0) adjustments.push(modifier > 0 ? `+ ${modifier}` : `− ${Math.abs(modifier)}`);
+  if (skill) adjustments.push(skill.bonus > 0 ? `+ ${skill.bonus} ${skill.label}` : `− ${Math.abs(skill.bonus)} ${skill.label}`);
+  if (adjustments.length === 0) return `${dice} ≤ ${statLabelText} ${statValue}`;
+  const total = statValue + modifier + (skill?.bonus ?? 0);
+  return `${dice} ≤ ${statLabelText} ${statValue} ${adjustments.join(" ")} = ${total}`;
 }
 
 export function sectionTitle(sections: readonly Section[], sectionId: string): string {

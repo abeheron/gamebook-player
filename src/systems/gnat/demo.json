@@ -1,10 +1,30 @@
 {
   "id": "gnat-demo",
   "name": "GNAT demo",
-  "attribution": "Talent, Vitality, and Fortune are stat names from the GNAT core rules by David M. Donachie, licensed CC BY-SA 4.0. This configuration is an original incomplete sample. Its numbers and maxima are not those rules.",
+  "attribution": "Talent, Vitality, Fortune, the ten skill names, a possessed basic skill's +2, an absent skill's -2, a start of two basic skills, 10gp and one ration, and an unlimited coin pouch are from the GNAT core rules by David M. Donachie, CC BY-SA 4.0. Climbing and Linguistics on this character are a sample choice, not a rule. Stat maxima in this file are sample bounds. Fortune is not spent here.",
   "stats": [
     { "id": "talent", "label": "Talent", "initial": 9, "min": 1, "max": 12 },
     { "id": "vitality", "label": "Vitality", "initial": 3, "min": 0, "max": 3 },
     { "id": "fortune", "label": "Fortune", "initial": 3, "min": 0, "max": 3 }
-  ]
+  ],
+  "skills": [
+    { "id": "climbing", "label": "Climbing" },
+    { "id": "diplomacy", "label": "Diplomacy" },
+    { "id": "larceny", "label": "Larceny" },
+    { "id": "linguistics", "label": "Linguistics" },
+    { "id": "naturalist", "label": "Naturalist" },
+    { "id": "occult", "label": "Occult" },
+    { "id": "search", "label": "Search" },
+    { "id": "stealth", "label": "Stealth" },
+    { "id": "swimming", "label": "Swimming" },
+    { "id": "tracking", "label": "Tracking" }
+  ],
+  "basicSkillBonus": 2,
+  "absentSkillPenalty": -2,
+  "startingSkills": [
+    { "id": "climbing", "bonus": 2 },
+    { "id": "linguistics", "bonus": 2 }
+  ],
+  "startingGold": 10,
+  "startingItems": [{ "id": "ration", "label": "Ration" }]
 }

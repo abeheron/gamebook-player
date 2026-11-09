@@ -13,7 +13,7 @@ test("uses the parchment shell and only opens screens the app has", async ({ pag
     "Read",
     "Character",
     "Test & fight Not in this build",
-    "Keywords & ticks Not in this build",
+    "Keywords & ticks",
     "Library Not in this build",
     "Rules Not in this build",
   ]);

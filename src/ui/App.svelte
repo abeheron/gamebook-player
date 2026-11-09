@@ -5,18 +5,21 @@
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
   import { choose, currentSection, rollCombatRound, rollTest, startSession, undo } from "../engine/rules";
+  import { skillAdjustment } from "../engine/skills";
   import { canStartRoll, settledDestination } from "./skill-test";
   import { detectRuntime } from "../platform/runtime";
   import { createIndexedDbStore } from "../storage/indexeddb";
-  import type { SaveRecord } from "../storage/types";
+  import { migrateSave } from "../storage/migrate";
+  import { SAVE_VERSION, type SaveRecord } from "../storage/types";
   import Choices from "./Choices.svelte";
   import Combat from "./Combat.svelte";
   import Reader from "./Reader.svelte";
+  import Log from "./Log.svelte";
   import Sheet from "./Sheet.svelte";
   import SkillTest from "./SkillTest.svelte";
-  import { blockedBecause, rollFormula, sectionTitle, statLabel, ticksOnSection } from "./wording";
+  import { blockedBecause, rollFormula, sectionTitle, skillClause, statLabel, ticksOnSection } from "./wording";
 
-  type ViewName = "read" | "sheet" | "test";
+  type ViewName = "read" | "sheet" | "test" | "log";
   type ViewMark = { view: ViewName; scroll: number };
   type Arrival = { kind: "combat"; session: Session };
   type PendingTest = { sectionId: string; next: Session; roll: RollRecord };
@@ -56,12 +59,25 @@
       };
     }),
   );
+  const testSkill = $derived.by(() => {
+    const test = section.test;
+    if (!test?.skill) return null;
+    const label = demoSystem.skills.find((skill) => skill.id === test.skill)?.label ?? test.skill;
+    return { label, bonus: skillAdjustment(demoSystem, session.state.skills, test.skill) };
+  });
   const testFormula = $derived.by(() => {
     const test = section.test;
     if (!test) return "";
     const value = session.state.stats[test.stat];
-    return rollFormula(test.dice, statLabel(demoSystem, test.stat), value ?? 0, test.modifier ?? 0);
+    return rollFormula(
+      test.dice,
+      statLabel(demoSystem, test.stat),
+      value ?? 0,
+      test.modifier ?? 0,
+      testSkill ?? undefined,
+    );
   });
+  const testAdjustment = $derived(testSkill ? skillClause(testSkill.label, testSkill.bonus) : "");
   const combatFormula = $derived.by(() => {
     const combat = section.combat;
     if (!combat) return "";
@@ -94,7 +110,8 @@
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+      const leavingSearch = target instanceof HTMLInputElement && target.dataset.navEsc === "back";
+      if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && !leavingSearch) return;
       if (view === "test") {
         event.preventDefault();
         backView();
@@ -114,8 +131,9 @@
       try {
         const record = await store.load(SLOT);
         if (ignore) return;
-        if (record?.version === 1 && canRestore(record.session, demoBook, demoSystem)) {
-          session = record.session;
+        const migrated = migrateSave(record, demoSystem);
+        if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
+          session = migrated.session;
           saveStatus = "Restored on this device";
         } else {
           saveStatus = "New game";
@@ -136,7 +154,7 @@
   $effect(() => {
     if (!ready) return;
     const record: SaveRecord = {
-      version: 1,
+      version: SAVE_VERSION,
       savedAt: new Date().toISOString(),
       session: $state.snapshot(session),
     };
@@ -282,7 +300,7 @@
   <nav class="side" aria-label="Screens" data-testid="side-nav">
     <p class="brand">Gamebook Player<small>sample reader</small></p>
     <p class="book-tag" data-testid="book-title">{demoBook.title}</p>
-    <button type="button" data-testid="side-read" aria-current={view === "sheet" ? undefined : "page"} onclick={() => show("read")}>
+    <button type="button" data-testid="side-read" aria-current={view === "sheet" || view === "log" ? undefined : "page"} onclick={() => show("read")}>
       Read
     </button>
     <button type="button" data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
@@ -292,9 +310,8 @@
       Test &amp; fight
       <span class="nav-note">Not in this build</span>
     </button>
-    <button type="button" data-testid="side-keywords" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+    <button type="button" data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
       Keywords &amp; ticks
-      <span class="nav-note">Not in this build</span>
     </button>
     <button type="button" data-testid="side-library" aria-disabled="true" onclick={(event) => event.preventDefault()}>
       Library
@@ -316,7 +333,7 @@
         {@const previous = history[history.length - 1]}
         {#if previous}
           <button type="button" class="back" data-testid="view-back" onclick={backView}>
-            ← Back to {previous.view === "sheet" ? "character" : "reading"}
+            ← Back to {previous.view === "sheet" ? "character" : previous.view === "log" ? "keywords and ticks" : "reading"}
           </button>
         {/if}
       {/if}
@@ -341,6 +358,7 @@
               label={section.test.label}
               dice={section.test.dice}
               formula={testFormula}
+              adjustment={testAdjustment}
               {ready}
               roll={heldRoll}
               destination={destinationTitle}
@@ -373,12 +391,15 @@
           <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
         </aside>
       </div>
+    {:else if view === "log"}
+      <Log game={session.state} />
     {:else if view === "test" && section.test}
       <SkillTest
         compact={false}
         label={section.test.label}
         dice={section.test.dice}
         formula={testFormula}
+        adjustment={testAdjustment}
         {ready}
         roll={heldRoll}
         destination={destinationTitle}
@@ -388,7 +409,7 @@
         onFull={openFullTest}
       />
     {:else}
-      <h1>Adventure sheet</h1>
+      <h1>Character</h1>
       <div data-testid="sheet-view">
         <Sheet system={demoSystem} state={session.state} />
       </div>
@@ -397,7 +418,7 @@
   </main>
 </div>
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
-  <button type="button" data-testid="mobile-read" aria-current={view === "sheet" ? undefined : "page"} onclick={() => show("read")}>
+  <button type="button" data-testid="mobile-read" aria-current={view === "sheet" || view === "log" ? undefined : "page"} onclick={() => show("read")}>
     Read
   </button>
   <button type="button" data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
@@ -406,7 +427,7 @@
   <button type="button" data-testid="mobile-test" aria-disabled="true" aria-label="Test and fight, not in this build" onclick={(event) => event.preventDefault()}>
     Test &amp; fight
   </button>
-  <button type="button" data-testid="mobile-keywords" aria-disabled="true" aria-label="Keywords and ticks, not in this build" onclick={(event) => event.preventDefault()}>
+  <button type="button" data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
     Keywords &amp; ticks
   </button>
   <button type="button" data-testid="mobile-library" aria-disabled="true" aria-label="Library, not in this build" onclick={(event) => event.preventDefault()}>
