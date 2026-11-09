@@ -10,7 +10,7 @@ The approved reading screen is parchment: paper `#f6f1e7`, panels `#fffdf8`, ink
 
 ## Navigation
 
-A later change opens Keywords and ticks. See [the character and log note](p08-character-log.md). The table below is what this layout change itself opened.
+A later change opens Keywords and ticks. See [the character and log note](p08-character-log.md). A later change opens Test and fight. See [the test and fight note](p09-test-and-fight.md). The table below is what this layout change itself opened.
 
 Desktop order, then the same order in the bottom bar under 860px:
 

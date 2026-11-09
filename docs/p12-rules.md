@@ -8,7 +8,7 @@ The summary is data in `src/ui/rules-summary.ts`. The groups are Stats, Skills, 
 
 Lines this build already plays have no extra mark: the three starting stats, the ten skill names, +2 or −2 on a named test, roll-under Talent, and items plus a gold amount. Every other line says "Not yet in this app". Fortune, combat, and XP are entirely in that set. Back and Esc return to the previous screen and its scroll.
 
-Test & fight and Library stay marked not in this build. The engine and the save format are unchanged.
+Library stays marked not in this build. Test and fight opens in a later change. See [the test and fight note](p09-test-and-fight.md). The engine and the save format are unchanged.
 
 ## Pages used
 

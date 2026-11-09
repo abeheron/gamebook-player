@@ -25,6 +25,11 @@
           "label": "Climb in the dark",
           "to": "5",
           "effects": [{ "op": "adjustStat", "stat": "vitality", "by": -1 }]
+        },
+        {
+          "id": "face-the-moth",
+          "label": "Stand and face the pale moth",
+          "to": "10"
         }
       ]
     },
@@ -178,6 +183,24 @@
           "to": "5",
           "effects": [{ "op": "adjustStat", "stat": "vitality", "by": -1 }]
         }
+      }
+    },
+    {
+      "id": "10",
+      "title": "The pale moth",
+      "body": [
+        "A pale moth drops from the brick and stays in front of your face. It does not leave until you have stood through two breaths."
+      ],
+      "combat": {
+        "id": "pale-moth",
+        "label": "Pale moth",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "modifier": -1,
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "defeatSection": "8",
+        "then": "7"
       }
     }
   ]

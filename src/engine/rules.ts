@@ -1,4 +1,4 @@
-import { rollDice, parseDice, type Rng } from "./dice";
+import { rollDice, rollFaces, parseDice, type Rng } from "./dice";
 import { skillAdjustment } from "./skills";
 import { applyEffects, cloneState, conditionHolds, initialSession, recordRoll } from "./state";
 import { sectionMap } from "../format/validate";
@@ -45,16 +45,17 @@ export function choose(session: Session, book: Book, system: SystemDef, choiceId
   return commit(session, state);
 }
 
-export function rollTest(session: Session, book: Book, system: SystemDef, rng: Rng): Session {
+export function rollTest(session: Session, book: Book, system: SystemDef, rng: Rng, faces?: readonly number[]): Session {
   const section = requireSection(book, session.state.sectionId);
   const test = section.test;
   if (!test) throw new Error("This section has no test.");
   if (session.state.pending) throw new Error("Finish the current combat before rolling.");
   const stat = session.state.stats[test.stat];
   if (stat === undefined) throw new Error(`Missing stat ${test.stat}`);
+  const parsed = parseDice(test.dice);
   const adjustment = skillAdjustment(system, session.state.skills, test.skill);
   const target = stat + (test.modifier ?? 0) + adjustment;
-  const rolled = rollDice(parseDice(test.dice), rng);
+  const rolled = faces ? rollFaces(parsed, faces) : rollDice(parsed, rng);
   const success = rolled.total <= target;
   const branch = success ? test.success : test.failure;
   const roll: RollRecord = {
@@ -72,6 +73,7 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
   return commit(session, state);
 }
 
+/** One fight round: Talent test at the passage penalty. A miss is one Wound. Vitality at the defeat line ends the fight; otherwise it is won by finishing the rounds. */
 export function rollCombatRound(session: Session, book: Book, system: SystemDef, rng: Rng): Session {
   const section = requireSection(book, session.state.sectionId);
   const combat = section.combat;

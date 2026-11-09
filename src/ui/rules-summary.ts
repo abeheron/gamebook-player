@@ -101,10 +101,15 @@ export const rulesSummary: readonly RuleSection[] = [
       {
         text: "A Wound reduces Vitality by one. Vitality at zero ends the adventure, unless that passage says otherwise.",
         page: "p. 8",
-        status: "not-yet",
+        status: "in-app",
       },
       {
-        text: "Each fight round is a Talent test at the stated penalty. A failed round is one Wound. A fumble adds one Wound only when that round already causes one. Finish the rounds and survive to win.",
+        text: "Each fight round is a Talent test at the stated penalty. A failed round is one Wound. Finish the rounds and still be standing to win.",
+        page: "p. 10",
+        status: "in-app",
+      },
+      {
+        text: "A fumble adds one Wound only when that round already causes one.",
         page: "p. 10",
         status: "not-yet",
       },

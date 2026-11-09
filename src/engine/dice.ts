@@ -49,6 +49,21 @@ export function rollDice(expression: DiceExpression, rng: Rng): DiceRoll {
   for (let index = 0; index < expression.count; index += 1) {
     faces.push(rollDie(expression.sides, rng));
   }
+  return totalOf(expression, faces);
+}
+
+/** Uses the entered faces as the roll. Rejects a face the die cannot show. */
+export function rollFaces(expression: DiceExpression, faces: readonly number[]): DiceRoll {
+  if (faces.length !== expression.count) throw new Error("Enter one number for each die.");
+  for (const face of faces) {
+    if (!Number.isInteger(face) || face < 1 || face > expression.sides) {
+      throw new Error("Each die must be a whole number the die can show.");
+    }
+  }
+  return totalOf(expression, faces);
+}
+
+function totalOf(expression: DiceExpression, faces: readonly number[]): DiceRoll {
   const total = faces.reduce((sum, face) => sum + face, expression.modifier);
-  return { faces, total };
+  return { faces: [...faces], total };
 }

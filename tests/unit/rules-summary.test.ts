@@ -23,10 +23,13 @@ describe("rules summary", () => {
         expect(line.text).not.toMatch(/Temple|Skull God/);
       }
     }
-    for (const id of ["fortune", "combat", "xp"]) {
+    for (const id of ["fortune", "xp"]) {
       const section = rulesSummary.find((entry) => entry.id === id);
       expect(section?.lines.every((line) => line.status === "not-yet")).toBe(true);
     }
+    const combat = rulesSummary.find((section) => section.id === "combat");
+    expect(combat?.lines.filter((line) => line.status === "in-app").map((line) => line.page)).toEqual(["p. 8", "p. 10"]);
+    expect(combat?.lines.some((line) => line.text.startsWith("A fumble") && line.status === "not-yet")).toBe(true);
   });
 
   it("lists the ten skills and the basic bonus as rules this build uses", () => {

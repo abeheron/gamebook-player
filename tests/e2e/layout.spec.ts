@@ -12,7 +12,7 @@ test("uses the parchment shell and only opens screens the app has", async ({ pag
   expect(labels.map((label) => label.replace(/\s+/g, " ").trim())).toEqual([
     "Read",
     "Character",
-    "Test & fight Not in this build",
+    "Test & fight",
     "Keywords & ticks",
     "Library Not in this build",
     "Rules",

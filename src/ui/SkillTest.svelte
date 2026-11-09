@@ -24,11 +24,38 @@
     ready: boolean;
     roll: RollRecord | null;
     destination: string;
-    onRoll: () => void;
+    onRoll: (faces?: number[]) => void;
     onArrive: () => void;
     onClose: () => void;
     onFull: () => void;
   } = $props();
+
+  let manual = $state(false);
+  let manualError = $state("");
+  let entries = $state<string[]>([]);
+
+  const dieCount = $derived(Number.parseInt(dice, 10) || 0);
+
+  function setEntry(index: number, value: string): void {
+    const next = entries.slice(0, dieCount);
+    while (next.length < dieCount) next.push("");
+    next[index] = value;
+    entries = next;
+  }
+
+  function useDice(): void {
+    if (compact || !manual) {
+      onRoll();
+      return;
+    }
+    const faces = Array.from({ length: dieCount }, (_, index) => Number(entries[index]));
+    if (faces.some((face) => !Number.isInteger(face) || face < 1 || face > 6)) {
+      manualError = "Each die must be a whole number from 1 to 6.";
+      return;
+    }
+    manualError = "";
+    onRoll(faces);
+  }
 </script>
 
 <section
@@ -54,8 +81,35 @@
       {roll.success ? "Pass" : "Fail"} → {destination}
     </button>
   {:else}
-    <button type="button" class="btn" data-testid="roll-test" disabled={!ready} onclick={onRoll}>
-      Roll {dice}
+    {#if !compact}
+      <div class="seg" role="group" aria-label="Dice source">
+        <button type="button" aria-pressed={!manual} data-testid="dice-app" onclick={() => (manual = false)}>App dice</button>
+        <button type="button" aria-pressed={manual} data-testid="dice-manual" onclick={() => (manual = true)}>My dice</button>
+      </div>
+      {#if manual}
+        <div class="manual-dice" data-testid="manual-dice">
+          {#each Array.from({ length: dieCount }, (_, index) => index) as index (index)}
+            <label>
+              Die {index + 1}
+              <input
+                type="number"
+                min="1"
+                max="6"
+                inputmode="numeric"
+                data-testid="manual-die-{index + 1}"
+                value={entries[index] ?? ""}
+                oninput={(event) => setEntry(index, event.currentTarget.value)}
+              />
+            </label>
+          {/each}
+        </div>
+        {#if manualError}
+          <p class="error" data-testid="manual-error">{manualError}</p>
+        {/if}
+      {/if}
+    {/if}
+    <button type="button" class="btn" data-testid="roll-test" disabled={!ready} onclick={useDice}>
+      {manual && !compact ? "Use these dice" : `Roll ${dice}`}
     </button>
   {/if}
   <div class="test-actions">
