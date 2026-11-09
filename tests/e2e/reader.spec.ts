@@ -66,7 +66,7 @@ test("stacks the sheet on a phone and keeps Back off the story", async ({ page }
   await expect(page.getByTestId("side-nav")).toBeHidden();
   await expect(page.getByTestId("mobile-nav")).toBeVisible();
   await page.getByTestId("choice-take-lantern").click();
-  await page.getByTestId("mobile-sheet").click();
+  await page.getByTestId("mobile-character").click();
   await expect(page.getByTestId("sheet-view")).toBeVisible();
   await expect(page.getByTestId("sheet-item-lantern")).toBeVisible();
   await page.keyboard.press("Escape");

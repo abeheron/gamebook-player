@@ -16,23 +16,6 @@
   --mono: ui-monospace, "DejaVu Sans Mono", ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --paper: #17140f;
-    --panel: #211d17;
-    --ink: #ece4d6;
-    --muted: #b3a794;
-    --line: #3a332a;
-    --accent: #d9774f;
-    --accent-ink: #17140f;
-    --ok: #7fc08a;
-    --bad: #ef8a7a;
-    --chip: #2c261e;
-    --focus: #8db8ff;
-  }
-}
-
 * {
   box-sizing: border-box;
 }
@@ -120,10 +103,21 @@ input {
   background: var(--chip);
 }
 
-.side button[aria-current="page"],
-.mobilebar button[aria-current="page"] {
+.side button[aria-current="page"] {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+.nav-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.side button[aria-disabled="true"] {
+  cursor: default;
 }
 
 .side .foot {
@@ -536,7 +530,7 @@ h2 {
   }
 
   main {
-    padding: 18px 16px 120px;
+    padding: 18px 16px 168px;
   }
 
   .prose {
@@ -553,27 +547,32 @@ h2 {
 
   .mobilebar {
     display: flex;
+    flex-wrap: wrap;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     background: var(--panel);
     border-top: 1px solid var(--line);
-    justify-content: space-around;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   }
 
   .mobilebar button {
+    flex: 1 1 30%;
+    min-width: 0;
+    max-width: 100%;
     font-size: 11px;
+    line-height: 1.2;
     text-align: center;
-    padding: 6px 8px;
+    padding: 6px 4px;
     border-radius: 8px;
     color: var(--muted);
-    min-width: 56px;
+    white-space: normal;
   }
 
   .mobilebar button[aria-current="page"] {
-    color: var(--accent-ink);
+    background: transparent;
+    color: var(--accent);
     font-weight: 700;
   }
 }

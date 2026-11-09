@@ -7,7 +7,7 @@
 
 <div class="sheet card" data-testid="sheet">
   {#if brief}
-    <h2>Adventure sheet</h2>
+    <h2>Character</h2>
   {/if}
   <p class="note">Numbers and maxima are this sample's. Stat names are from GNAT. Fortune is not spent, and no re-roll cost is defined here.</p>
   <div class="statline">
