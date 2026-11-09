@@ -161,6 +161,29 @@ input {
   color: var(--paper);
 }
 
+.manual-dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin: 12px 0;
+}
+
+.manual-dice input {
+  width: 4.5rem;
+  margin-left: 6px;
+  font: inherit;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.test-panel .seg {
+  margin: 12px 0;
+}
+
 .log-list {
   list-style: none;
   padding-left: 0;

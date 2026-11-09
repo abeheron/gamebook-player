@@ -10,7 +10,7 @@ function editableBook(): Record<string, unknown> {
 describe("book validation", () => {
   it("accepts the original sample and the demo system", () => {
     expect(demoBook.id).toBe("lantern-stair");
-    expect(demoBook.sections).toHaveLength(9);
+    expect(demoBook.sections).toHaveLength(10);
     expect(demoSystem.stats.map((stat) => stat.id)).toEqual(["talent", "vitality", "fortune"]);
     expect(demoSystem.skills.map((skill) => skill.label)).toEqual([
       "Climbing",

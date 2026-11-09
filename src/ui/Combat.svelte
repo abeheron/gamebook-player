@@ -21,7 +21,7 @@
   <h2>{combat.label}</h2>
   <p class="formula" data-testid="combat-formula">{formula}</p>
   <p class="note">
-    Sample fight: {combat.rounds} rounds. A miss lowers {combat.wound.stat} by {combat.wound.amount}. This is not a full rules fight.
+    {combat.rounds} rounds at this passage's penalty. A miss is one Wound. Vitality at 0 ends the fight at the passage's defeat. Otherwise you win by finishing the rounds.
   </p>
   <div class="rounds" data-testid="combat-round" aria-label="Round {round} of {rounds}">
     {#each Array.from({ length: rounds }, (_, index) => index) as index (index)}
@@ -47,7 +47,7 @@
   {#if held}
     <div class="dest">
       <button type="button" class="btn" data-testid="fight-continue" disabled={!ready} onclick={onContinue}>
-        {defeated ? "Vitality is at the sample limit" : "Fight over"} → {continueTitle}
+        {defeated ? "Vitality is 0" : "Fight over"} → {continueTitle}
       </button>
       <p class="why">The round is saved when you continue. This does not undo earlier rounds.</p>
     </div>

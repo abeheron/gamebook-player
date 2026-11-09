@@ -227,13 +227,13 @@
     session = choose(plainSession(), demoBook, demoSystem, choiceId);
   }
 
-  function onRollTest(): void {
+  function onRollTest(faces?: number[]): void {
     if (!canStartRoll(pendingTest !== null, rollBusy)) return;
     const test = section.test;
     if (!test) return;
     rollBusy = true;
     try {
-      const next = rollTest(plainSession(), demoBook, demoSystem, Math.random);
+      const next = rollTest(plainSession(), demoBook, demoSystem, Math.random, faces);
       const roll = lastRoll(next, test.id);
       if (!roll) return;
       pendingTest = { sectionId: session.state.sectionId, next, roll };
@@ -300,6 +300,7 @@
     if (name === "sheet") return "character";
     if (name === "log") return "keywords and ticks";
     if (name === "rules") return "rules";
+    if (name === "test") return "test and fight";
     return "reading";
   }
 </script>
@@ -308,15 +309,14 @@
   <nav class="side" aria-label="Screens" data-testid="side-nav">
     <p class="brand">Gamebook Player<small>sample reader</small></p>
     <p class="book-tag" data-testid="book-title">{demoBook.title}</p>
-    <button type="button" data-testid="side-read" aria-current={view === "sheet" || view === "log" || view === "rules" ? undefined : "page"} onclick={() => show("read")}>
+    <button type="button" data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
       Read
     </button>
     <button type="button" data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
       Character
     </button>
-    <button type="button" data-testid="side-test" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+    <button type="button" data-testid="side-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
       Test &amp; fight
-      <span class="nav-note">Not in this build</span>
     </button>
     <button type="button" data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
       Keywords &amp; ticks
@@ -402,21 +402,42 @@
       <Log game={session.state} />
     {:else if view === "rules"}
       <Rules />
-    {:else if view === "test" && section.test}
-      <SkillTest
-        compact={false}
-        label={section.test.label}
-        dice={section.test.dice}
-        formula={testFormula}
-        adjustment={testAdjustment}
-        {ready}
-        roll={heldRoll}
-        destination={destinationTitle}
-        onRoll={onRollTest}
-        onArrive={onArriveTest}
-        onClose={closePanel}
-        onFull={openFullTest}
-      />
+    {:else if view === "test"}
+      <h1>Test &amp; fight</h1>
+      <div data-testid="test-view">
+        {#if section.test}
+          <SkillTest
+            compact={false}
+            label={section.test.label}
+            dice={section.test.dice}
+            formula={testFormula}
+            adjustment={testAdjustment}
+            {ready}
+            roll={heldRoll}
+            destination={destinationTitle}
+            onRoll={onRollTest}
+            onArrive={onArriveTest}
+            onClose={closePanel}
+            onFull={openFullTest}
+          />
+        {:else if section.combat}
+          <Combat
+            combat={section.combat}
+            formula={combatFormula}
+            round={(session.state.pending?.round ?? 0) + 1}
+            rounds={section.combat.rounds}
+            rolls={combatRolls}
+            {ready}
+            held={arrival?.kind === "combat"}
+            {continueTitle}
+            {defeated}
+            onRoll={onRollCombat}
+            onContinue={onArriveCombat}
+          />
+        {:else}
+          <p data-testid="test-empty">This section has no test or fight.</p>
+        {/if}
+      </div>
     {:else}
       <h1>Character</h1>
       <div data-testid="sheet-view">
@@ -427,13 +448,13 @@
   </main>
 </div>
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
-  <button type="button" data-testid="mobile-read" aria-current={view === "sheet" || view === "log" || view === "rules" ? undefined : "page"} onclick={() => show("read")}>
+  <button type="button" data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
     Read
   </button>
   <button type="button" data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
     Character
   </button>
-  <button type="button" data-testid="mobile-test" aria-disabled="true" aria-label="Test and fight, not in this build" onclick={(event) => event.preventDefault()}>
+  <button type="button" data-testid="mobile-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
     Test &amp; fight
   </button>
   <button type="button" data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
