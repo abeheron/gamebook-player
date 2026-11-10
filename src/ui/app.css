@@ -356,6 +356,17 @@ h2 {
   margin-top: 12px;
 }
 
+.summary-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.summary-actions .btn {
+  margin-top: 0;
+}
+
 .statline {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

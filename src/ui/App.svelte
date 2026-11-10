@@ -44,6 +44,7 @@
   let mainEl = $state<HTMLElement | null>(null);
   let rollBusy = false;
   let commitBusy = false;
+  let bookmarks = $state<string[]>([]);
   let diceRolling = $state(false);
   let dicePreview = $state<number[]>([]);
   let motionFrame = 0;
@@ -212,9 +213,10 @@
       try {
         const record = await store.load(SLOT);
         if (ignore) return;
-        const migrated = migrateSave(record, demoSystem);
+        const migrated = migrateSave(record, demoSystem, demoBook);
         if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
           session = migrated.session;
+          bookmarks = migrated.bookmarks;
           saveStatus = "Restored on this device";
         } else {
           saveStatus = "New game";
@@ -243,6 +245,7 @@
       version: SAVE_VERSION,
       savedAt: new Date().toISOString(),
       session: $state.snapshot(session),
+      bookmarks: $state.snapshot(bookmarks),
     };
     saveStatus = "Saving";
     writes = writes
@@ -378,6 +381,7 @@
     pendingTest = null;
     panelOpen = false;
     session = startSession(demoBook, demoSystem);
+    bookmarks = [];
     if (view === "test") {
       view = "read";
       history = [];
@@ -396,6 +400,18 @@
   function lastRoll(source: Session, id: string | undefined): RollRecord | null {
     const rolls = rollsFor(source, id);
     return rolls[rolls.length - 1] ?? null;
+  }
+
+  function toggleBookmark(): void {
+    const id = session.state.sectionId;
+    bookmarks = bookmarks.includes(id) ? bookmarks.filter((entry) => entry !== id) : [...bookmarks, id];
+  }
+
+  const bookmarked = $derived(bookmarks.includes(session.state.sectionId));
+
+  function autosaveLabel(status: string): string {
+    if (status === "Saved on this device" || status === "Restored on this device") return "Autosaved";
+    return status;
   }
 
   function screenName(name: ViewName): string {
@@ -503,7 +519,19 @@
         </div>
         <aside aria-label="Quick adventure sheet">
           <Sheet system={demoSystem} state={session.state} brief />
-          <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
+          <div class="summary-actions">
+            <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
+            <button
+              type="button"
+              class="btn ghost"
+              data-testid="bookmark"
+              aria-pressed={bookmarked}
+              onclick={toggleBookmark}
+            >
+              {bookmarked ? "★ Bookmarked" : "☆ Bookmark"}
+            </button>
+          </div>
+          <p class="note" data-testid="autosave">{autosaveLabel(saveStatus)}</p>
         </aside>
       </div>
     {:else if view === "log"}

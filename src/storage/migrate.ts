@@ -1,17 +1,35 @@
-import type { GameState, NamedValue, Session, SystemDef } from "../format/types";
+import type { Book, GameState, NamedValue, Session, SystemDef } from "../format/types";
 import { SAVE_VERSION, type SaveRecord } from "./types";
 
-/** Turns a version 1 save into version 2. A version 2 save is returned unchanged. */
-export function migrateSave(value: unknown, system: SystemDef): SaveRecord | null {
+/** Turns a version 1 or 2 save into version 3. A version 3 save is returned unchanged. */
+export function migrateSave(value: unknown, system: SystemDef, book: Book): SaveRecord | null {
   if (!isRecord(value) || typeof value.savedAt !== "string") return null;
   if (value.version === SAVE_VERSION) {
     if (!isSession(value.session)) return null;
-    return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session };
+    const bookmarks = parseBookmarks(value.bookmarks, book);
+    if (!bookmarks) return null;
+    return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks };
+  }
+  if (value.version === 2 && isSession(value.session)) {
+    return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks: [] };
   }
   if (value.version !== 1 || !isSession(value.session)) return null;
   const session = migrateSession(value.session, system);
   if (!session) return null;
-  return { version: SAVE_VERSION, savedAt: value.savedAt, session };
+  return { version: SAVE_VERSION, savedAt: value.savedAt, session, bookmarks: [] };
+}
+
+function parseBookmarks(value: unknown, book: Book): string[] | null {
+  if (!Array.isArray(value) || value.length > 200) return null;
+  const ids = new Set(book.sections.map((section) => section.id));
+  const seen = new Set<string>();
+  const bookmarks: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !ids.has(entry) || seen.has(entry)) return null;
+    seen.add(entry);
+    bookmarks.push(entry);
+  }
+  return bookmarks;
 }
 
 function migrateSession(session: Session, system: SystemDef): Session | null {

@@ -35,6 +35,7 @@ describe("save migration", () => {
         },
       },
       demoSystem,
+      demoBook,
     );
     expect(saved?.version).toBe(SAVE_VERSION);
     expect(saved?.savedAt).toBe("2026-11-08T00:00:00.000Z");
@@ -48,6 +49,7 @@ describe("save migration", () => {
     expect(saved?.session.state.ticks["landing-box"]?.count).toBe(1);
     expect(saved?.session.undo[0]?.items.map((item) => item.id)).toEqual(["ration"]);
     expect(saved?.session.undo[0]?.gold).toBe(10);
+    expect(saved?.bookmarks).toEqual([]);
     expect(saved && canRestore(saved.session, demoBook, demoSystem)).toBe(true);
   });
 
@@ -55,17 +57,27 @@ describe("save migration", () => {
     const session = startSession(demoBook, demoSystem);
     session.state.items = session.state.items.filter((item) => item.id !== "ration");
     const saved = migrateSave(
-      { version: SAVE_VERSION, savedAt: "2026-11-09T00:00:00.000Z", session },
+      { version: 2, savedAt: "2026-11-09T00:00:00.000Z", session },
       demoSystem,
+      demoBook,
     );
+    expect(saved?.version).toBe(SAVE_VERSION);
+    expect(saved?.bookmarks).toEqual([]);
     expect(saved?.session.state.items).toEqual([]);
     expect(saved?.session.state.gold).toBe(10);
     expect(saved?.session.state.skills.map((skill) => skill.id)).toEqual(["climbing", "linguistics"]);
   });
 
-  it("rejects a save version it does not know", () => {
+  it("keeps version 3 bookmarks and rejects an unknown section", () => {
     const session = startSession(demoBook, demoSystem);
-    expect(migrateSave({ version: 3, savedAt: "2026-11-09T00:00:00.000Z", session }, demoSystem)).toBeNull();
-    expect(migrateSave({ version: 1, session }, demoSystem)).toBeNull();
+    const saved = migrateSave(
+      { version: 3, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: ["2"] },
+      demoSystem,
+      demoBook,
+    );
+    expect(saved?.bookmarks).toEqual(["2"]);
+    expect(migrateSave({ version: 3, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: ["99"] }, demoSystem, demoBook)).toBeNull();
+    expect(migrateSave({ version: 4, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook)).toBeNull();
+    expect(migrateSave({ version: 1, session }, demoSystem, demoBook)).toBeNull();
   });
 });
