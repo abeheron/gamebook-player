@@ -77,10 +77,11 @@ test("keeps the bookmark on the section line at desktop and 390px", async ({ pag
   const desktop = await page.evaluate(() => {
     const section = document.querySelector(".secno")?.getBoundingClientRect();
     const button = document.querySelector("[data-testid=bookmark]")?.getBoundingClientRect();
+    const card = document.querySelector(".choices .choice")?.getBoundingClientRect();
     const sheet = document.querySelector("[data-testid=open-sheet]")?.getBoundingClientRect();
     const note = document.querySelector("[data-testid=autosave]")?.getBoundingClientRect();
     const style = button ? getComputedStyle(document.querySelector("[data-testid=bookmark]") as Element) : null;
-    if (!section || !button || !sheet || !note || !style) return null;
+    if (!section || !button || !card || !sheet || !note || !style) return null;
     return {
       sameRow: Math.abs(section.top + section.height / 2 - (button.top + button.height / 2)) < 8,
       buttonRight: button.left > section.right,
@@ -88,10 +89,14 @@ test("keeps the bookmark on the section line at desktop and 390px", async ({ pag
       tall: button.height >= 44,
       filled: style.backgroundColor,
       ink: style.color,
+      bookmarkRight: button.right,
+      cardRight: card.right,
+      edgeDelta: Math.abs(button.right - card.right),
     };
   });
   expect(desktop?.sameRow).toBe(true);
   expect(desktop?.buttonRight).toBe(true);
+  expect(desktop?.edgeDelta ?? 99, `bookmark ${desktop?.bookmarkRight} card ${desktop?.cardRight}`).toBeLessThanOrEqual(1);
   expect(desktop?.noteBelow).toBe(true);
   expect(desktop?.tall).toBe(true);
   expect(desktop?.filled).toBe("rgba(0, 0, 0, 0)");

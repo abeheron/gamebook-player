@@ -265,6 +265,7 @@ h2 {
   gap: 12px;
   margin: 0 0 6px;
   min-height: 44px;
+  max-width: 64ch;
 }
 
 .secno {
