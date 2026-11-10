@@ -2,6 +2,7 @@
   import type { CombatDef, RollRecord } from "../format/types";
   import { roundMarks, roundName, roundSummary, type RoundMark } from "./combat-rounds";
   import Die from "./Die.svelte";
+  import { sectionDestination } from "./wording";
 
   let {
     combat,
@@ -15,8 +16,15 @@
     vitalityMax,
     ready,
     held,
+    continueTo,
     continueTitle,
     defeated,
+    selected,
+    fortune,
+    fortuneCost,
+    rollingIndexes,
+    onSelect,
+    onReroll,
     onRoll,
     onContinue,
   }: {
@@ -31,13 +39,21 @@
     vitalityMax: number;
     ready: boolean;
     held: boolean;
+    continueTo: string;
     continueTitle: string;
     defeated: boolean;
+    selected: number | null;
+    fortune: number;
+    fortuneCost: number;
+    rollingIndexes: number[];
+    onSelect: (index: number) => void;
+    onReroll: () => void;
     onRoll: () => void;
     onContinue: () => void;
   } = $props();
 
   const marks = $derived(roundMarks(rolls.map((entry) => entry.success), rounds, held));
+  const outcome = $derived(sectionDestination(defeated ? "Vitality is 0" : "Fight over", continueTo, continueTitle));
   const wounds = $derived(rolls.filter((entry) => !entry.success).length);
   const summary = $derived(roundSummary(rolls.length, rounds, wounds, held, vitality));
 
@@ -97,16 +113,16 @@
   {#if rolling}
     <div class="dice" aria-hidden="true">
       {#each previewFaces as face, index (`roll-${index}`)}
-        <Die {face} rolling />
+        <Die {face} rolling={rollingIndexes.includes(index)} />
       {/each}
     </div>
     <p class="result" data-testid="dice-rolling" role="status">Rolling…</p>
   {:else if rolls.length > 0}
     {@const last = rolls[rolls.length - 1]}
     {#if last}
-      <div class="dice">
+      <div class="dice" aria-label="Dice">
         {#each last.faces as face, index (`${last.total}-${index}`)}
-          <Die {face} />
+          <Die {face} {index} selected={selected === index} onSelect={held ? undefined : onSelect} />
         {/each}
       </div>
       <p class="result {last.success ? "ok" : "bad"}" data-testid="combat-roll">
@@ -114,10 +130,21 @@
       </p>
     {/if}
   {/if}
+  {#if !held}
+    <button
+      type="button"
+      class="btn ghost"
+      data-testid="fortune-reroll"
+      disabled={!ready || rolling || rolls.length === 0 || selected === null || fortune < fortuneCost}
+      onclick={onReroll}
+    >
+      Spend {fortuneCost} Fortune: re-roll selected die
+    </button>
+  {/if}
   {#if held}
     <div class="dest">
-      <button type="button" class="btn" data-testid="fight-continue" disabled={!ready} onclick={onContinue}>
-        {defeated ? "Vitality is 0" : "Fight over"} → {continueTitle}
+      <button type="button" class="btn" data-testid="fight-continue" aria-label={outcome.name} disabled={!ready} onclick={onContinue}>
+        <span class="dest-keep">{outcome.prefix}</span><span class="dest-title">{outcome.title}</span>
       </button>
       <p class="why">The round is saved when you continue. This does not undo earlier rounds.</p>
     </div>

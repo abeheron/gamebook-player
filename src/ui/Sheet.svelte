@@ -13,13 +13,26 @@
   {#if brief}
     <h2>Character</h2>
   {/if}
-  <p class="note">Numbers and maxima are this sample's. Stat names are from GNAT. Fortune is not spent, and no re-roll cost is defined here.</p>
+  <p class="note">Numbers and maxima are this sample's. Stat names are from GNAT. One Fortune rerolls one selected die. Fortune does not rise above 3.</p>
   <div class="statline">
     {#each system.stats as stat (stat.id)}
-      <div class="stat">
-        <span>{stat.label}</span>
-        <b data-testid="sheet-stat-{stat.id}">{state.stats[stat.id]}</b>
-      </div>
+      {@const value = state.stats[stat.id] ?? 0}
+      {#if stat.id === system.fortuneStat}
+        <div class="stat fortune" role="group" aria-label="{stat.label} {value} of {stat.max}" data-testid="sheet-fortune">
+          <span aria-hidden="true">{stat.label}</span>
+          <b aria-hidden="true" data-testid="sheet-stat-{stat.id}">{value} / {stat.max}</b>
+          <span class="fortune-pips" aria-hidden="true">
+            {#each Array.from({ length: stat.max }, (_, index) => index) as index (index)}
+              <i class:on={index < value} data-testid="fortune-pip"></i>
+            {/each}
+          </span>
+        </div>
+      {:else}
+        <div class="stat">
+          <span>{stat.label}</span>
+          <b data-testid="sheet-stat-{stat.id}">{value}</b>
+        </div>
+      {/if}
     {/each}
   </div>
   <h2>Skills</h2>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { RollRecord } from "../format/types";
   import Die from "./Die.svelte";
+  import { sectionDestination } from "./wording";
 
   let {
     compact,
@@ -11,8 +12,18 @@
     ready,
     roll,
     rolling,
+    rollingIndexes,
     previewFaces,
-    destination,
+    passTo,
+    passTitle,
+    failTo,
+    failTitle,
+    fortune,
+    fortuneMax,
+    fortuneCost,
+    selected,
+    onSelect,
+    onReroll,
     onRoll,
     onArrive,
     onClose,
@@ -26,8 +37,18 @@
     ready: boolean;
     roll: RollRecord | null;
     rolling: boolean;
+    rollingIndexes: number[];
     previewFaces: number[];
-    destination: string;
+    passTo: string;
+    passTitle: string;
+    failTo: string;
+    failTitle: string;
+    fortune: number;
+    fortuneMax: number;
+    fortuneCost: number;
+    selected: number | null;
+    onSelect: (index: number) => void;
+    onReroll: () => void;
     onRoll: (faces?: number[]) => void;
     onArrive: () => void;
     onClose: () => void;
@@ -39,12 +60,20 @@
   let entries = $state<string[]>([]);
 
   const dieCount = $derived(Number.parseInt(dice, 10) || 0);
+  const passDest = $derived(sectionDestination("Pass", passTo, passTitle));
+  const failDest = $derived(sectionDestination("Fail", failTo, failTitle));
 
   function setEntry(index: number, value: string): void {
     const next = entries.slice(0, dieCount);
     while (next.length < dieCount) next.push("");
     next[index] = value;
     entries = next;
+  }
+
+  function resultLabel(result: RollRecord, skill: string): string {
+    if (result.faces.length === 2 && result.faces[0] === 1 && result.faces[1] === 1) return "Double 1 — automatic pass";
+    if (result.faces.length === 2 && result.faces[0] === 6 && result.faces[1] === 6) return "Double 6 — automatic fail";
+    return `${result.faces.join(" + ")} = ${result.total}.${skill ? ` ${skill}.` : ""} ${result.success ? "Pass." : "Fail."}`;
   }
 
   function useDice(): void {
@@ -71,27 +100,48 @@
 >
   <h2>{label}</h2>
   <p class="formula" data-testid="test-formula">{formula}</p>
-  <p class="note">Pass on this total or under. This sample does not spend Fortune.</p>
+  <p class="note">Double 1 always passes · double 6 always fails. Select a die, then spend Fortune to re-roll it.</p>
   {#if rolling}
     <div class="dice" aria-hidden="true">
       {#each previewFaces as face, index (`roll-${index}`)}
-        <Die {face} rolling />
+        <Die {face} rolling={rollingIndexes.includes(index)} />
       {/each}
     </div>
     <p class="result" data-testid="test-result" role="status" aria-live="polite">Rolling…</p>
   {:else if roll}
-    <div class="dice" aria-hidden="true">
+    <div class="dice" aria-label="Dice">
       {#each roll.faces as face, index (`${roll.total}-${index}`)}
-        <Die {face} />
+        <Die {face} {index} selected={selected === index} onSelect={onSelect} />
       {/each}
     </div>
     <p class="result {roll.success ? "ok" : "bad"}" data-testid="test-result" role="status" aria-live="polite">
-      {roll.faces.join(" + ")} = {roll.total}.{adjustment ? ` ${adjustment}.` : ""} {roll.success ? "Pass." : "Fail."}
+      {resultLabel(roll, adjustment)}
     </p>
-    <button type="button" class="btn" data-testid="destination-go" disabled={!ready} onclick={onArrive}>
-      {roll.success ? "Pass" : "Fail"} → {destination}
-    </button>
   {/if}
+  <div class="dest">
+    <button
+      type="button"
+      class="btn"
+      class:ghost={rolling || !roll?.success}
+      data-testid="destination-pass"
+      aria-label={passDest.name}
+      disabled={!ready || rolling || !roll?.success}
+      onclick={onArrive}
+    >
+      <span class="dest-keep">{passDest.prefix}</span><span class="dest-title">{passDest.title}</span>
+    </button>
+    <button
+      type="button"
+      class="btn"
+      class:ghost={rolling || !roll || roll.success}
+      data-testid="destination-fail"
+      aria-label={failDest.name}
+      disabled={!ready || rolling || !roll || roll.success}
+      onclick={onArrive}
+    >
+      <span class="dest-keep">{failDest.prefix}</span><span class="dest-title">{failDest.title}</span>
+    </button>
+  </div>
   {#if !roll && !rolling && !compact}
       <div class="seg" role="group" aria-label="Dice source">
         <button type="button" aria-pressed={!manual} data-testid="dice-app" onclick={() => (manual = false)}>App dice</button>
@@ -124,10 +174,22 @@
       {manual && !compact ? "Use these dice" : `Roll ${dice}`}
     </button>
   {/if}
-  <div class="test-actions">
-    {#if compact}
+  <div class="fortune-row">
+    <button
+      type="button"
+      class="btn ghost"
+      data-testid="fortune-reroll"
+      disabled={!ready || rolling || !roll || selected === null || fortune < fortuneCost}
+      onclick={onReroll}
+    >
+      Spend {fortuneCost} Fortune: re-roll selected die
+    </button>
+    <span class="note fortune-count" data-testid="fortune-count">Fortune {fortune} / {fortuneMax}</span>
+  </div>
+  {#if compact}
+    <div class="test-tools">
       <button type="button" class="btn ghost" data-testid="open-full-test" onclick={onFull}>Full test</button>
       <button type="button" class="btn ghost" data-testid="close-test" onclick={onClose}>Close</button>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </section>

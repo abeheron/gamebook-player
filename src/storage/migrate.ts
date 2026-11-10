@@ -1,11 +1,16 @@
 import type { Book, GameState, NamedValue, Session, SystemDef } from "../format/types";
 import { SAVE_VERSION, type SaveRecord } from "./types";
 
-/** Turns a version 1 or 2 save into version 3. A version 3 save is returned unchanged. */
+/** Turns a version 1, 2, or 3 save into version 4. A version 4 save is returned unchanged. */
 export function migrateSave(value: unknown, system: SystemDef, book: Book): SaveRecord | null {
   if (!isRecord(value) || typeof value.savedAt !== "string") return null;
   if (value.version === SAVE_VERSION) {
     if (!isSession(value.session)) return null;
+    const bookmarks = parseBookmarks(value.bookmarks, book);
+    if (!bookmarks) return null;
+    return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks };
+  }
+  if (value.version === 3 && isSession(value.session)) {
     const bookmarks = parseBookmarks(value.bookmarks, book);
     if (!bookmarks) return null;
     return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks };

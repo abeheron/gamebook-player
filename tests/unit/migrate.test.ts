@@ -77,7 +77,51 @@ describe("save migration", () => {
     );
     expect(saved?.bookmarks).toEqual(["2"]);
     expect(migrateSave({ version: 3, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: ["99"] }, demoSystem, demoBook)).toBeNull();
-    expect(migrateSave({ version: 4, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook)).toBeNull();
+    expect(migrateSave({ version: 5, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook)).toBeNull();
     expect(migrateSave({ version: 1, session }, demoSystem, demoBook)).toBeNull();
+  });
+
+  it("keeps a pending test roll when a version 4 save is loaded", () => {
+    const session = startSession(demoBook, demoSystem);
+    session.state.sectionId = "3";
+    session.state.pending = {
+      kind: "test",
+      sectionId: "3",
+      selected: 0,
+      roll: {
+        id: "read-mark",
+        label: "Study the mark",
+        dice: "2d6",
+        faces: [1, 1],
+        total: 2,
+        success: true,
+      },
+    };
+    const saved = migrateSave(
+      { version: 4, savedAt: "2026-11-10T00:00:00.000Z", session, bookmarks: [] },
+      demoSystem,
+      demoBook,
+    );
+    expect(saved?.session.state.pending).toEqual(session.state.pending);
+    expect(saved && canRestore(saved.session, demoBook, demoSystem)).toBe(true);
+    session.state.pending = {
+      kind: "test",
+      sectionId: "3",
+      selected: null,
+      roll: {
+        id: "read-mark",
+        label: "Study the mark",
+        dice: "2d6",
+        faces: [6, 6],
+        total: 12,
+        success: true,
+      },
+    };
+    const lied = migrateSave(
+      { version: 4, savedAt: "2026-11-10T00:00:00.000Z", session, bookmarks: [] },
+      demoSystem,
+      demoBook,
+    );
+    expect(lied && canRestore(lied.session, demoBook, demoSystem)).toBe(false);
   });
 });

@@ -46,6 +46,8 @@ export function validateSystem(input: unknown): SystemDef {
       "startingSkills",
       "startingGold",
       "startingItems",
+      "fortuneStat",
+      "fortuneRerollCost",
     ],
     "system",
   );
@@ -94,7 +96,21 @@ export function validateSystem(input: unknown): SystemDef {
     startingSkills,
     startingGold: integer(root.startingGold, "system.startingGold", 0, 1_000_000),
     startingItems,
+    fortuneStat: knownStatId(root.fortuneStat, stats),
+    fortuneRerollCost: fortuneCost(root.fortuneRerollCost, stats, knownStatId(root.fortuneStat, stats)),
   };
+}
+
+function knownStatId(value: unknown, stats: readonly StatDef[]): string {
+  const id = identifier(value, "system.fortuneStat");
+  if (!stats.some((stat) => stat.id === id)) fail("system.fortuneStat", `unknown stat ${id}`);
+  return id;
+}
+
+function fortuneCost(value: unknown, stats: readonly StatDef[], statId: string): number {
+  const stat = stats.find((entry) => entry.id === statId);
+  const max = stat?.max ?? 1;
+  return integer(value, "system.fortuneRerollCost", 1, Math.max(1, max));
 }
 
 export function validateBook(input: unknown, system: SystemDef): Book {

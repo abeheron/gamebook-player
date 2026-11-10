@@ -1,4 +1,5 @@
-import { rollDice, rollFaces, parseDice, type Rng } from "./dice";
+import { rollDice, rollDie, rollFaces, parseDice, type Rng } from "./dice";
+import { skillTestSuccess } from "./test-result";
 import { skillAdjustment } from "./skills";
 import { applyEffects, cloneState, conditionHolds, initialSession, recordRoll } from "./state";
 import { sectionMap } from "../format/validate";
@@ -6,6 +7,7 @@ import type {
   Book,
   Choice,
   GameState,
+  PendingAction,
   PendingCombat,
   RollRecord,
   Section,
@@ -56,7 +58,7 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
   const adjustment = skillAdjustment(system, session.state.skills, test.skill);
   const target = stat + (test.modifier ?? 0) + adjustment;
   const rolled = faces ? rollFaces(parsed, faces) : rollDice(parsed, rng);
-  const success = rolled.total <= target;
+  const success = skillTestSuccess(rolled.faces, rolled.total, target);
   const branch = success ? test.success : test.failure;
   const roll: RollRecord = {
     id: test.id,
@@ -68,6 +70,82 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
   };
   let state = applyEffects(session.state, system, branch.effects ?? []);
   state.rolls = recordRoll(state, roll);
+  state.sectionId = branch.to;
+  state.pending = null;
+  return commit(session, state);
+}
+
+/** Rolls a skill test and keeps it on this section until the player takes the result. */
+export function holdTestRoll(session: Session, book: Book, system: SystemDef, rng: Rng, faces?: readonly number[]): Session {
+  const section = requireSection(book, session.state.sectionId);
+  const test = section.test;
+  if (!test) throw new Error("This section has no test.");
+  if (session.state.pending) throw new Error("Finish the current action before rolling.");
+  const state = cloneState(session.state);
+  state.pending = { kind: "test", sectionId: section.id, roll: judgeTest(session, section, system, rng, faces), selected: null };
+  return commit(session, state);
+}
+
+/** Chooses one die for the next Fortune spend. Choosing it again clears the choice. This is not an undo step. */
+export function selectTestDie(session: Session, index: number): Session {
+  const pending = session.state.pending;
+  if (!pending || pending.kind !== "test") return session;
+  if (!Number.isInteger(index) || index < 0 || index >= pending.roll.faces.length) return session;
+  const selected = pending.selected === index ? null : index;
+  const state = cloneState(session.state);
+  state.pending = { ...pending, selected };
+  return { bookId: session.bookId, state, undo: session.undo };
+}
+
+/** Spends the system's Fortune cost to replace one die on the held test. */
+export function rerollTestDie(
+  session: Session,
+  book: Book,
+  system: SystemDef,
+  index: number,
+  rng: Rng,
+  face?: number,
+): Session {
+  const pending = session.state.pending;
+  if (!pending || pending.kind !== "test" || pending.sectionId !== session.state.sectionId) {
+    throw new Error("There is no test to reroll.");
+  }
+  const section = requireSection(book, pending.sectionId);
+  const test = section.test;
+  if (!test) throw new Error("This section has no test.");
+  if (!Number.isInteger(index) || index < 0 || index >= pending.roll.faces.length) {
+    throw new Error("That die is not in this roll.");
+  }
+  const fortune = session.state.stats[system.fortuneStat];
+  if (fortune === undefined || fortune < system.fortuneRerollCost) throw new Error("Not enough Fortune.");
+  const parsed = parseDice(test.dice);
+  const nextFace = face === undefined ? rollDie(parsed.sides, rng) : face;
+  const faces = pending.roll.faces.slice();
+  faces[index] = nextFace;
+  const rolled = rollFaces(parsed, faces);
+  const success = skillTestSuccess(rolled.faces, rolled.total, testTarget(session, section, system));
+  let state = applyEffects(session.state, system, [{ op: "adjustStat", stat: system.fortuneStat, by: -system.fortuneRerollCost }]);
+  state.pending = {
+    kind: "test",
+    sectionId: pending.sectionId,
+    selected: null,
+    roll: { ...pending.roll, faces: rolled.faces, total: rolled.total, success },
+  };
+  return commit(session, state);
+}
+
+/** Takes the held test's pass or fail turn and clears the pending roll. */
+export function acceptTest(session: Session, book: Book, system: SystemDef): Session {
+  const pending = session.state.pending;
+  if (!pending || pending.kind !== "test" || pending.sectionId !== session.state.sectionId) {
+    throw new Error("There is no test to take.");
+  }
+  const section = requireSection(book, pending.sectionId);
+  const test = section.test;
+  if (!test) throw new Error("This section has no test.");
+  const branch = pending.roll.success ? test.success : test.failure;
+  let state = applyEffects(session.state, system, branch.effects ?? []);
+  state.rolls = recordRoll(state, pending.roll);
   state.sectionId = branch.to;
   state.pending = null;
   return commit(session, state);
@@ -114,11 +192,97 @@ export function rollCombatRound(session: Session, book: Book, system: SystemDef,
   return commit(session, state);
 }
 
+/** Spends 1 Fortune to replace one die on the current fight round. Earlier rounds stay as they were. */
+export function rerollCombatDie(
+  session: Session,
+  book: Book,
+  system: SystemDef,
+  index: number,
+  rng: Rng,
+  face?: number,
+): Session {
+  const section = requireSection(book, session.state.sectionId);
+  const combat = section.combat;
+  if (!combat) throw new Error("This section has no combat.");
+  const pending = session.state.pending;
+  if (!pending || pending.kind !== "combat" || pending.sectionId !== section.id) {
+    throw new Error("There is no fight round to reroll.");
+  }
+  const lastIndex = lastCombatRoll(session.state.rolls, combat.id);
+  if (lastIndex < 0) throw new Error("There is no fight round to reroll.");
+  const last = session.state.rolls[lastIndex];
+  if (!last || !Number.isInteger(index) || index < 0 || index >= last.faces.length) {
+    throw new Error("That die is not in this round.");
+  }
+  const fortune = session.state.stats[system.fortuneStat];
+  if (fortune === undefined || fortune < system.fortuneRerollCost) throw new Error("Not enough Fortune.");
+  const parsed = parseDice(combat.dice);
+  const nextFace = face === undefined ? rollDie(parsed.sides, rng) : face;
+  const faces = last.faces.slice();
+  faces[index] = nextFace;
+  const rolled = rollFaces(parsed, faces);
+  const stat = session.state.stats[combat.stat];
+  if (stat === undefined) throw new Error(`Missing stat ${combat.stat}`);
+  const success = rolled.total <= stat + (combat.modifier ?? 0);
+  let state = applyEffects(session.state, system, [{ op: "adjustStat", stat: system.fortuneStat, by: -system.fortuneRerollCost }]);
+  if (!last.success) {
+    state = applyEffects(state, system, [{ op: "adjustStat", stat: combat.wound.stat, by: combat.wound.amount }]);
+  }
+  const rolls = state.rolls.slice();
+  rolls[lastIndex] = { ...last, faces: rolled.faces, total: rolled.total, success };
+  state.rolls = rolls;
+  if (!success) {
+    state = applyEffects(state, system, [{ op: "adjustStat", stat: combat.wound.stat, by: -combat.wound.amount }]);
+  }
+  const wound = state.stats[combat.wound.stat];
+  if (wound !== undefined && wound <= combat.wound.defeatAtOrBelow) {
+    state.sectionId = combat.defeatSection;
+    state.pending = null;
+  }
+  return commit(session, state);
+}
+
+function lastCombatRoll(rolls: readonly RollRecord[], combatId: string): number {
+  for (let index = rolls.length - 1; index >= 0; index -= 1) {
+    if (rolls[index]?.id === combatId) return index;
+  }
+  return -1;
+}
+
 export function currentSection(book: Book, session: Session): Section {
   return requireSection(book, session.state.sectionId);
 }
 
-function completedRounds(pending: PendingCombat | null, sectionId: string): number {
+function judgeTest(
+  session: Session,
+  section: Section,
+  system: SystemDef,
+  rng: Rng,
+  faces?: readonly number[],
+): RollRecord {
+  const test = section.test;
+  if (!test) throw new Error("This section has no test.");
+  const parsed = parseDice(test.dice);
+  const rolled = faces ? rollFaces(parsed, faces) : rollDice(parsed, rng);
+  return {
+    id: test.id,
+    label: test.label,
+    dice: test.dice,
+    faces: rolled.faces,
+    total: rolled.total,
+    success: skillTestSuccess(rolled.faces, rolled.total, testTarget(session, section, system)),
+  };
+}
+
+function testTarget(session: Session, section: Section, system: SystemDef): number {
+  const test = section.test;
+  if (!test) throw new Error("This section has no test.");
+  const stat = session.state.stats[test.stat];
+  if (stat === undefined) throw new Error(`Missing stat ${test.stat}`);
+  return stat + (test.modifier ?? 0) + skillAdjustment(system, session.state.skills, test.skill);
+}
+
+function completedRounds(pending: PendingAction | null, sectionId: string): number {
   if (!pending) return 0;
   if (pending.kind !== "combat" || pending.sectionId !== sectionId) {
     throw new Error("A different action is still in progress.");

@@ -14,7 +14,8 @@ test("opens the full skill test and keeps the destination locked until the dice 
   await page.getByTestId("side-test").click();
   await expect(page.getByRole("heading", { name: "Test & fight" })).toBeVisible();
   await expect(page.getByTestId("test-formula")).toHaveText("2d6 ≤ Talent 9 + 2 Linguistics = 11");
-  await expect(page.getByTestId("destination-go")).toHaveCount(0);
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
   await expect(page.getByTestId("manual-dice")).toHaveCount(0);
   await expect(page.getByTestId("side-test")).toHaveAttribute("aria-current", "page");
 
@@ -24,20 +25,27 @@ test("opens the full skill test and keeps the destination locked until the dice 
   await page.getByTestId("roll-test").click();
   await expect(page.getByTestId("manual-error")).toHaveText("Each die must be a whole number from 1 to 6.");
   await expect(page.getByTestId("test-result")).toHaveCount(0);
-  await expect(page.getByTestId("destination-go")).toHaveCount(0);
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
 
   await page.getByTestId("manual-die-1").fill("1");
   await page.getByTestId("manual-die-2").fill("1");
   await page.getByTestId("roll-test").click();
-  await expect(page.getByTestId("test-result")).toHaveText("1 + 1 = 2. Linguistics +2. Pass.");
-  await expect(page.getByTestId("destination-go")).toHaveCount(1);
+  await expect(page.getByTestId("test-result")).toHaveText("Double 1 — automatic pass");
+  await expect(page.getByTestId("destination-pass")).toBeEnabled();
+  await expect(page.getByTestId("destination-pass")).toHaveText("Pass → §4 · The reading");
+  await expect(page.getByTestId("destination-pass")).toHaveAccessibleName("Pass, section 4, The reading");
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toHaveText("Fail → §5 · The scrape");
   await expect(page.getByTestId("manual-dice")).toHaveCount(0);
 
   await page.getByTestId("view-back").click();
   await page.getByTestId("open-test").click();
   await expect(page.getByTestId("test-panel")).toBeVisible();
-  await expect(page.getByTestId("test-result")).toHaveText("1 + 1 = 2. Linguistics +2. Pass.");
-  await expect(page.getByTestId("destination-go")).toHaveCount(1);
+  await expect(page.getByTestId("test-result")).toHaveText("Double 1 — automatic pass");
+  await expect(page.getByTestId("destination-pass")).toBeEnabled();
+  await expect(page.getByTestId("destination-pass")).toHaveText("Pass → §4 · The reading");
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
   await expect(page.getByTestId("manual-dice")).toHaveCount(0);
 });
 
@@ -75,6 +83,8 @@ test("runs the passage fight on the test screen and withholds the ending until t
   await expect(page.getByTestId("section-title")).toHaveCount(0);
   await page.getByTestId("roll-combat").click();
   await expect(page.getByTestId("fight-continue")).toBeVisible();
+  await expect(page.getByTestId("fight-continue")).toHaveText("Fight over → §7 · Above");
+  await expect(page.getByTestId("fight-continue")).toHaveAccessibleName("Fight over, section 7, Above");
   await expect(page.getByTestId("combat-outcome")).toContainText("You win the fight");
 });
 
@@ -112,7 +122,8 @@ test("opens the test screen on a phone without horizontal overflow", async ({ pa
   await page.getByTestId("choice-tick-and-study").click();
   await page.getByTestId("mobile-test").click();
   await expect(page.getByTestId("test-formula")).toContainText("Linguistics");
-  await expect(page.getByTestId("destination-go")).toHaveCount(0);
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
   await expect(page.getByTestId("mobile-test")).toHaveAttribute("aria-current", "page");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);

@@ -118,8 +118,8 @@ describe("skill bonus and penalty", () => {
       startingSkills: [{ id: "linguistics", bonus: 4 }],
     };
     let session = startSession(book, system);
-    session = rollTest(session, book, system, scripted([0.99, 0.99]));
-    expect(session.state.rolls[0]).toMatchObject({ total: 12, success: true });
+    session = rollTest(session, book, system, scripted([0.7, 0.99]));
+    expect(session.state.rolls[0]).toMatchObject({ total: 11, success: true });
     expect(currentSection(book, session).id).toBe("2");
   });
 });

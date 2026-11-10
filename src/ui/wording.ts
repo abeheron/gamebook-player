@@ -30,6 +30,19 @@ export function sectionTitle(sections: readonly Section[], sectionId: string): s
   return sections.find((section) => section.id === sectionId)?.title ?? sectionId;
 }
 
+/** A pass, fail, or fight destination. The title can ellipsize; the prefix keeps the section number. */
+export function sectionDestination(heading: string, sectionId: string, title: string): {
+  prefix: string;
+  title: string;
+  name: string;
+} {
+  return {
+    prefix: `${heading} → §${sectionId} · `,
+    title,
+    name: `${heading}, section ${sectionId}, ${title}`,
+  };
+}
+
 export function ticksOnSection(section: Section): { id: string; label: string }[] {
   const seen = new Set<string>();
   const ticks: { id: string; label: string }[] = [];

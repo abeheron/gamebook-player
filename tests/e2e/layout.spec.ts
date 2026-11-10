@@ -19,7 +19,7 @@ test("uses the parchment shell and only opens screens the app has", async ({ pag
   ]);
   await expect(page.getByTestId("side-read")).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("sheet-stat-talent")).toHaveText("9");
-  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3");
+  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3 / 3");
 
   await page.getByTestId("side-library").focus();
   await expect(page.getByTestId("side-library")).toBeFocused();
