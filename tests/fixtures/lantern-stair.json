@@ -13,6 +13,12 @@
         "A narrow stair climbs between two walls of old brick. A lantern hangs from a peg at the first step, still warm.",
         "The dark above the third step does not show what made the scuff marks."
       ],
+      "illustration": {
+        "id": "lantern",
+        "label": "Sample art",
+        "title": "Section 1 illustration",
+        "alt": "Sample art: a lantern hanging from a peg."
+      },
       "choices": [
         {
           "id": "take-lantern",
@@ -191,6 +197,12 @@
       "body": [
         "A pale moth drops from the brick and stays in front of your face. It does not leave until you have stood through two breaths."
       ],
+      "illustration": {
+        "id": "moth",
+        "label": "Sample art",
+        "title": "Section 10 illustration",
+        "alt": "Sample art: a simple moth with two wings."
+      },
       "combat": {
         "id": "pale-moth",
         "label": "Pale moth",

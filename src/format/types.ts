@@ -92,6 +92,14 @@ export interface CombatDef {
   then: string;
 }
 
+/** A section picture. The id names a bundled sample drawing. */
+export interface Illustration {
+  id: string;
+  label: string;
+  title: string;
+  alt: string;
+}
+
 export interface Section {
   id: string;
   title: string;
@@ -99,6 +107,7 @@ export interface Section {
   choices?: Choice[];
   test?: TestDef;
   combat?: CombatDef;
+  illustration?: Illustration;
 }
 
 export interface Book {

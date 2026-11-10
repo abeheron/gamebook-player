@@ -1,15 +1,37 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { isSampleArtId } from "../format/sample-art";
   import type { Section } from "../format/types";
+  import type { IllustrationMode } from "./dice-prefs";
+  import SampleArt from "./SampleArt.svelte";
   import TickBox from "./TickBox.svelte";
 
-  let { section, ticks, panelOpen, onOpenTest, bookmarked, onBookmark }: {
+  const modes: { id: IllustrationMode; label: string }[] = [
+    { id: "inline", label: "Inline" },
+    { id: "link", label: "Link only" },
+    { id: "hidden", label: "Hidden" },
+  ];
+
+  let {
+    section,
+    ticks,
+    panelOpen,
+    onOpenTest,
+    bookmarked,
+    onBookmark,
+    illustrations,
+    onIllustrations,
+    onOpenArt,
+  }: {
     section: Section;
     ticks: { id: string; label: string; count: number }[];
     panelOpen: boolean;
     onOpenTest: () => void;
     bookmarked: boolean;
     onBookmark: () => void;
+    illustrations: IllustrationMode;
+    onIllustrations: (mode: IllustrationMode) => void;
+    onOpenArt: () => void;
   } = $props();
 
   let iconOnly = $state(false);
@@ -46,6 +68,48 @@
       <span>{tick.label}{tick.count > 0 ? `: ${tick.count}` : ""}</span>
     </p>
   {/each}
+  {#if section.illustration && isSampleArtId(section.illustration.id)}
+    {@const art = section.illustration}
+    <div class="prefrow" data-testid="illus-pref">
+      <span>Illustrations:</span>
+      <div class="seg sm" role="group" aria-label="Illustration display">
+        {#each modes as mode (mode.id)}
+          <button
+            type="button"
+            data-testid="illus-mode-{mode.id}"
+            aria-pressed={illustrations === mode.id}
+            onclick={() => onIllustrations(mode.id)}
+          >
+            {mode.label}
+          </button>
+        {/each}
+      </div>
+    </div>
+    {#if illustrations === "inline"}
+      <figure class="illus" data-testid="illus-figure">
+        <button
+          type="button"
+          class="frame"
+          data-testid="illus-open"
+          aria-label="Open {art.title} full size"
+          onclick={onOpenArt}
+        >
+          <SampleArt id={art.id} alt={art.alt} />
+        </button>
+        <figcaption>
+          <span class="prov">{art.label}</span>
+          <span>Original sample art. Select it to view full size.</span>
+        </figcaption>
+      </figure>
+    {:else if illustrations === "link"}
+      <p class="illus" data-testid="illus-link-row">
+        <button type="button" class="illus-link" data-testid="illus-open" onclick={onOpenArt}>
+          View illustration for section {section.id}
+        </button>
+        <span class="prov">{art.label}</span>
+      </p>
+    {/if}
+  {/if}
   <div class="prose" data-testid="section-body">
     {#each section.body as paragraph}
       <p>{paragraph}</p>

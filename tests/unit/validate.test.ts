@@ -35,6 +35,17 @@ describe("book validation", () => {
     expect(() => validateBook(book, demoSystem)).toThrow(/unknown field eval/);
   });
 
+  it("keeps a known sample drawing and rejects an unknown one", () => {
+    const book = editableBook();
+    const sections = book.sections as Record<string, unknown>[];
+    expect(validateBook(book, demoSystem).sections[0]?.illustration?.label).toBe("Sample art");
+    expect(validateBook(book, demoSystem).sections[1]?.illustration).toBeUndefined();
+    const first = sections[0];
+    if (!first) throw new Error("missing section");
+    first.illustration = { id: "temple", label: "Sample art", title: "Section 1 illustration", alt: "Sample art: no" };
+    expect(() => validateBook(book, demoSystem)).toThrow(/unknown illustration temple/);
+  });
+
   it("rejects an effect that is not on the allowlist", () => {
     const book = editableBook();
     const sections = book.sections as Record<string, unknown>[];

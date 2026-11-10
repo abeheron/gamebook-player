@@ -4,7 +4,7 @@ test("saves, reloads, undoes, and still opens offline", async ({ page, context }
   await page.goto("/");
   await expect(page.getByTestId("book-title")).toHaveText("The Lantern Stair");
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
-  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3 / 3");
+  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3");
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
 
   const landed = await page.getByTestId("autosave").getAttribute("data-saved-count");

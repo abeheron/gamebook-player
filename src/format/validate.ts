@@ -1,9 +1,11 @@
+import { isSampleArtId } from "./sample-art";
 import type {
   Book,
   Choice,
   CombatDef,
   Condition,
   Effect,
+  Illustration,
   NamedValue,
   Section,
   SkillDef,
@@ -178,7 +180,12 @@ function validateStat(input: unknown, path: string): StatDef {
 
 function validateSection(input: unknown, path: string, system: SystemDef): Section {
   const root = record(input, path);
-  requireKeys(root, ["id", "title", "body", "choices", "test", "combat"], path, ["choices", "test", "combat"]);
+  requireKeys(root, ["id", "title", "body", "choices", "test", "combat", "illustration"], path, [
+    "choices",
+    "test",
+    "combat",
+    "illustration",
+  ]);
   const section: Section = {
     id: sectionId(root.id, `${path}.id`),
     title: text(root.title, `${path}.title`, 1, 120),
@@ -193,11 +200,25 @@ function validateSection(input: unknown, path: string, system: SystemDef): Secti
   }
   if ("test" in root) section.test = validateTest(root.test, `${path}.test`, system);
   if ("combat" in root) section.combat = validateCombat(root.combat, `${path}.combat`, system);
+  if ("illustration" in root) section.illustration = validateIllustration(root.illustration, `${path}.illustration`);
   const modes = [section.choices, section.test, section.combat].filter((mode) => mode !== undefined);
   if (modes.length !== 1) {
     fail(path, "a section needs choices, a test, or a combat, and only one of them");
   }
   return section;
+}
+
+function validateIllustration(input: unknown, path: string): Illustration {
+  const root = record(input, path);
+  requireKeys(root, ["id", "label", "title", "alt"], path);
+  const id = identifier(root.id, `${path}.id`);
+  if (!isSampleArtId(id)) fail(path, `unknown illustration ${id}`);
+  return {
+    id,
+    label: text(root.label, `${path}.label`, 1, 40),
+    title: text(root.title, `${path}.title`, 1, 80),
+    alt: text(root.alt, `${path}.alt`, 1, 200),
+  };
 }
 
 function validateChoice(input: unknown, path: string, system: SystemDef): Choice {

@@ -1,0 +1,57 @@
+import { expect, test } from "@playwright/test";
+
+test("switches illustration display and returns focus from the viewer", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
+  await expect(page.getByTestId("section-title")).toHaveText("The stair");
+  await expect(page.getByTestId("illus-figure")).toBeVisible();
+  await expect(page.getByTestId("illus-figure").locator(".prov")).toHaveText("Sample art");
+  await expect(page.getByTestId("illus-figure")).toContainText("Original sample art. Select it to view full size.");
+  await expect(page.locator("[data-testid=illus-figure] svg")).toHaveAttribute("aria-label", /Sample art/);
+
+  const frame = page.getByTestId("illus-open");
+  await frame.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("illus-viewer")).toBeVisible();
+  await expect(page.getByTestId("illus-close")).toBeFocused();
+  await expect(page.locator("#illus-title")).toHaveText("Section 1 illustration · Sample art");
+  await page.keyboard.press("Tab");
+  await expect(page.getByTestId("illus-close")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("illus-viewer")).toHaveCount(0);
+  await expect(frame).toBeFocused();
+
+  await page.getByTestId("illus-mode-link").click();
+  await expect(page.getByTestId("illus-figure")).toHaveCount(0);
+  await expect(page.getByTestId("illus-open")).toHaveText("View illustration for section 1");
+  await expect(page.getByTestId("illus-link-row").locator(".prov")).toHaveText("Sample art");
+  await page.getByRole("button", { name: "View illustration for section 1" }).click();
+  const picture = page.locator("[data-testid=illus-viewer] svg");
+  await expect(picture).toBeVisible();
+  const artBox = await picture.boundingBox();
+  expect(artBox && artBox.width).toBeGreaterThan(1000);
+  expect(artBox && artBox.height).toBeGreaterThan(200);
+  await expect(page.getByTestId("illus-close")).toBeFocused();
+  await expect(page.getByTestId("illus-close")).toHaveCSS("white-space", "nowrap");
+  const backdrop = await page.getByTestId("illus-viewer").evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(backdrop).toBe("rgba(15, 12, 9, 0.86)");
+  await page.getByTestId("illus-close").click();
+  await expect(page.getByTestId("illus-viewer")).toHaveCount(0);
+  await expect(page.getByTestId("illus-open")).toBeFocused();
+
+  await page.getByTestId("illus-mode-hidden").click();
+  await expect(page.getByTestId("illus-open")).toHaveCount(0);
+  await expect(page.getByTestId("illus-figure")).toHaveCount(0);
+  await expect(page.getByTestId("illus-pref")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("illus-mode-hidden")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("illus-open")).toHaveCount(0);
+
+  await page.getByTestId("choice-take-lantern").click();
+  await expect(page.getByTestId("section-title")).toHaveText("The landing");
+  await expect(page.getByTestId("illus-pref")).toHaveCount(0);
+  await expect(page.getByTestId("illus-figure")).toHaveCount(0);
+  await expect(page.getByTestId("illus-open")).toHaveCount(0);
+  await expect(page.getByTestId("section-body")).toBeVisible();
+});

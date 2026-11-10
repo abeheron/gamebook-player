@@ -85,7 +85,7 @@ test("runs the passage fight on the test screen and withholds the ending until t
   await expect(page.getByTestId("fight-continue")).toBeVisible();
   await expect(page.getByTestId("fight-continue")).toHaveText("Fight over → §7 · Above");
   await expect(page.getByTestId("fight-continue")).toHaveAccessibleName("Fight over, section 7, Above");
-  await expect(page.getByTestId("combat-outcome")).toContainText("You win the fight");
+  await expect(page.getByTestId("combat-outcome")).toHaveText("You win the fight · turn to §7 · Above");
 });
 
 test("wraps the fight tracker on a phone without horizontal overflow", async ({ page }) => {
