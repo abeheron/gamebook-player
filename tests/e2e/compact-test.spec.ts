@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 async function reachMark(page: import("@playwright/test").Page): Promise<void> {
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();
   await expect(page.getByTestId("section-title")).toHaveText("The mark");
@@ -79,7 +79,7 @@ test("keeps the compact test on a phone width and restores focus with Esc", asyn
 test("shows the absent-skill penalty on its own test", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-search-crack").click();
   await expect(page.getByTestId("section-title")).toHaveText("The crack");
@@ -96,7 +96,7 @@ test("shows the absent-skill penalty on its own test", async ({ page }) => {
 test("leaves the full-screen fight on its own path", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-climb-dark").click();
   await page.getByTestId("choice-keep-climbing").click();
   await expect(page.getByTestId("combat")).toBeVisible();

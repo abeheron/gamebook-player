@@ -67,8 +67,7 @@ input {
 .runtime,
 .note,
 .why,
-.attribution,
-.save-status {
+.attribution {
   color: var(--muted);
 }
 
@@ -365,6 +364,64 @@ h2 {
 
 .summary-actions .btn {
   margin-top: 0;
+}
+
+.save {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 8px 0 0;
+  min-height: 1.45em;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.save .mark {
+  font-weight: 700;
+}
+
+.save.ok .mark {
+  color: var(--muted);
+}
+
+.save.busy .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  margin-top: 0.45em;
+  flex: 0 0 auto;
+  animation: save-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes save-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.save.fail {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.save.fail .mark {
+  color: var(--bad);
+}
+
+.save .fail-copy {
+  min-width: 0;
+}
+
+.save .retry {
+  all: unset;
+  cursor: pointer;
+  font: 600 14px var(--sans);
+  color: var(--accent);
+  text-decoration: underline;
+  padding: 0 2px;
 }
 
 .statline {
@@ -814,7 +871,6 @@ h2 {
 .note,
 .attribution,
 .why,
-.save-status,
 .runtime {
   font-size: 13px;
 }
@@ -907,6 +963,11 @@ h2 {
   }
 
   .fight-tracker .r.cur.rolling .n {
+    animation: none;
+    opacity: 0.7;
+  }
+
+  .save.busy .dot {
     animation: none;
     opacity: 0.7;
   }

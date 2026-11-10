@@ -3,16 +3,18 @@ import { expect, test } from "@playwright/test";
 test("bookmarks the current section and keeps it after reload", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await expect(page.getByTestId("bookmark")).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByTestId("bookmark")).toHaveText("☆ Bookmark");
   await page.getByTestId("choice-take-lantern").click();
-  await expect(page.getByTestId("autosave")).toHaveText("Autosaved");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toHaveText(/✓\s*Autosaved on this device · \d{2}:\d{2}/);
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
+  await expect(page.getByTestId("autosave")).toHaveAttribute("data-phase", "saved");
+  const saved = await page.getByTestId("autosave").getAttribute("data-saved-count");
   await page.getByTestId("bookmark").click();
   await expect(page.getByTestId("bookmark")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("bookmark")).toHaveText("★ Bookmarked");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).not.toHaveAttribute("data-saved-count", saved ?? "");
   await page.reload();
   await expect(page.getByTestId("section-title")).toHaveText("The landing");
   await expect(page.getByTestId("bookmark")).toHaveAttribute("aria-pressed", "true");
@@ -25,7 +27,7 @@ test("bookmarks the current section and keeps it after reload", async ({ page })
 
 test("loads a version 2 save without bookmarks", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.evaluate(async () => {
     const record = {
       version: 2,
@@ -64,5 +66,5 @@ test("loads a version 2 save without bookmarks", async ({ page }) => {
   await page.reload();
   await expect(page.getByTestId("section-title")).toHaveText("The landing");
   await expect(page.getByTestId("bookmark")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByTestId("autosave")).toHaveText("Autosaved");
+  await expect(page.getByTestId("autosave")).toHaveText(/✓\s*Autosaved on this device · \d{2}:\d{2}/);
 });

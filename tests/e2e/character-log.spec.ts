@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("opens the character sheet from the summary and lists only real fields", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await expect(page.getByText("Unlimited.", { exact: true })).toHaveCount(0);
   await page.getByTestId("open-sheet").click();
@@ -23,7 +23,7 @@ test("opens the character sheet from the summary and lists only real fields", as
 
 test("migrates a version 1 save to the sample skills, gold, and ration", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.evaluate(async () => {
     const record = {
       version: 1,
@@ -65,7 +65,7 @@ test("migrates a version 1 save to the sample skills, gold, and ration", async (
 test("searches the shared keyword and tick log without changing the story", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 640 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();
   const tick = await page.getByTestId("sheet-tick-landing-box").innerText();
@@ -94,7 +94,7 @@ test("searches the shared keyword and tick log without changing the story", asyn
 test("opens the log from the phone navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();
   await page.getByTestId("mobile-keywords").click();

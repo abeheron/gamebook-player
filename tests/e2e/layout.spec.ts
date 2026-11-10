@@ -4,7 +4,7 @@ test("uses the parchment shell and only opens screens the app has", async ({ pag
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(background).toBe("rgb(246, 241, 231)");
 
@@ -37,7 +37,7 @@ test("uses the parchment shell and only opens screens the app has", async ({ pag
 test("keeps the same navigation on a 390px screen without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await expect(page.getByTestId("mobile-nav")).toBeVisible();
   await expect(page.getByTestId("mobile-read")).toHaveAttribute("aria-current", "page");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
