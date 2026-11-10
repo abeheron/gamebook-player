@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/e2e",
-  testIgnore: process.env.DEMO_CURSOR === "1" ? undefined : ["**/p23b-record.spec.ts"],
+  testIgnore: process.env.DEMO_CURSOR === "1" ? undefined : ["**/p23b-record.spec.ts", "**/p16-record.spec.ts"],
   timeout: 30_000,
   use: {
     baseURL: "http://127.0.0.1:4173",

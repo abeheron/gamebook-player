@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { demoBook, demoSystem } from "../format/demo";
-  import type { RollRecord, Session } from "../format/types";
+  import type { Illustration, RollRecord, Session } from "../format/types";
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
   import { acceptTest, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
-  import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withPref, type StoredDicePrefs } from "./dice-prefs";
+  import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withIllustration, withPref, type IllustrationMode, type StoredDicePrefs } from "./dice-prefs";
   import { canStartRoll } from "./skill-test";
   import { detectRuntime } from "../platform/runtime";
   import { createIndexedDbStore } from "../storage/indexeddb";
@@ -15,6 +15,7 @@
   import { SAVE_VERSION, type SaveRecord } from "../storage/types";
   import Choices from "./Choices.svelte";
   import Combat from "./Combat.svelte";
+  import IllustrationViewer from "./IllustrationViewer.svelte";
   import Reader from "./Reader.svelte";
   import Log from "./Log.svelte";
   import Rules from "./Rules.svelte";
@@ -76,6 +77,35 @@
   let storedPrefs = $state(initialStored);
   let prefs = $state(resolveDicePrefs(initialStored, reducedMotionNow()));
   let soundNote = $state("");
+
+  let viewer = $state<Illustration | null>(null);
+  let viewerOpener = $state<HTMLElement | null>(null);
+
+  function saveIllustration(mode: IllustrationMode): void {
+    prefs = { ...prefs, illus: mode };
+    storedPrefs = withIllustration(storedPrefs, mode);
+    try {
+      localStorage.setItem(DICE_PREFS_KEY, JSON.stringify(storedPrefs));
+    } catch {
+      // The picture still changes if this browser will not store settings.
+    }
+  }
+
+  function openViewer(): void {
+    const art = section.illustration;
+    if (!art) return;
+    viewerOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    viewer = art;
+  }
+
+  function closeViewer(): void {
+    const opener = viewerOpener;
+    viewer = null;
+    viewerOpener = null;
+    queueMicrotask(() => {
+      if (opener?.isConnected) opener.focus();
+    });
+  }
 
   function savePref(key: "anim" | "sound", value: boolean): void {
     prefs = { ...prefs, [key]: value };
@@ -539,7 +569,17 @@
     {#if view === "read"}
       <div class="layout">
         <div>
-          <Reader {section} ticks={mentionedTicks} {panelOpen} onOpenTest={openPanel} {bookmarked} onBookmark={toggleBookmark} />
+          <Reader
+            {section}
+            ticks={mentionedTicks}
+            {panelOpen}
+            onOpenTest={openPanel}
+            {bookmarked}
+            onBookmark={toggleBookmark}
+            illustrations={prefs.illus}
+            onIllustrations={saveIllustration}
+            onOpenArt={openViewer}
+          />
           {#if panelOpen && section.test}
             <SkillTest
               compact
@@ -739,3 +779,6 @@
     Rules
   </button>
 </nav>
+{#if viewer}
+  <IllustrationViewer art={viewer} onClose={closeViewer} />
+{/if}
