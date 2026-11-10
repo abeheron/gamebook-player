@@ -359,10 +359,20 @@ h2 {
   padding: 12px;
 }
 
+.test-panel.compact .dice {
+  gap: 8px;
+}
+
 .test-panel.compact .die {
-  width: 56px;
-  height: 56px;
-  padding: 8px;
+  width: 48px;
+  height: 48px;
+  padding: 6px;
+  border-radius: 10px;
+}
+
+.test-panel.compact .die i {
+  width: 8px;
+  height: 8px;
 }
 
 .test-actions {

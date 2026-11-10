@@ -4,11 +4,11 @@
   import type { RollRecord, Session } from "../format/types";
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
-  import { acceptTest, choose, currentSection, holdTestRoll, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
+  import { acceptTest, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
   import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withPref, type StoredDicePrefs } from "./dice-prefs";
-  import { canStartRoll, settledDestination } from "./skill-test";
+  import { canStartRoll } from "./skill-test";
   import { detectRuntime } from "../platform/runtime";
   import { createIndexedDbStore } from "../storage/indexeddb";
   import { migrateSave } from "../storage/migrate";
@@ -47,6 +47,7 @@
   let arrival = $state<Arrival | null>(null);
   let panelOpen = $state(false);
   let rollingIndexes = $state<number[]>([]);
+  let combatSelected = $state<number | null>(null);
   let mainEl = $state<HTMLElement | null>(null);
   let rollBusy = false;
   let commitBusy = false;
@@ -174,11 +175,8 @@
   const heldRoll = $derived<RollRecord | null>(heldTest?.roll ?? null);
   const fortuneStat = $derived(demoSystem.stats.find((stat) => stat.id === demoSystem.fortuneStat));
   const fortuneNow = $derived(session.state.stats[demoSystem.fortuneStat] ?? 0);
-  const destinationTitle = $derived.by(() => {
-    const test = section.test;
-    if (!test || !heldRoll) return "";
-    return sectionTitle(demoBook.sections, settledDestination(test, heldRoll).to);
-  });
+  const passTitle = $derived(section.test ? sectionTitle(demoBook.sections, section.test.success.to) : "");
+  const failTitle = $derived(section.test ? sectionTitle(demoBook.sections, section.test.failure.to) : "");
   const combatRolls = $derived.by(() => {
     const combat = section.combat;
     if (!combat) return [];
@@ -391,12 +389,33 @@
 
   function onRollCombat(): void {
     if (diceRolling || arrival) return;
+    combatSelected = null;
     const next = rollCombatRound(plainSession(), demoBook, demoSystem, Math.random);
     const roll = next.state.rolls[next.state.rolls.length - 1];
     startRoll(roll?.faces ?? [], () => {
       if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
       else session = next;
     });
+  }
+
+  function onSelectCombatDie(index: number): void {
+    if (diceRolling || arrival) return;
+    combatSelected = combatSelected === index ? null : index;
+  }
+
+  function onRerollCombat(): void {
+    if (diceRolling || arrival || combatSelected === null) return;
+    if (fortuneNow < demoSystem.fortuneRerollCost) return;
+    const last = combatRolls[combatRolls.length - 1];
+    if (!last) return;
+    const index = combatSelected;
+    const face = 1 + Math.floor(Math.random() * 6);
+    const next = rerollCombatDie(plainSession(), demoBook, demoSystem, index, Math.random, face);
+    startRoll(last.faces, () => {
+      combatSelected = null;
+      if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
+      else session = next;
+    }, [index]);
   }
 
   function onArriveTest(): void {
@@ -530,7 +549,8 @@
               rolling={diceRolling}
               {rollingIndexes}
               previewFaces={dicePreview}
-              destination={destinationTitle}
+              {passTitle}
+              {failTitle}
               fortune={fortuneNow}
               fortuneMax={fortuneStat?.max ?? 0}
               fortuneCost={demoSystem.fortuneRerollCost}
@@ -558,6 +578,12 @@
               held={arrival?.kind === "combat"}
               {continueTitle}
               {defeated}
+              selected={combatSelected}
+              fortune={fortuneNow}
+              fortuneCost={demoSystem.fortuneRerollCost}
+              {rollingIndexes}
+              onSelect={onSelectCombatDie}
+              onReroll={onRerollCombat}
               onRoll={onRollCombat}
               onContinue={onArriveCombat}
             />
@@ -634,7 +660,8 @@
             rolling={diceRolling}
             {rollingIndexes}
             previewFaces={dicePreview}
-            destination={destinationTitle}
+            {passTitle}
+            {failTitle}
             fortune={fortuneNow}
             fortuneMax={fortuneStat?.max ?? 0}
             fortuneCost={demoSystem.fortuneRerollCost}
@@ -661,6 +688,12 @@
             held={arrival?.kind === "combat"}
             {continueTitle}
             {defeated}
+            selected={combatSelected}
+            fortune={fortuneNow}
+            fortuneCost={demoSystem.fortuneRerollCost}
+            {rollingIndexes}
+            onSelect={onSelectCombatDie}
+            onReroll={onRerollCombat}
             onRoll={onRollCombat}
             onContinue={onArriveCombat}
           />

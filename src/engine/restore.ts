@@ -2,6 +2,7 @@ import type { Book, GameState, RollRecord, Session, SystemDef } from "../format/
 import { sectionMap } from "../format/validate";
 import { parseDice } from "./dice";
 import { skillAdjustment } from "./skills";
+import { skillTestSuccess } from "./test-result";
 
 const ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
 
@@ -81,7 +82,7 @@ function isHeldTest(
   const stat = stats[test.stat];
   if (stat === undefined) return false;
   const target = stat + (test.modifier ?? 0) + skillAdjustment(system, skills, test.skill);
-  if (pending.roll.success !== total <= target) return false;
+  if (pending.roll.success !== skillTestSuccess(pending.roll.faces, total, target)) return false;
   if (pending.selected === null) return true;
   return typeof pending.selected === "number" && Number.isInteger(pending.selected) && pending.selected >= 0 && pending.selected < pending.roll.faces.length;
 }

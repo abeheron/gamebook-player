@@ -17,6 +17,12 @@
     held,
     continueTitle,
     defeated,
+    selected,
+    fortune,
+    fortuneCost,
+    rollingIndexes,
+    onSelect,
+    onReroll,
     onRoll,
     onContinue,
   }: {
@@ -33,6 +39,12 @@
     held: boolean;
     continueTitle: string;
     defeated: boolean;
+    selected: number | null;
+    fortune: number;
+    fortuneCost: number;
+    rollingIndexes: number[];
+    onSelect: (index: number) => void;
+    onReroll: () => void;
     onRoll: () => void;
     onContinue: () => void;
   } = $props();
@@ -97,22 +109,33 @@
   {#if rolling}
     <div class="dice" aria-hidden="true">
       {#each previewFaces as face, index (`roll-${index}`)}
-        <Die {face} rolling />
+        <Die {face} rolling={rollingIndexes.includes(index)} />
       {/each}
     </div>
     <p class="result" data-testid="dice-rolling" role="status">Rolling…</p>
   {:else if rolls.length > 0}
     {@const last = rolls[rolls.length - 1]}
     {#if last}
-      <div class="dice">
+      <div class="dice" aria-label="Dice">
         {#each last.faces as face, index (`${last.total}-${index}`)}
-          <Die {face} />
+          <Die {face} {index} selected={selected === index} onSelect={held ? undefined : onSelect} />
         {/each}
       </div>
       <p class="result {last.success ? "ok" : "bad"}" data-testid="combat-roll">
         {last.faces.join(" + ")} = {last.total}. {last.success ? "You hold." : "You are hit."}
       </p>
     {/if}
+  {/if}
+  {#if !held}
+    <button
+      type="button"
+      class="btn ghost"
+      data-testid="fortune-reroll"
+      disabled={!ready || rolling || rolls.length === 0 || selected === null || fortune < fortuneCost}
+      onclick={onReroll}
+    >
+      Spend {fortuneCost} Fortune: re-roll selected die
+    </button>
   {/if}
   {#if held}
     <div class="dest">

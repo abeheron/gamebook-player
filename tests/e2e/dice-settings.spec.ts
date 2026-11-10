@@ -45,8 +45,9 @@ test("locks the destination until an animated roll settles", async ({ page }) =>
   await page.getByTestId("roll-test").click();
   await expect(page.getByTestId("test-result")).toHaveText("Rolling…");
   await expect(page.locator(".die.rolling")).toHaveCount(2);
-  await expect(page.getByTestId("destination-go")).toHaveCount(0);
-  await expect(page.getByTestId("destination-go")).toBeVisible();
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
+  await expect(page.locator("[data-testid=destination-pass]:enabled, [data-testid=destination-fail]:enabled")).toHaveCount(1);
   await expect(page.getByTestId("test-result")).not.toHaveText("Rolling…");
 });
 

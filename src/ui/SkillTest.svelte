@@ -13,7 +13,8 @@
     rolling,
     rollingIndexes,
     previewFaces,
-    destination,
+    passTitle,
+    failTitle,
     fortune,
     fortuneMax,
     fortuneCost,
@@ -35,7 +36,8 @@
     rolling: boolean;
     rollingIndexes: number[];
     previewFaces: number[];
-    destination: string;
+    passTitle: string;
+    failTitle: string;
     fortune: number;
     fortuneMax: number;
     fortuneCost: number;
@@ -59,6 +61,12 @@
     while (next.length < dieCount) next.push("");
     next[index] = value;
     entries = next;
+  }
+
+  function resultLabel(result: RollRecord, skill: string): string {
+    if (result.faces.length === 2 && result.faces[0] === 1 && result.faces[1] === 1) return "Double 1 — automatic pass";
+    if (result.faces.length === 2 && result.faces[0] === 6 && result.faces[1] === 6) return "Double 6 — automatic fail";
+    return `${result.faces.join(" + ")} = ${result.total}.${skill ? ` ${skill}.` : ""} ${result.success ? "Pass." : "Fail."}`;
   }
 
   function useDice(): void {
@@ -85,7 +93,7 @@
 >
   <h2>{label}</h2>
   <p class="formula" data-testid="test-formula">{formula}</p>
-  <p class="note">Pass on this total or under. Select a die, then spend Fortune to re-roll it.</p>
+  <p class="note">Double 1 always passes · double 6 always fails. Select a die, then spend Fortune to re-roll it.</p>
   {#if rolling}
     <div class="dice" aria-hidden="true">
       {#each previewFaces as face, index (`roll-${index}`)}
@@ -100,12 +108,31 @@
       {/each}
     </div>
     <p class="result {roll.success ? "ok" : "bad"}" data-testid="test-result" role="status" aria-live="polite">
-      {roll.faces.join(" + ")} = {roll.total}.{adjustment ? ` ${adjustment}.` : ""} {roll.success ? "Pass." : "Fail."}
+      {resultLabel(roll, adjustment)}
     </p>
-    <button type="button" class="btn" data-testid="destination-go" disabled={!ready} onclick={onArrive}>
-      {roll.success ? "Pass" : "Fail"} → {destination}
-    </button>
   {/if}
+  <div class="dest">
+    <button
+      type="button"
+      class="btn"
+      class:ghost={rolling || !roll?.success}
+      data-testid="destination-pass"
+      disabled={!ready || rolling || !roll?.success}
+      onclick={onArrive}
+    >
+      Pass → {passTitle}
+    </button>
+    <button
+      type="button"
+      class="btn"
+      class:ghost={rolling || !roll || roll.success}
+      data-testid="destination-fail"
+      disabled={!ready || rolling || !roll || roll.success}
+      onclick={onArrive}
+    >
+      Fail → {failTitle}
+    </button>
+  </div>
   {#if !roll && !rolling && !compact}
       <div class="seg" role="group" aria-label="Dice source">
         <button type="button" aria-pressed={!manual} data-testid="dice-app" onclick={() => (manual = false)}>App dice</button>

@@ -69,7 +69,7 @@ export const rulesSummary: readonly RuleSection[] = [
       {
         text: "A natural double 1 always succeeds. A natural double 6 always fails.",
         page: "p. 7",
-        status: "not-yet",
+        status: "in-app",
       },
       {
         text: "Restored Talent cannot pass its maximum. Talent does not go below 2.",

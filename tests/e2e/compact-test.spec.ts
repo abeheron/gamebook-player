@@ -19,7 +19,8 @@ test("opens a compact test beside the passage on a desktop width", async ({ page
   await expect(page.getByTestId("test-panel")).toBeVisible();
   await expect(page.getByTestId("test-formula")).toHaveText("2d6 ≤ Talent 9 + 2 Linguistics = 11");
   await expect(page.getByTestId("section-body")).toBeVisible();
-  await expect(page.getByTestId("destination-go")).toHaveCount(0);
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
   expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
   expect(await page.getByTestId("sheet-tick-landing-box").innerText()).toBe(tick);
 
@@ -30,8 +31,8 @@ test("opens a compact test beside the passage on a desktop width", async ({ page
     }
   });
   await expect(page.getByTestId("test-result")).toHaveCount(1);
-  await expect(page.getByTestId("test-result")).toContainText("Linguistics +2");
-  await expect(page.getByTestId("destination-go")).toHaveCount(1);
+  await expect(page.getByTestId("test-result")).toContainText(/Linguistics \+2|Double 1|Double 6/);
+  await expect(page.locator("[data-testid=destination-pass]:enabled, [data-testid=destination-fail]:enabled")).toHaveCount(1);
   const result = await page.getByTestId("test-result").innerText();
 
   await page.getByTestId("close-test").click();
@@ -49,7 +50,10 @@ test("opens a compact test beside the passage on a desktop width", async ({ page
   await expect(page.getByTestId("test-result")).toHaveText(result);
   await expect(page.getByTestId("section-title")).toHaveText("The mark");
 
-  await page.getByTestId("destination-go").evaluate((button) => {
+  await page.evaluate(() => {
+    const pass = document.querySelector("[data-testid=destination-pass]");
+    const fail = document.querySelector("[data-testid=destination-fail]");
+    const button = pass instanceof HTMLButtonElement && !pass.disabled ? pass : fail;
     if (button instanceof HTMLButtonElement) {
       button.click();
       button.click();
@@ -86,7 +90,7 @@ test("shows the absent-skill penalty on its own test", async ({ page }) => {
   await page.getByTestId("open-test").click();
   await expect(page.getByTestId("test-formula")).toHaveText("2d6 ≤ Talent 9 − 2 Search = 7");
   await page.getByTestId("roll-test").click();
-  await expect(page.getByTestId("test-result")).toContainText("Search −2");
+  await expect(page.getByTestId("test-result")).toContainText(/Search −2|Double 1|Double 6/);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("test-panel")).toHaveCount(0);
   await expect(page.getByTestId("open-test")).toBeFocused();

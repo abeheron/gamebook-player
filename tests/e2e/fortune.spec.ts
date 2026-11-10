@@ -54,4 +54,27 @@ test("shows the same Fortune control on a phone", async ({ page }) => {
   await expect(page.getByTestId("fortune-reroll")).toBeEnabled();
   const box = await page.getByTestId("die-1").boundingBox();
   expect(box?.width ?? 0).toBeGreaterThan(40);
+  expect(box?.width ?? 99).toBeLessThanOrEqual(48);
+});
+
+test("rerolls the current fight round and keeps it after reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
+  await page.getByTestId("choice-face-the-moth").click();
+  await expect(page.getByTestId("combat")).toBeVisible();
+  await page.getByTestId("roll-combat").click();
+  await expect(page.getByTestId("combat-roll")).toBeVisible();
+  await expect(page.getByTestId("autosave")).toHaveAttribute("data-phase", "saved");
+  const saved = await page.getByTestId("autosave").getAttribute("data-saved-count");
+  await page.getByTestId("die-1").click();
+  await page.getByTestId("fortune-reroll").click();
+  await expect(page.getByTestId("dice-rolling")).toBeVisible();
+  await expect(page.getByTestId("combat-roll")).toBeVisible();
+  await expect(page.getByTestId("autosave")).not.toHaveAttribute("data-saved-count", saved ?? "");
+  const after = await page.getByTestId("combat-roll").innerText();
+  await page.reload();
+  await expect(page.getByTestId("section-title")).toHaveText("The pale moth");
+  await expect(page.getByTestId("combat-roll")).toHaveText(after);
+  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("2");
 });

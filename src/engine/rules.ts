@@ -1,4 +1,5 @@
 import { rollDice, rollDie, rollFaces, parseDice, type Rng } from "./dice";
+import { skillTestSuccess } from "./test-result";
 import { skillAdjustment } from "./skills";
 import { applyEffects, cloneState, conditionHolds, initialSession, recordRoll } from "./state";
 import { sectionMap } from "../format/validate";
@@ -57,7 +58,7 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
   const adjustment = skillAdjustment(system, session.state.skills, test.skill);
   const target = stat + (test.modifier ?? 0) + adjustment;
   const rolled = faces ? rollFaces(parsed, faces) : rollDice(parsed, rng);
-  const success = rolled.total <= target;
+  const success = skillTestSuccess(rolled.faces, rolled.total, target);
   const branch = success ? test.success : test.failure;
   const roll: RollRecord = {
     id: test.id,
@@ -122,7 +123,7 @@ export function rerollTestDie(
   const faces = pending.roll.faces.slice();
   faces[index] = nextFace;
   const rolled = rollFaces(parsed, faces);
-  const success = rolled.total <= testTarget(session, section, system);
+  const success = skillTestSuccess(rolled.faces, rolled.total, testTarget(session, section, system));
   let state = applyEffects(session.state, system, [{ op: "adjustStat", stat: system.fortuneStat, by: -system.fortuneRerollCost }]);
   state.pending = {
     kind: "test",
@@ -191,6 +192,63 @@ export function rollCombatRound(session: Session, book: Book, system: SystemDef,
   return commit(session, state);
 }
 
+/** Spends 1 Fortune to replace one die on the current fight round. Earlier rounds stay as they were. */
+export function rerollCombatDie(
+  session: Session,
+  book: Book,
+  system: SystemDef,
+  index: number,
+  rng: Rng,
+  face?: number,
+): Session {
+  const section = requireSection(book, session.state.sectionId);
+  const combat = section.combat;
+  if (!combat) throw new Error("This section has no combat.");
+  const pending = session.state.pending;
+  if (!pending || pending.kind !== "combat" || pending.sectionId !== section.id) {
+    throw new Error("There is no fight round to reroll.");
+  }
+  const lastIndex = lastCombatRoll(session.state.rolls, combat.id);
+  if (lastIndex < 0) throw new Error("There is no fight round to reroll.");
+  const last = session.state.rolls[lastIndex];
+  if (!last || !Number.isInteger(index) || index < 0 || index >= last.faces.length) {
+    throw new Error("That die is not in this round.");
+  }
+  const fortune = session.state.stats[system.fortuneStat];
+  if (fortune === undefined || fortune < system.fortuneRerollCost) throw new Error("Not enough Fortune.");
+  const parsed = parseDice(combat.dice);
+  const nextFace = face === undefined ? rollDie(parsed.sides, rng) : face;
+  const faces = last.faces.slice();
+  faces[index] = nextFace;
+  const rolled = rollFaces(parsed, faces);
+  const stat = session.state.stats[combat.stat];
+  if (stat === undefined) throw new Error(`Missing stat ${combat.stat}`);
+  const success = rolled.total <= stat + (combat.modifier ?? 0);
+  let state = applyEffects(session.state, system, [{ op: "adjustStat", stat: system.fortuneStat, by: -system.fortuneRerollCost }]);
+  if (!last.success) {
+    state = applyEffects(state, system, [{ op: "adjustStat", stat: combat.wound.stat, by: combat.wound.amount }]);
+  }
+  const rolls = state.rolls.slice();
+  rolls[lastIndex] = { ...last, faces: rolled.faces, total: rolled.total, success };
+  state.rolls = rolls;
+  if (!success) {
+    state = applyEffects(state, system, [{ op: "adjustStat", stat: combat.wound.stat, by: -combat.wound.amount }]);
+  }
+  const wound = state.stats[combat.wound.stat];
+  if (wound !== undefined && wound <= combat.wound.defeatAtOrBelow) {
+    state.sectionId = combat.defeatSection;
+    state.pending = null;
+  }
+  return commit(session, state);
+}
+
+function lastCombatRoll(rolls: readonly RollRecord[], combatId: string): number {
+  for (let index = rolls.length - 1; index >= 0; index -= 1) {
+    if (rolls[index]?.id === combatId) return index;
+  }
+  return -1;
+}
+
 export function currentSection(book: Book, session: Session): Section {
   return requireSection(book, session.state.sectionId);
 }
@@ -212,7 +270,7 @@ function judgeTest(
     dice: test.dice,
     faces: rolled.faces,
     total: rolled.total,
-    success: rolled.total <= testTarget(session, section, system),
+    success: skillTestSuccess(rolled.faces, rolled.total, testTarget(session, section, system)),
   };
 }
 
