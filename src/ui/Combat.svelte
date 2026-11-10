@@ -2,6 +2,7 @@
   import type { CombatDef, RollRecord } from "../format/types";
   import { roundMarks, roundName, roundSummary, type RoundMark } from "./combat-rounds";
   import Die from "./Die.svelte";
+  import { sectionDestination } from "./wording";
 
   let {
     combat,
@@ -15,6 +16,7 @@
     vitalityMax,
     ready,
     held,
+    continueTo,
     continueTitle,
     defeated,
     selected,
@@ -37,6 +39,7 @@
     vitalityMax: number;
     ready: boolean;
     held: boolean;
+    continueTo: string;
     continueTitle: string;
     defeated: boolean;
     selected: number | null;
@@ -50,6 +53,7 @@
   } = $props();
 
   const marks = $derived(roundMarks(rolls.map((entry) => entry.success), rounds, held));
+  const outcome = $derived(sectionDestination(defeated ? "Vitality is 0" : "Fight over", continueTo, continueTitle));
   const wounds = $derived(rolls.filter((entry) => !entry.success).length);
   const summary = $derived(roundSummary(rolls.length, rounds, wounds, held, vitality));
 
@@ -139,8 +143,8 @@
   {/if}
   {#if held}
     <div class="dest">
-      <button type="button" class="btn" data-testid="fight-continue" disabled={!ready} onclick={onContinue}>
-        {defeated ? "Vitality is 0" : "Fight over"} → {continueTitle}
+      <button type="button" class="btn" data-testid="fight-continue" aria-label={outcome.name} disabled={!ready} onclick={onContinue}>
+        <span class="dest-keep">{outcome.prefix}</span><span class="dest-title">{outcome.title}</span>
       </button>
       <p class="why">The round is saved when you continue. This does not undo earlier rounds.</p>
     </div>

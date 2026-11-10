@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { RollRecord } from "../format/types";
   import Die from "./Die.svelte";
+  import { sectionDestination } from "./wording";
 
   let {
     compact,
@@ -13,7 +14,9 @@
     rolling,
     rollingIndexes,
     previewFaces,
+    passTo,
     passTitle,
+    failTo,
     failTitle,
     fortune,
     fortuneMax,
@@ -36,7 +39,9 @@
     rolling: boolean;
     rollingIndexes: number[];
     previewFaces: number[];
+    passTo: string;
     passTitle: string;
+    failTo: string;
     failTitle: string;
     fortune: number;
     fortuneMax: number;
@@ -55,6 +60,8 @@
   let entries = $state<string[]>([]);
 
   const dieCount = $derived(Number.parseInt(dice, 10) || 0);
+  const passDest = $derived(sectionDestination("Pass", passTo, passTitle));
+  const failDest = $derived(sectionDestination("Fail", failTo, failTitle));
 
   function setEntry(index: number, value: string): void {
     const next = entries.slice(0, dieCount);
@@ -117,20 +124,22 @@
       class="btn"
       class:ghost={rolling || !roll?.success}
       data-testid="destination-pass"
+      aria-label={passDest.name}
       disabled={!ready || rolling || !roll?.success}
       onclick={onArrive}
     >
-      Pass → {passTitle}
+      <span class="dest-keep">{passDest.prefix}</span><span class="dest-title">{passDest.title}</span>
     </button>
     <button
       type="button"
       class="btn"
       class:ghost={rolling || !roll || roll.success}
       data-testid="destination-fail"
+      aria-label={failDest.name}
       disabled={!ready || rolling || !roll || roll.success}
       onclick={onArrive}
     >
-      Fail → {failTitle}
+      <span class="dest-keep">{failDest.prefix}</span><span class="dest-title">{failDest.title}</span>
     </button>
   </div>
   {#if !roll && !rolling && !compact}
@@ -165,7 +174,7 @@
       {manual && !compact ? "Use these dice" : `Roll ${dice}`}
     </button>
   {/if}
-  <div class="test-actions">
+  <div class="fortune-row">
     <button
       type="button"
       class="btn ghost"
@@ -175,10 +184,12 @@
     >
       Spend {fortuneCost} Fortune: re-roll selected die
     </button>
-    <span class="note" data-testid="fortune-count">Fortune {fortune} / {fortuneMax}</span>
-    {#if compact}
+    <span class="note fortune-count" data-testid="fortune-count">Fortune {fortune} / {fortuneMax}</span>
+  </div>
+  {#if compact}
+    <div class="test-tools">
       <button type="button" class="btn ghost" data-testid="open-full-test" onclick={onFull}>Full test</button>
       <button type="button" class="btn ghost" data-testid="close-test" onclick={onClose}>Close</button>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </section>

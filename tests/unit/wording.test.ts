@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedBecause, rollFormula } from "../../src/ui/wording";
+import { blockedBecause, rollFormula, sectionDestination } from "../../src/ui/wording";
 
 describe("sample wording", () => {
   it("prints the sample roll without inventing a modifier", () => {
@@ -17,6 +17,15 @@ describe("sample wording", () => {
     expect(rollFormula("2d6", "Talent", 9, -1, { label: "Linguistics", bonus: 2 })).toBe(
       "2d6 ≤ Talent 9 − 1 + 2 Linguistics = 10",
     );
+  });
+
+  it("puts the section number before a destination title", () => {
+    expect(sectionDestination("Pass", "4", "The reading")).toEqual({
+      prefix: "Pass → §4 · ",
+      title: "The reading",
+      name: "Pass, section 4, The reading",
+    });
+    expect(sectionDestination("Fight over", "7", "Above").prefix).toBe("Fight over → §7 · ");
   });
 
   it("describes a ticked-box block as the sample's own gate", () => {

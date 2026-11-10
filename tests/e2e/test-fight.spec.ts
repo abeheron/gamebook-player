@@ -33,7 +33,10 @@ test("opens the full skill test and keeps the destination locked until the dice 
   await page.getByTestId("roll-test").click();
   await expect(page.getByTestId("test-result")).toHaveText("Double 1 — automatic pass");
   await expect(page.getByTestId("destination-pass")).toBeEnabled();
+  await expect(page.getByTestId("destination-pass")).toHaveText("Pass → §4 · The reading");
+  await expect(page.getByTestId("destination-pass")).toHaveAccessibleName("Pass, section 4, The reading");
   await expect(page.getByTestId("destination-fail")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toHaveText("Fail → §5 · The scrape");
   await expect(page.getByTestId("manual-dice")).toHaveCount(0);
 
   await page.getByTestId("view-back").click();
@@ -41,6 +44,7 @@ test("opens the full skill test and keeps the destination locked until the dice 
   await expect(page.getByTestId("test-panel")).toBeVisible();
   await expect(page.getByTestId("test-result")).toHaveText("Double 1 — automatic pass");
   await expect(page.getByTestId("destination-pass")).toBeEnabled();
+  await expect(page.getByTestId("destination-pass")).toHaveText("Pass → §4 · The reading");
   await expect(page.getByTestId("destination-fail")).toBeDisabled();
   await expect(page.getByTestId("manual-dice")).toHaveCount(0);
 });
@@ -79,6 +83,8 @@ test("runs the passage fight on the test screen and withholds the ending until t
   await expect(page.getByTestId("section-title")).toHaveCount(0);
   await page.getByTestId("roll-combat").click();
   await expect(page.getByTestId("fight-continue")).toBeVisible();
+  await expect(page.getByTestId("fight-continue")).toHaveText("Fight over → §7 · Above");
+  await expect(page.getByTestId("fight-continue")).toHaveAccessibleName("Fight over, section 7, Above");
   await expect(page.getByTestId("combat-outcome")).toContainText("You win the fight");
 });
 

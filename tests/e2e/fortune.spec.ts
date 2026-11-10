@@ -23,7 +23,7 @@ test("spends Fortune on a selected die until the cap and keeps the roll after re
   await expect(page.getByTestId("die-1")).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("fortune-reroll").click();
   await expect(page.getByTestId("fortune-count")).toHaveText("Fortune 2 / 3");
-  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("2");
+  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("2 / 3");
 
   await page.getByTestId("die-2").click();
   await page.getByTestId("fortune-reroll").click();
@@ -76,5 +76,5 @@ test("rerolls the current fight round and keeps it after reload", async ({ page 
   await page.reload();
   await expect(page.getByTestId("section-title")).toHaveText("The pale moth");
   await expect(page.getByTestId("combat-roll")).toHaveText(after);
-  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("2");
+  await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("2 / 3");
 });

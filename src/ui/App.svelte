@@ -175,6 +175,8 @@
   const heldRoll = $derived<RollRecord | null>(heldTest?.roll ?? null);
   const fortuneStat = $derived(demoSystem.stats.find((stat) => stat.id === demoSystem.fortuneStat));
   const fortuneNow = $derived(session.state.stats[demoSystem.fortuneStat] ?? 0);
+  const passTo = $derived(section.test?.success.to ?? "");
+  const failTo = $derived(section.test?.failure.to ?? "");
   const passTitle = $derived(section.test ? sectionTitle(demoBook.sections, section.test.success.to) : "");
   const failTitle = $derived(section.test ? sectionTitle(demoBook.sections, section.test.failure.to) : "");
   const combatRolls = $derived.by(() => {
@@ -190,6 +192,7 @@
     const max = demoSystem.stats.find((stat) => stat.id === combat.wound.stat)?.max ?? 0;
     return { current: source.state.stats[combat.wound.stat] ?? 0, max };
   });
+  const continueTo = $derived(arrival?.kind === "combat" ? arrival.session.state.sectionId : "");
   const continueTitle = $derived(
     arrival?.kind === "combat" ? sectionTitle(demoBook.sections, arrival.session.state.sectionId) : "",
   );
@@ -549,7 +552,9 @@
               rolling={diceRolling}
               {rollingIndexes}
               previewFaces={dicePreview}
+              {passTo}
               {passTitle}
+              {failTo}
               {failTitle}
               fortune={fortuneNow}
               fortuneMax={fortuneStat?.max ?? 0}
@@ -576,6 +581,7 @@
               vitalityMax={combatVitality.max}
               {ready}
               held={arrival?.kind === "combat"}
+              {continueTo}
               {continueTitle}
               {defeated}
               selected={combatSelected}
@@ -660,7 +666,9 @@
             rolling={diceRolling}
             {rollingIndexes}
             previewFaces={dicePreview}
+            {passTo}
             {passTitle}
+            {failTo}
             {failTitle}
             fortune={fortuneNow}
             fortuneMax={fortuneStat?.max ?? 0}
@@ -686,6 +694,7 @@
             vitalityMax={combatVitality.max}
             {ready}
             held={arrival?.kind === "combat"}
+            {continueTo}
             {continueTitle}
             {defeated}
             selected={combatSelected}

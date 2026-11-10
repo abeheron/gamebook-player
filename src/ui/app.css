@@ -375,11 +375,25 @@ h2 {
   height: 8px;
 }
 
-.test-actions {
+.test-panel button {
+  min-height: 44px;
+}
+
+.fortune-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fortune-count {
+  white-space: nowrap;
+}
+
+.test-tools {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .reader .choice {
@@ -475,6 +489,26 @@ h2 {
   font: 600 26px var(--serif);
 }
 
+.fortune-pips {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.fortune-pips i {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+}
+
+.fortune-pips i.on {
+  background: var(--accent);
+}
+
 .stat span {
   font-size: 12px;
   color: var(--muted);
@@ -553,7 +587,24 @@ h2 {
 
 .dest .btn {
   width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   text-align: left;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+.dest-keep {
+  flex: none;
+}
+
+.dest-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .formula,
@@ -996,6 +1047,18 @@ button.die {
     background: transparent;
     color: var(--accent);
     font-weight: 700;
+  }
+}
+
+@media (max-width: 390px) {
+  .test-panel .dest .btn,
+  .test-panel .fortune-row .btn {
+    width: 100%;
+  }
+
+  .test-panel .fortune-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
