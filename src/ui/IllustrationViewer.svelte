@@ -41,7 +41,7 @@
 >
   <div class="inner">
     <div class="bar2">
-      <span id="illus-title">{art.title} · {art.label} (demo placeholder)</span>
+      <span id="illus-title">{art.title} · {art.label}</span>
       <button type="button" class="close" data-testid="illus-close" bind:this={closeButton} onclick={onClose}>
         Close (Esc)
       </button>

@@ -1,4 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function expectFortuneOnOneLine(page: Page): Promise<void> {
+  const value = await page.getByTestId("sheet-stat-fortune").boundingBox();
+  const max = await page.locator(".fortune-max").boundingBox();
+  const pips = await page.locator(".fortune-pips").boundingBox();
+  expect(value && max && pips).toBeTruthy();
+  expect(max!.x).toBeGreaterThan(value!.x + value!.width - 2);
+  expect(max!.y).toBeLessThan(value!.y + value!.height);
+  expect(max!.y + max!.height).toBeGreaterThan(value!.y);
+  expect(pips!.y).toBeGreaterThan(value!.y + value!.height - 2);
+}
 
 test("keeps Fortune beside the reroll on a desktop and under it at 390px", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -54,6 +65,7 @@ test("keeps Fortune beside the reroll on a desktop and under it at 390px", async
   expect(fortuneType).toBeTruthy();
   expect(fortuneType!.maxSize).toBeLessThan(fortuneType!.valueSize);
   expect(fortuneType!.color).toBe("rgb(92, 83, 72)");
+  await expectFortuneOnOneLine(page);
 
   await page.setViewportSize({ width: 390, height: 844 });
   const narrowReroll = await page.getByTestId("fortune-reroll").boundingBox();
@@ -67,6 +79,7 @@ test("keeps Fortune beside the reroll on a desktop and under it at 390px", async
   expect(narrowPass!.width).toBeGreaterThan(300);
   expect(narrowFail!.width).toBeGreaterThan(300);
   expect(narrowReroll!.width).toBeGreaterThan(300);
+  await expectFortuneOnOneLine(page);
   const narrowFull = await page.getByTestId("open-full-test").boundingBox();
   const narrowClose = await page.getByTestId("close-test").boundingBox();
   expect(narrowFull && narrowClose && Math.abs(narrowFull.y - narrowClose.y)).toBeLessThan(2);

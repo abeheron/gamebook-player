@@ -611,10 +611,21 @@ h2 {
   font: 600 26px var(--serif);
 }
 
+.fortune-figure {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+}
+
+.fortune-figure b {
+  display: inline;
+}
+
 .stat .fortune-max {
   font: 600 12px var(--sans);
   color: var(--muted);
   letter-spacing: 0.06em;
+  white-space: pre;
 }
 
 .fortune-pips {

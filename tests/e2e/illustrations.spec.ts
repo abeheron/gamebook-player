@@ -15,7 +15,7 @@ test("switches illustration display and returns focus from the viewer", async ({
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("illus-viewer")).toBeVisible();
   await expect(page.getByTestId("illus-close")).toBeFocused();
-  await expect(page.getByTestId("illus-viewer")).toContainText("Section 1 illustration · Sample art");
+  await expect(page.locator("#illus-title")).toHaveText("Section 1 illustration · Sample art");
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("illus-close")).toBeFocused();
   await page.keyboard.press("Escape");
