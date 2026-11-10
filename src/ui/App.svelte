@@ -378,6 +378,14 @@
     pendingTest = null;
     panelOpen = false;
     session = startSession(demoBook, demoSystem);
+    if (view === "test") {
+      view = "read";
+      history = [];
+      queueMicrotask(() => {
+        window.scrollTo(0, 0);
+        mainEl?.focus();
+      });
+    }
   }
 
   function rollsFor(source: Session, id: string | undefined): RollRecord[] {
