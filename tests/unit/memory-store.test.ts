@@ -8,7 +8,7 @@ describe("memory save store", () => {
   it("round-trips a session and isolates later edits", async () => {
     const store = createMemoryStore();
     const session = startSession(demoBook, demoSystem);
-    await store.save("demo", { version: SAVE_VERSION, savedAt: "2026-11-07T00:00:00.000Z", session });
+    await store.save("demo", { version: SAVE_VERSION, savedAt: "2026-11-07T00:00:00.000Z", session, bookmarks: [] });
     session.state.sectionId = "7";
     const loaded = await store.load("demo");
     expect(loaded?.session.state.sectionId).toBe("1");

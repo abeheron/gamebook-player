@@ -5,12 +5,13 @@ test("saves, reloads, undoes, and still opens offline", async ({ page, context }
   await expect(page.getByTestId("book-title")).toHaveText("The Lantern Stair");
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
   await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
 
+  const landed = await page.getByTestId("autosave").getAttribute("data-saved-count");
   await page.getByTestId("choice-take-lantern").click();
   await expect(page.getByTestId("section-title")).toHaveText("The landing");
   await expect(page.getByTestId("sheet-item-lantern")).toHaveText("Lantern");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).not.toHaveAttribute("data-saved-count", landed ?? "");
   await page.getByTestId("open-sheet").click();
   await expect(page.getByTestId("sheet-view")).toBeVisible();
   await expect(page.getByTestId("sheet-item-lantern")).toHaveText("Lantern");
@@ -21,10 +22,12 @@ test("saves, reloads, undoes, and still opens offline", async ({ page, context }
   await expect(page.getByTestId("section-title")).toHaveText("The landing");
   await expect(page.getByTestId("sheet-item-lantern")).toBeVisible();
 
+  await expect(page.getByTestId("autosave")).toHaveAttribute("data-phase", "saved");
+  const undone = await page.getByTestId("autosave").getAttribute("data-saved-count");
   await page.getByTestId("undo").click();
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
   await expect(page.getByTestId("sheet-item-lantern")).toHaveCount(0);
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).not.toHaveAttribute("data-saved-count", undone ?? "");
 
   await page.reload();
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
@@ -41,9 +44,12 @@ test("saves, reloads, undoes, and still opens offline", async ({ page, context }
   await page.getByTestId("roll-test").click();
   await page.getByTestId("destination-go").click();
   await expect(page.getByTestId("section-title")).not.toHaveText("The mark");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
+  await expect(page.getByTestId("autosave")).toHaveAttribute("data-phase", "saved");
+  const marked = await page.getByTestId("autosave").getAttribute("data-saved-count");
   await page.getByTestId("undo").click();
   await expect(page.getByTestId("section-title")).toHaveText("The mark");
+  await expect(page.getByTestId("autosave")).not.toHaveAttribute("data-saved-count", marked ?? "");
 
   await page.waitForFunction(async () => {
     const registration = await navigator.serviceWorker.getRegistration();
@@ -62,7 +68,7 @@ test("saves, reloads, undoes, and still opens offline", async ({ page, context }
 test("stacks the sheet on a phone and keeps Back off the story", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await expect(page.getByTestId("side-nav")).toBeHidden();
   await expect(page.getByTestId("mobile-nav")).toBeVisible();
   await page.getByTestId("choice-take-lantern").click();

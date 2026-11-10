@@ -20,6 +20,7 @@
   import Rules from "./Rules.svelte";
   import Sheet from "./Sheet.svelte";
   import SkillTest from "./SkillTest.svelte";
+  import { formatSaveClock, noteKind, readSaveHook, SAVING_DELAY_MS, type SettledSave } from "./save-status";
   import { blockedBecause, rollFormula, sectionTitle, skillClause, statLabel, ticksOnSection } from "./wording";
 
   type ViewName = "read" | "sheet" | "test" | "log" | "rules";
@@ -33,9 +34,16 @@
 
   let session = $state(startSession(demoBook, demoSystem));
   let ready = $state(false);
-  let saveStatus = $state("Starting");
   let saveError = $state("");
   let writes = Promise.resolve();
+  let settled = $state<SettledSave>("idle");
+  let writing = $state(false);
+  let saveElapsed = $state(0);
+  let saveClock = $state("");
+  let saveCount = $state(0);
+  let saveGeneration = 0;
+  let savingTimer = 0;
+  const saveKind = $derived(noteKind(settled, writing, saveElapsed));
   let view = $state<ViewName>("read");
   let history = $state<ViewMark[]>([]);
   let arrival = $state<Arrival | null>(null);
@@ -44,6 +52,7 @@
   let mainEl = $state<HTMLElement | null>(null);
   let rollBusy = false;
   let commitBusy = false;
+  let bookmarks = $state<string[]>([]);
   let diceRolling = $state(false);
   let dicePreview = $state<number[]>([]);
   let motionFrame = 0;
@@ -212,16 +221,13 @@
       try {
         const record = await store.load(SLOT);
         if (ignore) return;
-        const migrated = migrateSave(record, demoSystem);
+        const migrated = migrateSave(record, demoSystem, demoBook);
         if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
           session = migrated.session;
-          saveStatus = "Restored on this device";
-        } else {
-          saveStatus = "New game";
+          bookmarks = migrated.bookmarks;
         }
       } catch (error) {
         saveError = error instanceof Error ? error.message : "Could not read the save.";
-        saveStatus = "Playing without a save";
       } finally {
         if (!ignore) ready = true;
       }
@@ -235,28 +241,61 @@
   onDestroy(() => {
     clearMotion();
     stopDiceSound();
+    window.clearTimeout(savingTimer);
   });
 
-  $effect(() => {
-    if (!ready) return;
-    const record: SaveRecord = {
+  function currentRecord(): SaveRecord {
+    return {
       version: SAVE_VERSION,
       savedAt: new Date().toISOString(),
       session: $state.snapshot(session),
+      bookmarks: $state.snapshot(bookmarks),
     };
-    saveStatus = "Saving";
+  }
+
+  function queueSave(record: SaveRecord): void {
+    const generation = ++saveGeneration;
+    writing = true;
+    saveElapsed = 0;
+    window.clearTimeout(savingTimer);
+    savingTimer = window.setTimeout(() => {
+      if (saveGeneration === generation && writing) saveElapsed = SAVING_DELAY_MS;
+    }, SAVING_DELAY_MS);
     writes = writes
       .catch(() => undefined)
-      .then(() => store.save(SLOT, record))
+      .then(async () => {
+        const hook = readSaveHook(typeof sessionStorage === "undefined" ? null : sessionStorage);
+        if (hook.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
+        if (hook.fail) throw new Error("storage refused");
+        await store.save(SLOT, record);
+      })
       .then(() => {
-        saveStatus = "Saved on this device";
+        if (generation !== saveGeneration) return;
+        window.clearTimeout(savingTimer);
+        writing = false;
+        saveElapsed = 0;
+        saveClock = formatSaveClock(new Date());
+        settled = "saved";
+        saveCount += 1;
         saveError = "";
       })
-      .catch((error: unknown) => {
-        saveError = error instanceof Error ? error.message : "Could not save.";
-        saveStatus = "Not saved";
+      .catch(() => {
+        if (generation !== saveGeneration) return;
+        window.clearTimeout(savingTimer);
+        writing = false;
+        saveElapsed = 0;
+        settled = "failed";
       });
+  }
+
+  $effect(() => {
+    if (!ready) return;
+    queueSave(currentRecord());
   });
+
+  function retrySave(): void {
+    queueSave(currentRecord());
+  }
 
   function plainSession() {
     return $state.snapshot(session);
@@ -378,6 +417,7 @@
     pendingTest = null;
     panelOpen = false;
     session = startSession(demoBook, demoSystem);
+    bookmarks = [];
     if (view === "test") {
       view = "read";
       history = [];
@@ -397,6 +437,13 @@
     const rolls = rollsFor(source, id);
     return rolls[rolls.length - 1] ?? null;
   }
+
+  function toggleBookmark(): void {
+    const id = session.state.sectionId;
+    bookmarks = bookmarks.includes(id) ? bookmarks.filter((entry) => entry !== id) : [...bookmarks, id];
+  }
+
+  const bookmarked = $derived(bookmarks.includes(session.state.sectionId));
 
   function screenName(name: ViewName): string {
     if (name === "sheet") return "character";
@@ -452,7 +499,6 @@
         Undo turn
       </button>
       <button type="button" class="btn ghost" data-testid="new-game" disabled={!ready} onclick={onNewGame}>New game</button>
-      <p class="save-status" data-testid="save-status">{saveStatus}</p>
     </div>
     {#if saveError}
       <p class="error" data-testid="save-error">{saveError}</p>
@@ -460,7 +506,7 @@
     {#if view === "read"}
       <div class="layout">
         <div>
-          <Reader {section} ticks={mentionedTicks} {panelOpen} onOpenTest={openPanel} />
+          <Reader {section} ticks={mentionedTicks} {panelOpen} onOpenTest={openPanel} {bookmarked} onBookmark={toggleBookmark} />
           {#if panelOpen && section.test}
             <SkillTest
               compact
@@ -504,6 +550,24 @@
         <aside aria-label="Quick adventure sheet">
           <Sheet system={demoSystem} state={session.state} brief />
           <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
+          {#if saveKind === "saving"}
+            <p class="save busy" role="status" aria-live="polite" data-testid="autosave" data-phase="writing" data-saved-count={saveCount}>
+              <span class="dot" aria-hidden="true"></span>
+              <span>Saving…</span>
+            </p>
+          {:else if saveKind === "failed"}
+            <p class="save fail" role="alert" aria-live="assertive" data-testid="autosave" data-phase="failed" data-saved-count={saveCount}>
+              <span class="fail-copy"><span class="mark" aria-hidden="true">✗</span> Not saved — this device's storage refused the save</span>
+              <button type="button" class="retry" data-testid="save-retry" onclick={retrySave}>Try again</button>
+            </p>
+          {:else if saveKind === "saved"}
+            <p class="save ok" role="status" aria-live="polite" data-testid="autosave" data-phase={writing ? "writing" : "saved"} data-saved-count={saveCount}>
+              <span class="mark" aria-hidden="true">✓</span>
+              <span>Autosaved on this device · {saveClock}</span>
+            </p>
+          {:else}
+            <p class="save" data-testid="autosave" data-phase={writing ? "writing" : "idle"} data-saved-count={saveCount}></p>
+          {/if}
         </aside>
       </div>
     {:else if view === "log"}
