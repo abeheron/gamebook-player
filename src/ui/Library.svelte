@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { importBookText } from "../format/import-book";
+  import { exploredLabel, importBookText, sectionCount } from "../format/import-book";
   import type { Book, SystemDef } from "../format/types";
 
   type StepMark = "wait" | "ok" | "fail";
@@ -99,16 +99,16 @@
           <div class="cover" class:alt={card.altCover} aria-hidden="true">{card.title}</div>
           <div>
             <h2>{card.title}</h2>
-            <div class="note">{card.author} · {card.system} · {card.sections} sections</div>
-            <div class="explored">Explored {card.explored} sections</div>
+            <div class="note">{card.author} · {card.system} · {sectionCount(card.sections)}</div>
+            <div class="explored">{exploredLabel(card.explored)}</div>
             <div class="bar" aria-hidden="true"><div style:width="{card.sections === 0 ? 0 : (card.explored / card.sections) * 100}%"></div></div>
-            <div class="library-actions">
-              <button type="button" class="btn" data-testid="library-continue-{card.id}" onclick={() => onContinue(card.id)}>
-                Continue · §{card.sectionId}
-              </button>
-              <button type="button" class="btn ghost" disabled>New adventurer</button>
-              <button type="button" class="btn ghost" disabled>Save slots</button>
-            </div>
+          </div>
+          <div class="library-actions">
+            <button type="button" class="btn" data-testid="library-continue-{card.id}" onclick={() => onContinue(card.id)}>
+              Continue · §{card.sectionId}
+            </button>
+            <button type="button" class="btn ghost" disabled>New adventurer</button>
+            <button type="button" class="btn ghost" disabled>Save slots</button>
           </div>
         </div>
       {/each}

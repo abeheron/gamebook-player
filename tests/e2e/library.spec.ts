@@ -22,6 +22,11 @@ test("imports a valid book, keeps it after reload, and rejects an invalid file",
   await expect(page.locator(".demo")).toHaveCount(0);
   await expect(page.getByTestId("library-book-lantern-stair")).toBeVisible();
   await expect(page.getByTestId("library-continue-lantern-stair")).toHaveText("Continue · §1");
+  await expect(page.getByTestId("library-book-lantern-stair")).toContainText("10 sections");
+  await expect(page.getByTestId("library-book-lantern-stair")).toContainText("Explored 1 section");
+  await expect(page.getByTestId("undo")).toHaveCount(0);
+  await expect(page.getByTestId("new-game")).toHaveCount(0);
+  await expect(page.getByTestId("view-back")).toHaveText("← Back to reading");
 
   await page.getByTestId("import-input").setInputFiles(valid);
   await expect(page.getByTestId("import-step-1")).toHaveAttribute("data-state", "ok");
@@ -29,6 +34,8 @@ test("imports a valid book, keeps it after reload, and rejects an invalid file",
   await expect(page.getByTestId("import-step-3")).toHaveAttribute("data-state", "ok");
   await expect(page.getByTestId("import-step-4")).toHaveAttribute("data-state", "ok");
   await expect(page.getByTestId("library-book-imported-stair")).toBeVisible();
+  await expect(page.getByTestId("library-book-imported-stair")).toContainText("1 section");
+  await expect(page.getByTestId("library-book-imported-stair")).toContainText("Explored 0 sections");
 
   await page.reload();
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");

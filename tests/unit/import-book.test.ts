@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { demoSystem } from "../../src/format/demo";
-import { importBookText } from "../../src/format/import-book";
+import { exploredLabel, importBookText, sectionCount } from "../../src/format/import-book";
 
 const valid = readFileSync(new URL("../fixtures/imported-stair.json", import.meta.url), "utf8");
 const invalid = readFileSync(new URL("../fixtures/imported-invalid.json", import.meta.url), "utf8");
@@ -36,6 +36,14 @@ describe("book import", () => {
     const result = importBookText(valid, demoSystem, ["imported-stair"]);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.step).toBe(4);
+  });
+
+  it("uses the singular only for one section", () => {
+    expect(sectionCount(0)).toBe("0 sections");
+    expect(sectionCount(1)).toBe("1 section");
+    expect(sectionCount(10)).toBe("10 sections");
+    expect(exploredLabel(1)).toBe("Explored 1 section");
+    expect(exploredLabel(2)).toBe("Explored 2 sections");
   });
 
   it("rejects a file that is not JSON at the schema step", () => {

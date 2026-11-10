@@ -46,3 +46,12 @@ export function importBookText(text: string, system: SystemDef, existingIds: rea
 export function exploredSections(sectionId: string, previous: readonly { sectionId: string }[]): number {
   return new Set([sectionId, ...previous.map((state) => state.sectionId)]).size;
 }
+
+/** One section, otherwise sections. */
+export function sectionCount(count: number): string {
+  return `${count} ${count === 1 ? "section" : "sections"}`;
+}
+
+export function exploredLabel(count: number): string {
+  return `Explored ${sectionCount(count)}`;
+}

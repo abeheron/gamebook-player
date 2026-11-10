@@ -628,12 +628,14 @@
         {/if}
       {/if}
     </div>
-    <div class="toolbar">
-      <button type="button" class="btn ghost" data-testid="undo" disabled={!ready || session.undo.length === 0} onclick={onUndo}>
-        Undo turn
-      </button>
-      <button type="button" class="btn ghost" data-testid="new-game" disabled={!ready} onclick={onNewGame}>New game</button>
-    </div>
+    {#if view !== "library"}
+      <div class="toolbar">
+        <button type="button" class="btn ghost" data-testid="undo" disabled={!ready || session.undo.length === 0} onclick={onUndo}>
+          Undo turn
+        </button>
+        <button type="button" class="btn ghost" data-testid="new-game" disabled={!ready} onclick={onNewGame}>New game</button>
+      </div>
+    {/if}
     {#if saveError}
       <p class="error" data-testid="save-error">{saveError}</p>
     {/if}
