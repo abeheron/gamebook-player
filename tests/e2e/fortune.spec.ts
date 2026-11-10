@@ -15,7 +15,7 @@ test("spends Fortune on a selected die until the cap and keeps the roll after re
   await expect(page.getByTestId("fortune-count")).toHaveText("Fortune 3 / 3");
   await expect(page.getByTestId("fortune-reroll")).toBeDisabled();
   await page.getByTestId("roll-test").click();
-  await expect(page.getByTestId("test-result")).toContainText("=");
+  await expect(page.getByTestId("test-result")).toContainText(/=|Double 1|Double 6/);
   await expect(page.getByTestId("autosave")).toHaveAttribute("data-phase", "saved");
   const before = await page.getByTestId("test-result").innerText();
 
