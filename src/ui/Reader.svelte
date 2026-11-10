@@ -98,7 +98,7 @@
         </button>
         <figcaption>
           <span class="prov">{art.label}</span>
-          <span>Placeholder SVG drawn for this prototype, not a scan or AI image. Select it to view full size.</span>
+          <span>Original sample art. Select it to view full size.</span>
         </figcaption>
       </figure>
     {:else if illustrations === "link"}

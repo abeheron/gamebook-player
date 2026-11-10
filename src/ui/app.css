@@ -246,7 +246,7 @@ input {
 }
 
 .lightbox .inner {
-  max-width: min(1100px, 96vw);
+  width: min(1100px, 96vw);
   max-height: 92vh;
   display: flex;
   flex-direction: column;
@@ -268,7 +268,13 @@ input {
   gap: 12px;
 }
 
+.lightbox .bar2 span {
+  min-width: 0;
+}
+
 .lightbox .close {
+  flex: none;
+  white-space: nowrap;
   font: 600 15px var(--sans);
   padding: 8px 14px;
   border-radius: 8px;
@@ -605,6 +611,12 @@ h2 {
   font: 600 26px var(--serif);
 }
 
+.stat .fortune-max {
+  font: 600 12px var(--sans);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
 .fortune-pips {
   display: flex;
   gap: 4px;
@@ -712,8 +724,21 @@ h2 {
   overflow: hidden;
 }
 
+.test-panel .dest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.test-panel .dest .btn {
+  width: max-content;
+  max-width: 100%;
+  flex: 0 0 auto;
+}
+
 .dest-keep {
   flex: none;
+  white-space: pre;
 }
 
 .dest-title {
@@ -1167,9 +1192,15 @@ button.die {
 }
 
 @media (max-width: 390px) {
+  .test-panel .dest {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .test-panel .dest .btn,
   .test-panel .fortune-row .btn {
     width: 100%;
+    max-width: none;
   }
 
   .test-panel .fortune-row {

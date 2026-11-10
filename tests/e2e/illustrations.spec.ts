@@ -7,6 +7,7 @@ test("switches illustration display and returns focus from the viewer", async ({
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
   await expect(page.getByTestId("illus-figure")).toBeVisible();
   await expect(page.getByTestId("illus-figure").locator(".prov")).toHaveText("Sample art");
+  await expect(page.getByTestId("illus-figure")).toContainText("Original sample art. Select it to view full size.");
   await expect(page.locator("[data-testid=illus-figure] svg")).toHaveAttribute("aria-label", /Sample art/);
 
   const frame = page.getByTestId("illus-open");
@@ -25,9 +26,17 @@ test("switches illustration display and returns focus from the viewer", async ({
   await expect(page.getByTestId("illus-figure")).toHaveCount(0);
   await expect(page.getByTestId("illus-open")).toHaveText("View illustration for section 1");
   await expect(page.getByTestId("illus-link-row").locator(".prov")).toHaveText("Sample art");
-  await page.getByTestId("illus-open").click();
+  await page.getByRole("button", { name: "View illustration for section 1" }).click();
+  const picture = page.locator("[data-testid=illus-viewer] svg");
+  await expect(picture).toBeVisible();
+  const artBox = await picture.boundingBox();
+  expect(artBox && artBox.width).toBeGreaterThan(1000);
+  expect(artBox && artBox.height).toBeGreaterThan(200);
   await expect(page.getByTestId("illus-close")).toBeFocused();
-  await page.getByTestId("illus-viewer").click({ position: { x: 4, y: 4 } });
+  await expect(page.getByTestId("illus-close")).toHaveCSS("white-space", "nowrap");
+  const backdrop = await page.getByTestId("illus-viewer").evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(backdrop).toBe("rgba(15, 12, 9, 0.86)");
+  await page.getByTestId("illus-close").click();
   await expect(page.getByTestId("illus-viewer")).toHaveCount(0);
   await expect(page.getByTestId("illus-open")).toBeFocused();
 
