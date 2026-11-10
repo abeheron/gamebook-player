@@ -10,6 +10,7 @@
     "typecheck": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "convert:check": "tsx scripts/convert-check.ts",
     "tauri": "tauri",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml --locked"
   },
@@ -19,10 +20,16 @@
     "@tauri-apps/cli": "2.12.4",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^24.19.2",
+    "pdf-lib": "^1.17.1",
     "svelte": "^5.57.3",
     "svelte-check": "^4.7.7",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "vite": "^8.3.6",
     "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "jszip": "^3.10.2",
+    "pdfjs-dist": "^6.5.438"
   }
 }

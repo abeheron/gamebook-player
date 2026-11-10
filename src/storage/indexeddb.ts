@@ -25,6 +25,9 @@ export function createIndexedDbStore(): SaveStore {
     putBook(record) {
       return request(BOOKS, "readwrite", (store) => store.put(structuredClone(record), record.id)).then(() => undefined);
     },
+    deleteBook(id) {
+      return request(BOOKS, "readwrite", (store) => store.delete(id)).then(() => undefined);
+    },
   };
 }
 

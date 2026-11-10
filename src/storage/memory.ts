@@ -20,5 +20,8 @@ export function createMemoryStore(): SaveStore {
     async putBook(record) {
       books.set(record.id, structuredClone(record));
     },
+    async deleteBook(id) {
+      books.delete(id);
+    },
   };
 }

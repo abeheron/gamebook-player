@@ -23,4 +23,5 @@ export interface SaveStore {
   clear(slot: string): Promise<void>;
   listBooks(): Promise<BookRecord[]>;
   putBook(record: BookRecord): Promise<void>;
+  deleteBook(id: string): Promise<void>;
 }

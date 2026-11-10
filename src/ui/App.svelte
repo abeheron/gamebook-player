@@ -562,6 +562,37 @@
     imported = [...imported.filter((entry) => entry.id !== next.id), next];
   }
 
+  async function removeImportedBook(id: string): Promise<void> {
+    if (id === demoBook.id) return;
+    switching = true;
+    try {
+      await writes.catch(() => undefined);
+      await store.clear(saveSlot(id));
+      await store.deleteBook(id);
+      imported = imported.filter((entry) => entry.id !== id);
+      const rest = { ...otherSaves };
+      delete rest[id];
+      otherSaves = rest;
+      if (book.id === id) {
+        const record = await store.load(saveSlot(demoBook.id));
+        const migrated = migrateSave(record, demoSystem, demoBook);
+        book = demoBook;
+        arrival = null;
+        if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
+          session = migrated.session;
+          bookmarks = migrated.bookmarks;
+          panelOpen = migrated.session.state.pending?.kind === "test";
+        } else {
+          session = startSession(demoBook, demoSystem);
+          bookmarks = [];
+          panelOpen = false;
+        }
+      }
+    } finally {
+      switching = false;
+    }
+  }
+
   const libraryCards = $derived.by(() => {
     const entries = [demoBook, ...imported.filter((entry) => entry.id !== demoBook.id)];
     return entries.map((entry) => {
@@ -575,6 +606,7 @@
         explored: exploredFor(record),
         sectionId: sectionFor(record, entry.start),
         altCover: entry.id !== demoBook.id,
+        removable: entry.id !== demoBook.id,
       };
     });
   });
@@ -830,6 +862,7 @@
         existingIds={libraryCards.map((card) => card.id)}
         onAdded={addImportedBook}
         onContinue={openLibraryBook}
+        onRemove={removeImportedBook}
       />
     {:else}
       <h1>Character</h1>
