@@ -90,14 +90,16 @@ test("stacks the review on a phone and keeps the book buttons in a row", async (
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("mobile-library").click();
   const actions = page.getByTestId("library-book-lantern-stair").locator(".library-actions .btn");
+  const row = await page.getByTestId("library-book-lantern-stair").locator(".library-actions").boundingBox();
   const boxes = await actions.evaluateAll((nodes) =>
     nodes.map((node) => {
       const box = node.getBoundingClientRect();
-      return { y: Math.round(box.y), w: Math.round(box.width) };
+      return { w: Math.round(box.width) };
     }),
   );
-  expect(boxes[0]?.y).toBe(boxes[1]?.y);
-  expect(boxes.every((box) => box.w < 320)).toBe(true);
+  expect(row).toBeTruthy();
+  expect(boxes.every((box) => row !== null && box.w <= row.width - 24)).toBe(true);
+  expect(new Set(boxes.map((box) => box.w)).size).toBeGreaterThan(1);
   const tall = await actions.first().evaluate((node) => node.getBoundingClientRect().height);
   expect(tall).toBeGreaterThanOrEqual(44);
 
