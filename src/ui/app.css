@@ -258,12 +258,44 @@ h2 {
   margin: 0 0 10px;
 }
 
-.secno {
+.kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 6px;
+  min-height: 44px;
+}
+
+.secno {
+  margin: 0;
   font: 600 13px var(--sans);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
+}
+
+.bm {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font: 600 14px var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bm[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
 .prose {
@@ -353,17 +385,6 @@ h2 {
 
 .layout aside .btn {
   margin-top: 12px;
-}
-
-.summary-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-  flex-wrap: wrap;
-}
-
-.summary-actions .btn {
-  margin-top: 0;
 }
 
 .save {
@@ -954,6 +975,21 @@ h2 {
     background: transparent;
     color: var(--accent);
     font-weight: 700;
+  }
+}
+
+@media (max-width: 430px) {
+  .bm .txt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .bm {
+    width: 44px;
+    padding: 0;
   }
 }
 

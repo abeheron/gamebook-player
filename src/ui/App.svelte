@@ -506,7 +506,7 @@
     {#if view === "read"}
       <div class="layout">
         <div>
-          <Reader {section} ticks={mentionedTicks} {panelOpen} onOpenTest={openPanel} />
+          <Reader {section} ticks={mentionedTicks} {panelOpen} onOpenTest={openPanel} {bookmarked} onBookmark={toggleBookmark} />
           {#if panelOpen && section.test}
             <SkillTest
               compact
@@ -549,18 +549,7 @@
         </div>
         <aside aria-label="Quick adventure sheet">
           <Sheet system={demoSystem} state={session.state} brief />
-          <div class="summary-actions">
-            <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
-            <button
-              type="button"
-              class="btn ghost"
-              data-testid="bookmark"
-              aria-pressed={bookmarked}
-              onclick={toggleBookmark}
-            >
-              {bookmarked ? "★ Bookmarked" : "☆ Bookmark"}
-            </button>
-          </div>
+          <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
           {#if saveKind === "saving"}
             <p class="save busy" role="status" aria-live="polite" data-testid="autosave" data-phase="writing" data-saved-count={saveCount}>
               <span class="dot" aria-hidden="true"></span>
