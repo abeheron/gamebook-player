@@ -11,8 +11,15 @@
     ready,
     roll,
     rolling,
+    rollingIndexes,
     previewFaces,
     destination,
+    fortune,
+    fortuneMax,
+    fortuneCost,
+    selected,
+    onSelect,
+    onReroll,
     onRoll,
     onArrive,
     onClose,
@@ -26,8 +33,15 @@
     ready: boolean;
     roll: RollRecord | null;
     rolling: boolean;
+    rollingIndexes: number[];
     previewFaces: number[];
     destination: string;
+    fortune: number;
+    fortuneMax: number;
+    fortuneCost: number;
+    selected: number | null;
+    onSelect: (index: number) => void;
+    onReroll: () => void;
     onRoll: (faces?: number[]) => void;
     onArrive: () => void;
     onClose: () => void;
@@ -71,18 +85,18 @@
 >
   <h2>{label}</h2>
   <p class="formula" data-testid="test-formula">{formula}</p>
-  <p class="note">Pass on this total or under. This sample does not spend Fortune.</p>
+  <p class="note">Pass on this total or under. Select a die, then spend Fortune to re-roll it.</p>
   {#if rolling}
     <div class="dice" aria-hidden="true">
       {#each previewFaces as face, index (`roll-${index}`)}
-        <Die {face} rolling />
+        <Die {face} rolling={rollingIndexes.includes(index)} />
       {/each}
     </div>
     <p class="result" data-testid="test-result" role="status" aria-live="polite">Rolling…</p>
   {:else if roll}
-    <div class="dice" aria-hidden="true">
+    <div class="dice" aria-label="Dice">
       {#each roll.faces as face, index (`${roll.total}-${index}`)}
-        <Die {face} />
+        <Die {face} {index} selected={selected === index} onSelect={onSelect} />
       {/each}
     </div>
     <p class="result {roll.success ? "ok" : "bad"}" data-testid="test-result" role="status" aria-live="polite">
@@ -125,6 +139,16 @@
     </button>
   {/if}
   <div class="test-actions">
+    <button
+      type="button"
+      class="btn ghost"
+      data-testid="fortune-reroll"
+      disabled={!ready || rolling || !roll || selected === null || fortune < fortuneCost}
+      onclick={onReroll}
+    >
+      Spend {fortuneCost} Fortune: re-roll selected die
+    </button>
+    <span class="note" data-testid="fortune-count">Fortune {fortune} / {fortuneMax}</span>
     {#if compact}
       <button type="button" class="btn ghost" data-testid="open-full-test" onclick={onFull}>Full test</button>
       <button type="button" class="btn ghost" data-testid="close-test" onclick={onClose}>Close</button>

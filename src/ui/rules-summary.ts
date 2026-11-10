@@ -85,7 +85,7 @@ export const rulesSummary: readonly RuleSection[] = [
       {
         text: "Spend 1 Fortune after a roll to reroll one die. You may spend again, and Fortune comes after other rerolls.",
         page: "pp. 8–9",
-        status: "not-yet",
+        status: "in-app",
       },
       {
         text: "Fortune does not return by itself. An award of one or more XP gives one Fortune, not one per point. The cap is 3.",

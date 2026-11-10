@@ -33,6 +33,10 @@ export interface SystemDef {
   startingSkills: SkillRank[];
   startingGold: number;
   startingItems: NamedValue[];
+  /** Stat spent to reroll one die. */
+  fortuneStat: string;
+  /** Fortune points spent to reroll one selected die. */
+  fortuneRerollCost: number;
 }
 
 export type Effect =
@@ -134,6 +138,17 @@ export interface PendingCombat {
   round: number;
 }
 
+/** A skill-test roll that has not been taken yet. Fortune rerolls update this roll in place. */
+export interface PendingTest {
+  kind: "test";
+  sectionId: string;
+  roll: RollRecord;
+  /** Die chosen for the next Fortune spend, or null when none is chosen. */
+  selected: number | null;
+}
+
+export type PendingAction = PendingCombat | PendingTest;
+
 export interface GameState {
   sectionId: string;
   stats: Record<string, number>;
@@ -144,7 +159,7 @@ export interface GameState {
   keywords: NamedValue[];
   ticks: Record<string, TickMark>;
   rolls: RollRecord[];
-  pending: PendingCombat | null;
+  pending: PendingAction | null;
 }
 
 export interface Session {

@@ -13,7 +13,7 @@
   {#if brief}
     <h2>Character</h2>
   {/if}
-  <p class="note">Numbers and maxima are this sample's. Stat names are from GNAT. Fortune is not spent, and no re-roll cost is defined here.</p>
+  <p class="note">Numbers and maxima are this sample's. Stat names are from GNAT. One Fortune rerolls one selected die. Fortune does not rise above 3.</p>
   <div class="statline">
     {#each system.stats as stat (stat.id)}
       <div class="stat">

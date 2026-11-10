@@ -4,7 +4,7 @@
   import type { RollRecord, Session } from "../format/types";
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
-  import { choose, currentSection, rollCombatRound, rollTest, startSession, undo } from "../engine/rules";
+  import { acceptTest, choose, currentSection, holdTestRoll, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
   import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withPref, type StoredDicePrefs } from "./dice-prefs";
@@ -26,8 +26,6 @@
   type ViewName = "read" | "sheet" | "test" | "log" | "rules";
   type ViewMark = { view: ViewName; scroll: number };
   type Arrival = { kind: "combat"; session: Session };
-  type PendingTest = { sectionId: string; next: Session; roll: RollRecord };
-
   const SLOT = "demo";
   const store = createIndexedDbStore();
   const runtime = detectRuntime();
@@ -47,8 +45,8 @@
   let view = $state<ViewName>("read");
   let history = $state<ViewMark[]>([]);
   let arrival = $state<Arrival | null>(null);
-  let pendingTest = $state<PendingTest | null>(null);
   let panelOpen = $state(false);
+  let rollingIndexes = $state<number[]>([]);
   let mainEl = $state<HTMLElement | null>(null);
   let rollBusy = false;
   let commitBusy = false;
@@ -96,6 +94,7 @@
     motionTimer = 0;
     diceRolling = false;
     dicePreview = [];
+    rollingIndexes = [];
   }
 
   function playRollSound(): void {
@@ -106,16 +105,18 @@
     });
   }
 
-  function startRoll(faces: number[], commit: () => void): void {
+  function startRoll(faces: number[], commit: () => void, flickerAt?: number[]): void {
     clearMotion();
     playRollSound();
+    const moving = flickerAt ?? faces.map((_, index) => index);
     if (!prefs.anim) {
       commit();
       return;
     }
     diceRolling = true;
+    rollingIndexes = moving;
     const flicker = () => {
-      dicePreview = Array.from({ length: faces.length }, () => 1 + Math.floor(Math.random() * 6));
+      dicePreview = faces.map((face, index) => (moving.includes(index) ? 1 + Math.floor(Math.random() * 6) : face));
     };
     flicker();
     motionFrame = window.setInterval(flicker, FRAME_MS);
@@ -167,9 +168,12 @@
     const value = session.state.stats[combat.stat];
     return rollFormula(combat.dice, statLabel(demoSystem, combat.stat), value ?? 0, combat.modifier ?? 0);
   });
-  const heldRoll = $derived<RollRecord | null>(
-    pendingTest !== null && pendingTest.sectionId === section.id ? pendingTest.roll : null,
+  const heldTest = $derived(
+    session.state.pending?.kind === "test" && session.state.pending.sectionId === section.id ? session.state.pending : null,
   );
+  const heldRoll = $derived<RollRecord | null>(heldTest?.roll ?? null);
+  const fortuneStat = $derived(demoSystem.stats.find((stat) => stat.id === demoSystem.fortuneStat));
+  const fortuneNow = $derived(session.state.stats[demoSystem.fortuneStat] ?? 0);
   const destinationTitle = $derived.by(() => {
     const test = section.test;
     if (!test || !heldRoll) return "";
@@ -225,6 +229,7 @@
         if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
           session = migrated.session;
           bookmarks = migrated.bookmarks;
+          if (migrated.session.state.pending?.kind === "test") panelOpen = true;
         }
       } catch (error) {
         saveError = error instanceof Error ? error.message : "Could not read the save.";
@@ -347,27 +352,41 @@
   function onChoose(choiceId: string): void {
     clearMotion();
     arrival = null;
-    pendingTest = null;
     panelOpen = false;
     session = choose(plainSession(), demoBook, demoSystem, choiceId);
   }
 
   function onRollTest(faces?: number[]): void {
-    if (diceRolling || !canStartRoll(pendingTest !== null, rollBusy)) return;
+    if (diceRolling || !canStartRoll(heldTest !== null, rollBusy)) return;
     const test = section.test;
     if (!test) return;
     rollBusy = true;
     try {
-      const next = rollTest(plainSession(), demoBook, demoSystem, Math.random, faces);
-      const roll = lastRoll(next, test.id);
-      if (!roll) return;
-      const sectionId = session.state.sectionId;
-      startRoll(roll.faces, () => {
-        pendingTest = { sectionId, next, roll };
+      const next = holdTestRoll(plainSession(), demoBook, demoSystem, Math.random, faces);
+      const pending = next.state.pending;
+      if (!pending || pending.kind !== "test") return;
+      startRoll(pending.roll.faces, () => {
+        session = next;
       });
     } finally {
       rollBusy = false;
     }
+  }
+
+  function onSelectDie(index: number): void {
+    if (diceRolling) return;
+    session = selectTestDie(plainSession(), index);
+  }
+
+  function onRerollDie(): void {
+    if (diceRolling || !heldTest || heldTest.selected === null) return;
+    if (fortuneNow < demoSystem.fortuneRerollCost) return;
+    const index = heldTest.selected;
+    const face = 1 + Math.floor(Math.random() * 6);
+    const next = rerollTestDie(plainSession(), demoBook, demoSystem, index, Math.random, face);
+    startRoll(heldTest.roll.faces, () => {
+      session = next;
+    }, [index]);
   }
 
   function onRollCombat(): void {
@@ -381,10 +400,9 @@
   }
 
   function onArriveTest(): void {
-    if (commitBusy || !pendingTest) return;
+    if (commitBusy || !heldTest) return;
     commitBusy = true;
-    const next = pendingTest.next;
-    pendingTest = null;
+    const next = acceptTest(plainSession(), demoBook, demoSystem);
     panelOpen = false;
     if (view === "test") {
       const previous = history[history.length - 1];
@@ -406,7 +424,6 @@
   function onUndo(): void {
     clearMotion();
     arrival = null;
-    pendingTest = null;
     panelOpen = false;
     session = undo(plainSession());
   }
@@ -414,7 +431,6 @@
   function onNewGame(): void {
     clearMotion();
     arrival = null;
-    pendingTest = null;
     panelOpen = false;
     session = startSession(demoBook, demoSystem);
     bookmarks = [];
@@ -431,11 +447,6 @@
   function rollsFor(source: Session, id: string | undefined): RollRecord[] {
     if (!id) return [];
     return source.state.rolls.filter((roll) => roll.id === id);
-  }
-
-  function lastRoll(source: Session, id: string | undefined): RollRecord | null {
-    const rolls = rollsFor(source, id);
-    return rolls[rolls.length - 1] ?? null;
   }
 
   function toggleBookmark(): void {
@@ -517,8 +528,15 @@
               {ready}
               roll={heldRoll}
               rolling={diceRolling}
+              {rollingIndexes}
               previewFaces={dicePreview}
               destination={destinationTitle}
+              fortune={fortuneNow}
+              fortuneMax={fortuneStat?.max ?? 0}
+              fortuneCost={demoSystem.fortuneRerollCost}
+              selected={heldTest?.selected ?? null}
+              onSelect={onSelectDie}
+              onReroll={onRerollDie}
               onRoll={onRollTest}
               onArrive={onArriveTest}
               onClose={closePanel}
@@ -529,7 +547,7 @@
             <Combat
               combat={section.combat}
               formula={combatFormula}
-              round={(session.state.pending?.round ?? 0) + 1}
+              round={(session.state.pending?.kind === "combat" ? session.state.pending.round : 0) + 1}
               rounds={section.combat.rounds}
               rolls={combatRolls}
               rolling={diceRolling}
@@ -612,10 +630,17 @@
             formula={testFormula}
             adjustment={testAdjustment}
             {ready}
-        roll={heldRoll}
-        rolling={diceRolling}
-        previewFaces={dicePreview}
-        destination={destinationTitle}
+            roll={heldRoll}
+            rolling={diceRolling}
+            {rollingIndexes}
+            previewFaces={dicePreview}
+            destination={destinationTitle}
+            fortune={fortuneNow}
+            fortuneMax={fortuneStat?.max ?? 0}
+            fortuneCost={demoSystem.fortuneRerollCost}
+            selected={heldTest?.selected ?? null}
+            onSelect={onSelectDie}
+            onReroll={onRerollDie}
             onRoll={onRollTest}
             onArrive={onArriveTest}
             onClose={closePanel}
@@ -625,7 +650,7 @@
           <Combat
             combat={section.combat}
             formula={combatFormula}
-            round={(session.state.pending?.round ?? 0) + 1}
+            round={(session.state.pending?.kind === "combat" ? session.state.pending.round : 0) + 1}
             rounds={section.combat.rounds}
             rolls={combatRolls}
             rolling={diceRolling}

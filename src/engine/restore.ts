@@ -1,5 +1,7 @@
 import type { Book, GameState, RollRecord, Session, SystemDef } from "../format/types";
 import { sectionMap } from "../format/validate";
+import { parseDice } from "./dice";
+import { skillAdjustment } from "./skills";
 
 const ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
 
@@ -38,12 +40,50 @@ function isState(value: unknown, book: Book, system: SystemDef): value is GameSt
   if (!Array.isArray(value.rolls) || value.rolls.length > 40 || !value.rolls.every(isRoll)) return false;
   if (value.pending === null) return true;
   const pending = value.pending;
-  if (!isRecord(pending)) return false;
-  if (pending.kind !== "combat" || pending.sectionId !== value.sectionId) return false;
-  const combat = sectionMap(book).get(value.sectionId)?.combat;
-  if (!combat) return false;
-  const round = pending.round;
-  return typeof round === "number" && Number.isInteger(round) && round >= 1 && round < combat.rounds;
+  if (!isRecord(pending) || pending.sectionId !== value.sectionId) return false;
+  if (pending.kind === "combat") {
+    const combat = sectionMap(book).get(value.sectionId)?.combat;
+    if (!combat) return false;
+    const round = pending.round;
+    return typeof round === "number" && Number.isInteger(round) && round >= 1 && round < combat.rounds;
+  }
+  if (pending.kind !== "test") return false;
+  return isHeldTest(
+    pending,
+    value.sectionId as string,
+    value.stats as Record<string, number>,
+    value.skills as GameState["skills"],
+    book,
+    system,
+  );
+}
+
+function isHeldTest(
+  pending: Record<string, unknown>,
+  sectionId: string,
+  stats: Record<string, number>,
+  skills: GameState["skills"],
+  book: Book,
+  system: SystemDef,
+): boolean {
+  const test = sectionMap(book).get(sectionId)?.test;
+  if (!test || !isRoll(pending.roll) || pending.roll.id !== test.id || pending.roll.dice !== test.dice) return false;
+  let parsed;
+  try {
+    parsed = parseDice(test.dice);
+  } catch {
+    return false;
+  }
+  if (pending.roll.faces.length !== parsed.count) return false;
+  if (pending.roll.faces.some((face) => face < 1 || face > parsed.sides)) return false;
+  const total = pending.roll.faces.reduce((sum, face) => sum + face, parsed.modifier);
+  if (pending.roll.total !== total) return false;
+  const stat = stats[test.stat];
+  if (stat === undefined) return false;
+  const target = stat + (test.modifier ?? 0) + skillAdjustment(system, skills, test.skill);
+  if (pending.roll.success !== total <= target) return false;
+  if (pending.selected === null) return true;
+  return typeof pending.selected === "number" && Number.isInteger(pending.selected) && pending.selected >= 0 && pending.selected < pending.roll.faces.length;
 }
 
 function isRoll(value: unknown): value is RollRecord {

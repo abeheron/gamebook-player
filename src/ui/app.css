@@ -602,6 +602,16 @@ h2 {
   visibility: visible;
 }
 
+button.die {
+  cursor: pointer;
+  color: inherit;
+}
+
+.die[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
 .die.rolling {
   animation: wob 0.14s linear infinite;
 }

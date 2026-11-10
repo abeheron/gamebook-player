@@ -1,7 +1,7 @@
 {
   "id": "gnat-demo",
   "name": "GNAT demo",
-  "attribution": "Talent, Vitality, Fortune, the ten skill names, a possessed basic skill's +2, an absent skill's -2, a start of two basic skills, 10gp and one ration, and an unlimited coin pouch are from the GNAT core rules by David M. Donachie, CC BY-SA 4.0. Climbing and Linguistics on this character are a sample choice, not a rule. Stat maxima in this file are sample bounds. Fortune is not spent here.",
+  "attribution": "Talent, Vitality, Fortune, the ten skill names, a possessed basic skill's +2, an absent skill's -2, a start of two basic skills, 10gp and one ration, an unlimited coin pouch, and spending 1 Fortune to reroll one die are from the GNAT core rules by David M. Donachie, CC BY-SA 4.0. Climbing and Linguistics on this character are a sample choice, not a rule. Talent and Vitality maxima in this file are sample bounds. Fortune's maximum is 3.",
   "stats": [
     { "id": "talent", "label": "Talent", "initial": 9, "min": 1, "max": 12 },
     { "id": "vitality", "label": "Vitality", "initial": 3, "min": 0, "max": 3 },
@@ -26,5 +26,7 @@
     { "id": "linguistics", "bonus": 2 }
   ],
   "startingGold": 10,
-  "startingItems": [{ "id": "ration", "label": "Ration" }]
+  "startingItems": [{ "id": "ration", "label": "Ration" }],
+  "fortuneStat": "fortune",
+  "fortuneRerollCost": 1
 }

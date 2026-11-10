@@ -23,10 +23,14 @@ describe("rules summary", () => {
         expect(line.text).not.toMatch(/Temple|Skull God/);
       }
     }
-    for (const id of ["fortune", "xp"]) {
+    for (const id of ["xp"]) {
       const section = rulesSummary.find((entry) => entry.id === id);
       expect(section?.lines.every((line) => line.status === "not-yet")).toBe(true);
     }
+    const fortune = rulesSummary.find((section) => section.id === "fortune");
+    expect(fortune?.lines[0]).toMatchObject({ status: "in-app", page: "pp. 8–9" });
+    expect(fortune?.lines[0]?.text).toContain("Spend 1 Fortune");
+    expect(fortune?.lines[1]?.status).toBe("not-yet");
     const combat = rulesSummary.find((section) => section.id === "combat");
     expect(combat?.lines.filter((line) => line.status === "in-app").map((line) => line.page)).toEqual(["p. 8", "p. 10"]);
     expect(combat?.lines.some((line) => line.text.startsWith("A fumble") && line.status === "not-yet")).toBe(true);

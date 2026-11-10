@@ -85,7 +85,7 @@ describe("sample book rules", () => {
     expect(session.state.pending).toBeNull();
 
     session = undo(session);
-    expect(session.state.pending?.round).toBe(1);
+    expect(session.state.pending?.kind === "combat" ? session.state.pending.round : 0).toBe(1);
     expect(session.state.stats.vitality).toBe(1);
   });
 
