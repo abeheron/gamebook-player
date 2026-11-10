@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { face }: { face: number } = $props();
+  let { face, rolling = false }: { face: number; rolling?: boolean } = $props();
 
   const pips: Record<number, number[]> = {
     1: [4],
@@ -13,7 +13,7 @@
   const on = $derived(new Set(pips[face] ?? []));
 </script>
 
-<span class="die" role="img" aria-label="Die showing {face}">
+<span class="die" class:rolling role="img" aria-label={rolling ? "Die rolling" : `Die showing ${face}`}>
   {#each [0, 1, 2, 3, 4, 5, 6, 7, 8] as index (index)}
     <i class:on={on.has(index)}></i>
   {/each}

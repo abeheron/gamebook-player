@@ -9,6 +9,8 @@
     round,
     rounds,
     rolls,
+    rolling,
+    previewFaces,
     vitality,
     vitalityMax,
     ready,
@@ -23,6 +25,8 @@
     round: number;
     rounds: number;
     rolls: RollRecord[];
+    rolling: boolean;
+    previewFaces: number[];
     vitality: number;
     vitalityMax: number;
     ready: boolean;
@@ -72,6 +76,7 @@
       {#each marks as mark, index (index)}
         <li
           class="r {faceClass(mark)}"
+          class:rolling={rolling && mark === "now"}
           aria-label={roundName(index + 1, mark)}
           data-testid="combat-marker-{index + 1}"
         >
@@ -89,7 +94,14 @@
       </p>
     {/if}
   </div>
-  {#if rolls.length > 0}
+  {#if rolling}
+    <div class="dice" aria-hidden="true">
+      {#each previewFaces as face, index (`roll-${index}`)}
+        <Die {face} rolling />
+      {/each}
+    </div>
+    <p class="result" data-testid="dice-rolling" role="status">Rolling…</p>
+  {:else if rolls.length > 0}
     {@const last = rolls[rolls.length - 1]}
     {#if last}
       <div class="dice">
@@ -110,7 +122,7 @@
       <p class="why">The round is saved when you continue. This does not undo earlier rounds.</p>
     </div>
   {:else}
-    <button type="button" class="btn" data-testid="roll-combat" disabled={!ready} onclick={onRoll}>
+    <button type="button" class="btn" data-testid="roll-combat" disabled={!ready || rolling} onclick={onRoll}>
       Resolve round {round}
     </button>
   {/if}

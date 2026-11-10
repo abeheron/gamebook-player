@@ -512,6 +512,49 @@ h2 {
   visibility: visible;
 }
 
+.die.rolling {
+  animation: wob 0.14s linear infinite;
+}
+
+@keyframes wob {
+  0% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+  100% {
+    transform: rotate(-8deg);
+  }
+}
+
+.toggles {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.toggles label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggles input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.toggles .note {
+  margin: 0;
+}
+
 .fight-tracker {
   display: grid;
   gap: 12px;

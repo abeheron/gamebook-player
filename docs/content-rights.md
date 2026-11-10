@@ -10,4 +10,6 @@ GNAT rules are by David M. Donachie and are published under CC BY-SA 4.0. That l
 
 The icons in `public/icons` and `src-tauri/icons` are plain generated images made for this repository, not third-party art.
 
+`public/audio/wooden-dice-wuzzy.mp3` is the trimmed “Wooden dice on wooden table roll” recording by Wuzzy, CC0, from https://opengameart.org/content/wooden-dice-on-wodden-table-roll. The bytes are the clip already embedded in the v0.5 prototype. The Test & fight screen credits that source.
+
 Before any public release or open-source license, import rules and the Project Aon terms still need a separate review. That review is not done here.

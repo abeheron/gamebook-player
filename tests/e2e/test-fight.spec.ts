@@ -90,6 +90,20 @@ test("wraps the fight tracker on a phone without horizontal overflow", async ({ 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("new game from the test screen returns to the opening", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("Saved on this device");
+  await page.getByTestId("choice-take-lantern").click();
+  await page.getByTestId("side-test").click();
+  await expect(page.getByRole("heading", { name: "Test & fight" })).toBeVisible();
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("section-title")).toHaveText("The stair");
+  await expect(page.getByTestId("side-read")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("test-view")).toHaveCount(0);
+  await expect(page.getByTestId("view-back")).toHaveCount(0);
+});
+
 test("opens the test screen on a phone without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
