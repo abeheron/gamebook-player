@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function expectFortuneOnOneLine(page: Page): Promise<void> {
   const value = await page.getByTestId("sheet-stat-fortune").boundingBox();
-  const max = await page.locator(".fortune-max").boundingBox();
+  const max = await page.locator(".sheet .max").boundingBox();
   const pips = await page.locator(".fortune-pips").boundingBox();
   expect(value && max && pips).toBeTruthy();
-  expect(max!.x).toBeGreaterThan(value!.x + value!.width - 2);
+  expect(max!.x).toBeGreaterThanOrEqual(value!.x + value!.width + 2);
   expect(max!.y).toBeLessThan(value!.y + value!.height);
   expect(max!.y + max!.height).toBeGreaterThan(value!.y);
   expect(pips!.y).toBeGreaterThan(value!.y + value!.height - 2);
@@ -46,7 +46,7 @@ test("keeps Fortune beside the reroll on a desktop and under it at 390px", async
 
   await expect(page.getByTestId("sheet-fortune")).toHaveAttribute("aria-label", "Fortune 3 of 3");
   await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3");
-  await expect(page.locator(".fortune-max")).toHaveText("/ 3");
+  await expect(page.locator(".sheet .max")).toHaveText("/ 3");
   await expect(page.getByTestId("fortune-pip")).toHaveCount(3);
   await expect(page.locator("[data-testid=fortune-pip].on")).toHaveCount(3);
   const pip = await page.getByTestId("fortune-pip").first().boundingBox();
@@ -54,17 +54,27 @@ test("keeps Fortune beside the reroll on a desktop and under it at 390px", async
   expect(pip?.height).toBe(10);
   const fortuneType = await page.getByTestId("sheet-fortune").evaluate((element) => {
     const value = element.querySelector("[data-testid=sheet-stat-fortune]");
-    const max = element.querySelector(".fortune-max");
-    if (!(value instanceof HTMLElement) || !(max instanceof HTMLElement)) return null;
+    const max = element.querySelector(".max");
+    const talent = element.parentElement?.querySelector("[data-testid=sheet-stat-talent]");
+    if (!(value instanceof HTMLElement) || !(max instanceof HTMLElement) || !(talent instanceof HTMLElement)) return null;
+    const valueStyle = getComputedStyle(value);
+    const maxStyle = getComputedStyle(max);
     return {
-      valueSize: Number.parseFloat(getComputedStyle(value).fontSize),
-      maxSize: Number.parseFloat(getComputedStyle(max).fontSize),
-      color: getComputedStyle(max).color,
+      valueSize: Number.parseFloat(valueStyle.fontSize),
+      valueColor: valueStyle.color,
+      talentColor: getComputedStyle(talent).color,
+      maxSize: Number.parseFloat(maxStyle.fontSize),
+      maxWeight: maxStyle.fontWeight,
+      color: maxStyle.color,
     };
   });
   expect(fortuneType).toBeTruthy();
+  expect(fortuneType!.maxSize).toBe(16);
+  expect(fortuneType!.maxWeight).toBe("500");
   expect(fortuneType!.maxSize).toBeLessThan(fortuneType!.valueSize);
   expect(fortuneType!.color).toBe("rgb(92, 83, 72)");
+  expect(fortuneType!.valueColor).toBe(fortuneType!.talentColor);
+  expect(fortuneType!.valueColor).toBe("rgb(31, 27, 22)");
   await expectFortuneOnOneLine(page);
 
   await page.setViewportSize({ width: 390, height: 844 });

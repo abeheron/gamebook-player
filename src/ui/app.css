@@ -619,13 +619,17 @@ h2 {
 
 .fortune-figure b {
   display: inline;
+  color: var(--ink);
 }
 
-.stat .fortune-max {
-  font: 600 12px var(--sans);
+.stat .max {
+  margin-left: 4px;
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 500;
   color: var(--muted);
-  letter-spacing: 0.06em;
-  white-space: pre;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .fortune-pips {

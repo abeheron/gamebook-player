@@ -21,7 +21,7 @@
         <div class="stat fortune" role="group" aria-label="{stat.label} {value} of {stat.max}" data-testid="sheet-fortune">
           <span aria-hidden="true">{stat.label}</span>
           <span class="fortune-figure" aria-hidden="true">
-            <b data-testid="sheet-stat-{stat.id}">{value}</b><span class="fortune-max"> / {stat.max}</span>
+            <b data-testid="sheet-stat-{stat.id}">{value}</b> <span class="max">/ {stat.max}</span>
           </span>
           <span class="fortune-pips" aria-hidden="true">
             {#each Array.from({ length: stat.max }, (_, index) => index) as index (index)}
