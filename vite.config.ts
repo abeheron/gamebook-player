@@ -1,11 +1,11 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
-import { gamebookPwa } from "./vite.sw-plugin.ts";
+import { gamebookPwa, pdfjsDevFonts } from "./vite.sw-plugin.ts";
 
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [svelte(), gamebookPwa()],
+  plugins: [svelte(), pdfjsDevFonts(), gamebookPwa()],
   clearScreen: false,
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   server: {

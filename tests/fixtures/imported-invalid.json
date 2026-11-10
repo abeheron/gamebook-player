@@ -1,0 +1,15 @@
+{
+  "id": "broken-book",
+  "title": "Broken",
+  "author": "Original sample",
+  "rights": "Original sample text.",
+  "system": "gnat-demo",
+  "start": "1",
+  "sections": [
+    {
+      "id": "1",
+      "title": "Missing choices",
+      "body": ["This section has no way onward."]
+    }
+  ]
+}

@@ -82,6 +82,255 @@ input {
   font-size: 12px;
 }
 
+.sub {
+  color: var(--muted);
+  margin: 0 0 20px;
+  font-size: 14px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.library-list {
+  display: grid;
+  gap: 14px;
+}
+
+.book {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.book h2 {
+  margin-bottom: 2px;
+}
+
+.book .note {
+  margin-top: 0;
+}
+
+.cover {
+  width: 88px;
+  height: 124px;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #3b2a1f, #8a2f1d);
+  color: #f6e7cf;
+  font: 600 12px/1.25 var(--serif);
+  padding: 10px;
+  display: flex;
+  align-items: flex-end;
+  box-shadow: inset 0 0 0 1px #0003;
+}
+
+.cover.alt {
+  background: linear-gradient(160deg, #28343a, #4a6470);
+}
+
+.explored {
+  margin: 10px 0 6px;
+  font-size: 13px;
+}
+
+.bar {
+  height: 8px;
+  background: var(--chip);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar > div {
+  height: 100%;
+  background: var(--accent);
+}
+
+.library-actions {
+  grid-column: 2;
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.library-actions .btn {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.library .btn,
+.review button {
+  min-height: 44px;
+}
+
+.remove-confirm {
+  grid-column: 1 / -1;
+}
+
+.review {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) minmax(260px, 1fr);
+  gap: 12px;
+  margin: 0 0 16px;
+  align-items: start;
+}
+
+.section-list {
+  display: grid;
+  gap: 8px;
+}
+
+.section-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  font: 600 15px var(--sans);
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.section-row[aria-current="true"] {
+  border-color: var(--accent);
+}
+
+.check-mark {
+  color: #8a2f1d;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+
+.source-text {
+  white-space: pre-wrap;
+  font: 15px/1.45 var(--serif);
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.review label,
+.field-label {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.review input,
+.review textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--ink);
+  font: 16px var(--sans);
+}
+
+.review textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.choice-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.choice-edit input:first-child {
+  flex: 1 1 140px;
+  width: auto;
+}
+
+.choice-edit input:last-child {
+  width: 5rem;
+  flex: none;
+}
+
+.review .btn {
+  margin-top: 8px;
+}
+
+.drop {
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  padding: 28px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.drop-mark {
+  font-size: 28px;
+}
+
+.drop .btn {
+  margin-top: 10px;
+}
+
+.drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.steps li {
+  display: flex;
+  gap: 10px;
+}
+
+.steps .s {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--chip);
+  flex: none;
+}
+
+.steps .s.ok {
+  background: var(--ok);
+  color: var(--panel);
+}
+
+.steps .s.fail {
+  color: #8a2f1d;
+  font-size: 14px;
+}
+
+.steps .note {
+  display: block;
+}
+
 .side button,
 .mobilebar button {
   border: 0;
@@ -1154,7 +1403,8 @@ button.die {
   }
 
   .layout,
-  .rules-grid {
+  .rules-grid,
+  .grid2 {
     grid-template-columns: 1fr;
   }
 
@@ -1203,6 +1453,16 @@ button.die {
     background: transparent;
     color: var(--accent);
     font-weight: 700;
+  }
+}
+
+@media (max-width: 390px) {
+  .library-actions {
+    grid-column: 1 / -1;
+  }
+
+  .review {
+    grid-template-columns: 1fr;
   }
 }
 
