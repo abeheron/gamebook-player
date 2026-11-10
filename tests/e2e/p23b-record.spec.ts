@@ -23,7 +23,7 @@ test("records the Fortune demo with a visible cursor", async ({ page }) => {
   await expect(page.getByTestId("test-result")).toHaveText("Double 1 — automatic pass");
   await expect(page.getByTestId("destination-pass")).toBeEnabled();
   await expect(page.getByTestId("destination-fail")).toBeDisabled();
-  await demoHold(page);
+  await demoHold(page, 3000);
 
   await demoClick(page.getByTestId("undo"));
   await demoClick(page.getByTestId("dice-manual"));
@@ -33,7 +33,7 @@ test("records the Fortune demo with a visible cursor", async ({ page }) => {
   await expect(page.getByTestId("test-result")).toHaveText("Double 6 — automatic fail");
   await expect(page.getByTestId("destination-fail")).toBeEnabled();
   await expect(page.getByTestId("destination-pass")).toBeDisabled();
-  await demoHold(page);
+  await demoHold(page, 3000);
 
   await demoClick(page.getByTestId("new-game"));
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
@@ -41,9 +41,9 @@ test("records the Fortune demo with a visible cursor", async ({ page }) => {
   await demoClick(page.getByTestId("side-test"));
   await demoClick(page.getByTestId("roll-combat"));
   await expect(page.getByTestId("combat-roll")).toBeVisible();
-  await demoHold(page, 800);
+  await demoHold(page, 3000);
   await demoClick(page.getByTestId("die-1"));
   await demoClick(page.getByTestId("fortune-reroll"));
   await expect(page.getByTestId("combat-roll")).toBeVisible();
-  await demoHold(page);
+  await demoHold(page, 3000);
 });
