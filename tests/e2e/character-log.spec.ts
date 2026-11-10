@@ -43,7 +43,7 @@ test("migrates a version 1 save to the sample skills, gold, and ration", async (
       },
     };
     await new Promise<void>((resolve, reject) => {
-      const opening = indexedDB.open("gamebook-player", 1);
+      const opening = indexedDB.open("gamebook-player", 2);
       opening.onerror = () => reject(opening.error);
       opening.onsuccess = () => {
         const database = opening.result;

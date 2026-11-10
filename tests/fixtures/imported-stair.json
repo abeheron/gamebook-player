@@ -1,0 +1,16 @@
+{
+  "id": "imported-stair",
+  "title": "Imported stair",
+  "author": "Original sample",
+  "rights": "Original sample text written for this repository.",
+  "system": "gnat-demo",
+  "start": "1",
+  "sections": [
+    {
+      "id": "1",
+      "title": "The landing import",
+      "body": ["A short original passage used only to test import."],
+      "choices": [{ "id": "stay", "label": "Stay here", "to": "1" }]
+    }
+  ]
+}

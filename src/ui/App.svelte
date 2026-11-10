@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { demoBook, demoSystem } from "../format/demo";
-  import type { Illustration, RollRecord, Session } from "../format/types";
+  import { exploredSections } from "../format/import-book";
+  import type { Book, Illustration, RollRecord, Session } from "../format/types";
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
   import { acceptTest, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
@@ -17,6 +18,7 @@
   import Combat from "./Combat.svelte";
   import IllustrationViewer from "./IllustrationViewer.svelte";
   import Reader from "./Reader.svelte";
+  import Library from "./Library.svelte";
   import Log from "./Log.svelte";
   import Rules from "./Rules.svelte";
   import Sheet from "./Sheet.svelte";
@@ -24,13 +26,16 @@
   import { formatSaveClock, noteKind, readSaveHook, SAVING_DELAY_MS, type SettledSave } from "./save-status";
   import { blockedBecause, rollFormula, sectionTitle, skillClause, statLabel, ticksOnSection } from "./wording";
 
-  type ViewName = "read" | "sheet" | "test" | "log" | "rules";
+  type ViewName = "read" | "sheet" | "test" | "log" | "rules" | "library";
   type ViewMark = { view: ViewName; scroll: number };
   type Arrival = { kind: "combat"; session: Session };
-  const SLOT = "demo";
   const store = createIndexedDbStore();
   const runtime = detectRuntime();
 
+  let book = $state(demoBook);
+  let imported = $state<Book[]>([]);
+  let otherSaves = $state<Record<string, SaveRecord | null>>({});
+  let switching = $state(false);
   let session = $state(startSession(demoBook, demoSystem));
   let ready = $state(false);
   let saveError = $state("");
@@ -157,7 +162,7 @@
     }, ROLL_MS);
   }
 
-  const section = $derived(currentSection(demoBook, session));
+  const section = $derived(currentSection(book, session));
   const mentionedTicks = $derived(
     ticksOnSection(section).map((tick) => ({
       ...tick,
@@ -207,8 +212,8 @@
   const fortuneNow = $derived(session.state.stats[demoSystem.fortuneStat] ?? 0);
   const passTo = $derived(section.test?.success.to ?? "");
   const failTo = $derived(section.test?.failure.to ?? "");
-  const passTitle = $derived(section.test ? sectionTitle(demoBook.sections, section.test.success.to) : "");
-  const failTitle = $derived(section.test ? sectionTitle(demoBook.sections, section.test.failure.to) : "");
+  const passTitle = $derived(section.test ? sectionTitle(book.sections, section.test.success.to) : "");
+  const failTitle = $derived(section.test ? sectionTitle(book.sections, section.test.failure.to) : "");
   const combatRolls = $derived.by(() => {
     const combat = section.combat;
     if (!combat) return [];
@@ -224,7 +229,7 @@
   });
   const continueTo = $derived(arrival?.kind === "combat" ? arrival.session.state.sectionId : "");
   const continueTitle = $derived(
-    arrival?.kind === "combat" ? sectionTitle(demoBook.sections, arrival.session.state.sectionId) : "",
+    arrival?.kind === "combat" ? sectionTitle(book.sections, arrival.session.state.sectionId) : "",
   );
   const defeated = $derived(
     arrival?.kind === "combat" && section.combat !== undefined && arrival.session.state.sectionId === section.combat.defeatSection,
@@ -254,10 +259,14 @@
     window.addEventListener("keydown", onKey);
     void (async () => {
       try {
-        const record = await store.load(SLOT);
+        const record = await store.load(saveSlot(demoBook.id));
+        imported = (await store.listBooks()).map((entry) => entry.book);
+        const next: Record<string, SaveRecord | null> = {};
+        for (const entry of imported) next[entry.id] = await store.load(saveSlot(entry.id));
+        otherSaves = next;
         if (ignore) return;
-        const migrated = migrateSave(record, demoSystem, demoBook);
-        if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
+        const migrated = migrateSave(record, demoSystem, book);
+        if (migrated && canRestore(migrated.session, book, demoSystem)) {
           session = migrated.session;
           bookmarks = migrated.bookmarks;
           if (migrated.session.state.pending?.kind === "test") panelOpen = true;
@@ -303,7 +312,7 @@
         const hook = readSaveHook(typeof sessionStorage === "undefined" ? null : sessionStorage);
         if (hook.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
         if (hook.fail) throw new Error("storage refused");
-        await store.save(SLOT, record);
+        await store.save(saveSlot(book.id), record);
       })
       .then(() => {
         if (generation !== saveGeneration) return;
@@ -325,7 +334,7 @@
   }
 
   $effect(() => {
-    if (!ready) return;
+    if (!ready || switching) return;
     queueSave(currentRecord());
   });
 
@@ -384,7 +393,7 @@
     clearMotion();
     arrival = null;
     panelOpen = false;
-    session = choose(plainSession(), demoBook, demoSystem, choiceId);
+    session = choose(plainSession(), book, demoSystem, choiceId);
   }
 
   function onRollTest(faces?: number[]): void {
@@ -393,7 +402,7 @@
     if (!test) return;
     rollBusy = true;
     try {
-      const next = holdTestRoll(plainSession(), demoBook, demoSystem, Math.random, faces);
+      const next = holdTestRoll(plainSession(), book, demoSystem, Math.random, faces);
       const pending = next.state.pending;
       if (!pending || pending.kind !== "test") return;
       startRoll(pending.roll.faces, () => {
@@ -414,7 +423,7 @@
     if (fortuneNow < demoSystem.fortuneRerollCost) return;
     const index = heldTest.selected;
     const face = 1 + Math.floor(Math.random() * 6);
-    const next = rerollTestDie(plainSession(), demoBook, demoSystem, index, Math.random, face);
+    const next = rerollTestDie(plainSession(), book, demoSystem, index, Math.random, face);
     startRoll(heldTest.roll.faces, () => {
       session = next;
     }, [index]);
@@ -423,7 +432,7 @@
   function onRollCombat(): void {
     if (diceRolling || arrival) return;
     combatSelected = null;
-    const next = rollCombatRound(plainSession(), demoBook, demoSystem, Math.random);
+    const next = rollCombatRound(plainSession(), book, demoSystem, Math.random);
     const roll = next.state.rolls[next.state.rolls.length - 1];
     startRoll(roll?.faces ?? [], () => {
       if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
@@ -443,7 +452,7 @@
     if (!last) return;
     const index = combatSelected;
     const face = 1 + Math.floor(Math.random() * 6);
-    const next = rerollCombatDie(plainSession(), demoBook, demoSystem, index, Math.random, face);
+    const next = rerollCombatDie(plainSession(), book, demoSystem, index, Math.random, face);
     startRoll(last.faces, () => {
       combatSelected = null;
       if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
@@ -454,7 +463,7 @@
   function onArriveTest(): void {
     if (commitBusy || !heldTest) return;
     commitBusy = true;
-    const next = acceptTest(plainSession(), demoBook, demoSystem);
+    const next = acceptTest(plainSession(), book, demoSystem);
     panelOpen = false;
     if (view === "test") {
       const previous = history[history.length - 1];
@@ -484,7 +493,7 @@
     clearMotion();
     arrival = null;
     panelOpen = false;
-    session = startSession(demoBook, demoSystem);
+    session = startSession(book, demoSystem);
     bookmarks = [];
     if (view === "test") {
       view = "read";
@@ -508,11 +517,74 @@
 
   const bookmarked = $derived(bookmarks.includes(session.state.sectionId));
 
+  function saveSlot(id: string): string {
+    return id === demoBook.id ? "demo" : id;
+  }
+
+  function sectionFor(record: SaveRecord | null, fallback: string): string {
+    return record?.session.state.sectionId ?? fallback;
+  }
+
+  function exploredFor(record: SaveRecord | null): number {
+    if (!record) return 0;
+    return exploredSections(record.session.state.sectionId, record.session.undo);
+  }
+
+  async function openLibraryBook(id: string): Promise<void> {
+    const target = id === demoBook.id ? demoBook : imported.find((entry) => entry.id === id);
+    if (!target || !ready) return;
+    if (target.id !== book.id) {
+      switching = true;
+      const leavingId = book.id;
+      const leavingRecord = currentRecord();
+      await store.save(saveSlot(leavingId), leavingRecord);
+      otherSaves = { ...otherSaves, [leavingId]: leavingRecord };
+      const record = await store.load(saveSlot(target.id));
+      const migrated = migrateSave(record, demoSystem, target);
+      book = target;
+      if (migrated && canRestore(migrated.session, target, demoSystem)) {
+        session = migrated.session;
+        bookmarks = migrated.bookmarks;
+        panelOpen = migrated.session.state.pending?.kind === "test";
+      } else {
+        session = startSession(target, demoSystem);
+        bookmarks = [];
+        panelOpen = false;
+      }
+      arrival = null;
+      switching = false;
+    }
+    show("read");
+  }
+
+  async function addImportedBook(next: Book): Promise<void> {
+    await store.putBook({ id: next.id, book: next, addedAt: new Date().toISOString() });
+    imported = [...imported.filter((entry) => entry.id !== next.id), next];
+  }
+
+  const libraryCards = $derived.by(() => {
+    const entries = [demoBook, ...imported.filter((entry) => entry.id !== demoBook.id)];
+    return entries.map((entry) => {
+      const record = entry.id === book.id ? currentRecord() : (otherSaves[entry.id] ?? null);
+      return {
+        id: entry.id,
+        title: entry.title,
+        author: entry.author,
+        system: demoSystem.name,
+        sections: entry.sections.length,
+        explored: exploredFor(record),
+        sectionId: sectionFor(record, entry.start),
+        altCover: entry.id !== demoBook.id,
+      };
+    });
+  });
+
   function screenName(name: ViewName): string {
     if (name === "sheet") return "character";
     if (name === "log") return "keywords and ticks";
     if (name === "rules") return "rules";
     if (name === "test") return "test and fight";
+    if (name === "library") return "library";
     return "reading";
   }
 </script>
@@ -520,7 +592,7 @@
 <div class="app">
   <nav class="side" aria-label="Screens" data-testid="side-nav">
     <p class="brand">Gamebook Player<small>sample reader</small></p>
-    <p class="book-tag" data-testid="book-title">{demoBook.title}</p>
+    <p class="book-tag" data-testid="book-title">{book.title}</p>
     <button type="button" data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
       Read
     </button>
@@ -533,9 +605,8 @@
     <button type="button" data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
       Keywords &amp; ticks
     </button>
-    <button type="button" data-testid="side-library" aria-disabled="true" onclick={(event) => event.preventDefault()}>
+    <button type="button" data-testid="side-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
       Library
-      <span class="nav-note">Not in this build</span>
     </button>
     <button type="button" data-testid="side-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
       Rules
@@ -546,7 +617,7 @@
     </div>
   </nav>
   <main id="main" tabindex="-1" bind:this={mainEl}>
-    <p class="mobile-book">{demoBook.title}</p>
+    <p class="mobile-book">{book.title}</p>
     <div class="backbar">
       {#if history.length > 0}
         {@const previous = history[history.length - 1]}
@@ -750,13 +821,21 @@
           <p data-testid="test-empty">This section has no test or fight.</p>
         {/if}
       </div>
+    {:else if view === "library"}
+      <Library
+        cards={libraryCards}
+        system={demoSystem}
+        existingIds={libraryCards.map((card) => card.id)}
+        onAdded={addImportedBook}
+        onContinue={openLibraryBook}
+      />
     {:else}
       <h1>Character</h1>
       <div data-testid="sheet-view">
         <Sheet system={demoSystem} state={session.state} />
       </div>
     {/if}
-    <p class="rights">{demoBook.rights}</p>
+    <p class="rights">{book.rights}</p>
   </main>
 </div>
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
@@ -772,7 +851,7 @@
   <button type="button" data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
     Keywords &amp; ticks
   </button>
-  <button type="button" data-testid="mobile-library" aria-disabled="true" aria-label="Library, not in this build" onclick={(event) => event.preventDefault()}>
+  <button type="button" data-testid="mobile-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
     Library
   </button>
   <button type="button" data-testid="mobile-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
