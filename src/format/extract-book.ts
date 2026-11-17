@@ -40,7 +40,11 @@ export async function convertBytes(data: Uint8Array, filename: string, system: S
   try {
     const extracted = kind === "pdf" ? await extractPdf(data, filename) : await extractEpub(data, filename);
     if (!extracted.ok) return extracted;
-    const draft = structurePages(extracted.pages, { title: extracted.title, author: extracted.author }, system);
+    const draft = structurePages(
+      extracted.pages,
+      { title: extracted.title, author: extracted.author, source: kind === "pdf" ? "pdf" : "epub" },
+      system,
+    );
     if (draft.sections.length === 0) return { ok: false, step: 3, error: UNRECOGNISED };
     return { ok: true, draft };
   } catch {

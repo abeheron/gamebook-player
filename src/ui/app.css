@@ -178,15 +178,32 @@ input {
   gap: 12px;
   margin: 0 0 16px;
   align-items: start;
+  min-width: 0;
+}
+
+.review .card {
+  min-width: 0;
 }
 
 .section-list {
   display: grid;
   gap: 8px;
+  min-width: 0;
+}
+
+.review-tally {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .section-row {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -199,6 +216,13 @@ input {
   background: transparent;
   color: var(--ink);
   cursor: pointer;
+}
+
+.section-lead {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .section-row[aria-current="true"] {
@@ -245,22 +269,69 @@ input {
   resize: vertical;
 }
 
-.choice-edit {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+.choice-block {
   margin-top: 8px;
 }
 
-.choice-edit input:first-child {
-  flex: 1 1 140px;
-  width: auto;
+.choice-edit {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: center;
 }
 
-.choice-edit input:last-child {
-  width: 5rem;
-  flex: none;
+.choice-edit .choice-text {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+}
+
+.dest-field {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 90px;
+  flex: 0 0 90px;
+  min-width: 90px;
+  max-width: 90px;
+  box-sizing: border-box;
+  min-height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 8px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.dest-field.named {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  margin-top: 8px;
+}
+
+.dest-field input {
+  width: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 8px 0;
+  background: transparent;
+}
+
+.flag-msg {
+  color: #8a2f1d;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.mech {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 4px;
 }
 
 .review .btn {

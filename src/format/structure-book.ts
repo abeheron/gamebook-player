@@ -23,6 +23,8 @@ export interface DraftSection {
   failTo: string;
   fightName: string;
   fightRounds: string;
+  /** Signed penalty, such as "−2". Empty when the text gives none. */
+  fightPenalty: string;
   winTo: string;
   loseTo: string;
   sawTest: boolean;
@@ -32,11 +34,27 @@ export interface DraftSection {
   checked: boolean;
 }
 
+export type BookFileKind = "pdf" | "epub";
+
 export interface DraftBook {
   title: string;
   author: string;
+  source: BookFileKind;
   pages: SourcePage[];
   sections: DraftSection[];
+}
+
+export interface PlacedFlags {
+  number: string[];
+  passage: string[];
+  choices: string[][];
+  pass: string[];
+  fail: string[];
+  test: string[];
+  win: string[];
+  lose: string[];
+  fight: string[];
+  other: string[];
 }
 
 export interface ConvertCounts {
@@ -55,6 +73,7 @@ export type BuiltBook =
 const HEADER = /^(\d{1,4})\.\s*$/;
 const WIN = /if you win(?: the fight)?,?\s*turn to (\d+)/i;
 const LOSE = /if you (?:are defeated|lose),?\s*turn to (\d+)/i;
+const ROUNDS_AT = /(?:fight for )?(\d+) rounds at\s*([−-]?\d+)/i;
 const ROUNDS = /fight for (\d+) rounds/i;
 const TEST = /test your ([A-Za-z]+)/i;
 const SUCCESS = /if you are successful,?\s*turn to (\d+)/i;
@@ -65,7 +84,7 @@ const TURN = /turn to (\d+)/i;
 /** Turn extracted pages into a draft. Uncertain structure is flagged, not guessed. */
 export function structurePages(
   pages: readonly SourcePage[],
-  meta: { title: string; author: string },
+  meta: { title: string; author: string; source: BookFileKind },
   system: SystemDef,
 ): DraftBook {
   const raws: { number: string; lines: string[]; pageIndex: number }[] = [];
@@ -87,6 +106,7 @@ export function structurePages(
   return {
     title: clean(meta.title, 120) || "Imported book",
     author: clean(meta.author, 120) || "Unknown",
+    source: meta.source,
     pages: pages.map((page) => ({ ref: page.ref, text: page.text })),
     sections,
   };
@@ -155,6 +175,107 @@ export function draftToBook(draft: DraftBook, system: SystemDef): BuiltBook {
   }
 }
 
+/** "Page 4 of this PDF". An EPUB uses the same shape with EPUB. */
+export function sourcePageHeading(ref: string, source: BookFileKind): string {
+  const number = /^Page (\d+)$/.exec(ref)?.[1] ?? ref;
+  return `Page ${number} of this ${source === "epub" ? "EPUB" : "PDF"}`;
+}
+
+/** §N plus the opening words. The review list truncates long passages. */
+export function listLabel(number: string, passage: string): string {
+  const words = passage.replace(/\s+/g, " ").trim();
+  const max = 48;
+  if (words.length <= max) return words ? `§${number} ${words}` : `§${number}`;
+  const cut = words.slice(0, max);
+  const last = cut.lastIndexOf(" ");
+  const clipped = (last > 16 ? cut.slice(0, last) : cut).trim();
+  return `§${number} ${clipped}…`;
+}
+
+export function flaggedNotice(count: number): string {
+  return count === 1
+    ? "Add to library stays unavailable while 1 section is still flagged."
+    : `Add to library stays unavailable while ${count} sections are still flagged.`;
+}
+
+/** Put each flag under the field it talks about. */
+export function placeFlags(section: DraftSection): PlacedFlags {
+  const placed: PlacedFlags = {
+    number: [],
+    passage: [],
+    choices: section.choices.map(() => []),
+    pass: [],
+    fail: [],
+    test: [],
+    win: [],
+    lose: [],
+    fight: [],
+    other: [],
+  };
+  for (const flag of section.flags) {
+    const destination = /^Destination §(\d+) does not exist\.$/.exec(flag);
+    if (destination?.[1]) {
+      let used = false;
+      section.choices.forEach((choice, index) => {
+        if (choice.to === destination[1]) {
+          placed.choices[index]?.push(flag);
+          used = true;
+        }
+      });
+      if (section.passTo === destination[1]) {
+        placed.pass.push(flag);
+        used = true;
+      }
+      if (section.failTo === destination[1]) {
+        placed.fail.push(flag);
+        used = true;
+      }
+      if (section.winTo === destination[1]) {
+        placed.win.push(flag);
+        used = true;
+      }
+      if (section.loseTo === destination[1]) {
+        placed.lose.push(flag);
+        used = true;
+      }
+      if (!used) placed.other.push(flag);
+      continue;
+    }
+    if (flag === "Unparsed test.") {
+      placed.test.push(flag);
+      continue;
+    }
+    if (flag === "Unparsed fight.") {
+      placed.fight.push(flag);
+      continue;
+    }
+    if (flag === "This section has no passage.") {
+      placed.passage.push(flag);
+      continue;
+    }
+    if (flag === "Duplicate section number." || flag.startsWith("Numbering ")) {
+      placed.number.push(flag);
+      continue;
+    }
+    if (flag.startsWith("A ticked box")) {
+      const index = section.choices.findIndex((choice) => /ticked/i.test(choice.label));
+      if (index >= 0) placed.choices[index]?.push(flag);
+      else placed.other.push(flag);
+      continue;
+    }
+    placed.other.push(flag);
+  }
+  return placed;
+}
+
+export function penaltyModifier(value: string): number | undefined {
+  const trimmed = value.trim().replaceAll("−", "-");
+  if (!/^[+-]?\d+$/.test(trimmed)) return undefined;
+  const parsed = Number(trimmed.startsWith("+") || trimmed.startsWith("-") ? trimmed : `-${trimmed.replace(/^-/, "")}`);
+  if (!Number.isInteger(parsed) || parsed < -20 || parsed > 20) return undefined;
+  return parsed;
+}
+
 export function bookSlug(title: string): string {
   const slug = title
     .toLowerCase()
@@ -172,12 +293,13 @@ function parseSection(
   const flags: string[] = [];
   const trimmed = raw.lines.map((line) => line.trim());
   const winIndex = trimmed.findIndex((line) => WIN.test(line));
-  const sawFight = winIndex >= 0 || trimmed.some((line) => LOSE.test(line) || ROUNDS.test(line));
+  const sawFight = winIndex >= 0 || trimmed.some((line) => LOSE.test(line) || ROUNDS.test(line) || ROUNDS_AT.test(line));
   const fightName = winIndex >= 0 ? monsterName(trimmed, winIndex) : "";
   const winLine = winIndex >= 0 ? trimmed[winIndex] ?? "" : "";
   const winTo = WIN.exec(winLine)?.[1] ?? "";
   let loseTo = "";
   let fightRounds = "";
+  let fightPenalty = "";
   let sawTest = false;
   let testLabel = "";
   let skill = "";
@@ -196,6 +318,12 @@ function parseSection(
     const lose = LOSE.exec(line);
     if (lose?.[1]) {
       loseTo = lose[1];
+      continue;
+    }
+    const roundsAt = ROUNDS_AT.exec(line);
+    if (roundsAt?.[1]) {
+      fightRounds = roundsAt[1];
+      fightPenalty = normalizePenalty(roundsAt[2] ?? "");
       continue;
     }
     const rounds = ROUNDS.exec(line);
@@ -250,7 +378,7 @@ function parseSection(
 
   return {
     number: raw.number,
-    title: `Section ${raw.number}`,
+    title: "",
     passage,
     choices,
     testLabel,
@@ -259,6 +387,7 @@ function parseSection(
     failTo,
     fightName,
     fightRounds: validRounds(fightRounds) ? fightRounds : "",
+    fightPenalty,
     winTo,
     loseTo,
     sawTest,
@@ -323,11 +452,15 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
   }
   const base = {
     id: number,
-    title: clip(section.title.trim() || `Section ${number}`, 120),
+    title: clip(section.title.trim() || body[0] || number, 120),
     body,
   };
   if (fightOn) {
     const id = bookSlug(section.fightName) === "imported-book" ? "fight" : bookSlug(section.fightName);
+    const penalty = section.fightPenalty.trim() ? penaltyModifier(section.fightPenalty) : undefined;
+    if (section.fightPenalty.trim() && penalty === undefined) {
+      return { ok: false, step: 5, error: `Section ${number} has a fight penalty this format cannot store.` };
+    }
     return {
       ok: true,
       section: {
@@ -338,6 +471,7 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
           rounds: Number(section.fightRounds),
           dice: "2d6",
           stat: "talent",
+          ...(penalty === undefined ? {} : { modifier: penalty }),
           wound: { stat: "vitality", amount: 1, defeatAtOrBelow: 0 },
           defeatSection: section.loseTo.trim(),
           then: section.winTo.trim(),
@@ -385,7 +519,7 @@ function monsterName(lines: readonly string[], winIndex: number): string {
     const line = lines[index] ?? "";
     if (!line) continue;
     if (/^talent\b/i.test(line) || /^vitality\b/i.test(line)) continue;
-    if (ROUNDS.test(line) || LOSE.test(line) || WIN.test(line)) continue;
+    if (ROUNDS.test(line) || ROUNDS_AT.test(line) || LOSE.test(line) || WIN.test(line)) continue;
     if (/^if you\b/i.test(line) || TURN.test(line) || line.length > 40) continue;
     return line;
   }
@@ -415,6 +549,14 @@ function passageBody(passage: string): string[] | null {
   if (parts.length < 1 || parts.length > 12) return null;
   if (parts.some((part) => part.length > 2000 || [...part].some((char) => char.charCodeAt(0) < 32))) return null;
   return parts;
+}
+
+function normalizePenalty(raw: string): string {
+  const trimmed = raw.trim().replaceAll("−", "-");
+  if (!/^[+-]?\d+$/.test(trimmed)) return "";
+  if (trimmed.startsWith("+")) return `+${trimmed.slice(1)}`;
+  const digits = trimmed.replace(/^-/, "");
+  return digits === "0" ? "0" : `−${digits}`;
 }
 
 function validRounds(value: string): boolean {

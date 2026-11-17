@@ -40,7 +40,26 @@ test("converts a PDF through review, then an EPUB, and removes a book", async ({
   await expect(page.getByTestId("import-step-3")).toHaveAttribute("data-state", "ok");
   await expect(page.getByTestId("import-step-5")).toHaveAttribute("data-state", "wait");
   await expect(page.getByTestId("review-flag-3")).toHaveText("CHECK");
+  await expect(page.getByTestId("review-page-ref")).toHaveText("Page 4 of this PDF");
+  await expect(page.getByTestId("review-tally")).toContainText("5 sections");
+  await expect(page.getByTestId("review-still")).toHaveText("1 still flagged");
+  await expect(page.getByTestId("review-editor")).toContainText("Section number");
+  await expect(page.getByTestId("review-title")).toHaveValue("");
+  await expect(page.getByTestId("review-section-3")).toContainText("§4 The landing is empty.");
   await expect(page.getByTestId("review-reason")).toContainText("Destination §9 does not exist.");
+  await expect(page.getByTestId("review-unavailable")).toHaveText("Add to library stays unavailable while 1 section is still flagged.");
+  const reasonColor = await page.getByTestId("review-reason").evaluate((node) => getComputedStyle(node).color);
+  expect(reasonColor).toBe("rgb(138, 47, 29)");
+  await page.getByTestId("review-section-0").click();
+  await expect(page.getByTestId("review-test-none")).toHaveText("None on this section.");
+  await expect(page.getByTestId("review-fight-none")).toHaveText("None on this section.");
+  await page.getByTestId("review-add-test").click();
+  await expect(page.getByTestId("review-pass")).toHaveAttribute("aria-label", "Pass → §");
+  await page.getByTestId("review-section-4").click();
+  await expect(page.getByTestId("review-fight")).toHaveValue("PAPER MOTH");
+  await expect(page.getByTestId("review-penalty")).toBeVisible();
+  await expect(page.getByTestId("review-win")).toHaveAttribute("aria-label", "Win → §4");
+  await page.getByTestId("review-section-3").click();
   await expect(page.getByTestId("review-add")).toBeDisabled();
   await page.getByTestId("review-choice-to-0").fill("5");
   await page.getByTestId("review-mark").click();
@@ -56,7 +75,7 @@ test("converts a PDF through review, then an EPUB, and removes a book", async ({
   await page.getByTestId("side-library").click();
   await expect(page.getByTestId("library-book-the-copper-lantern")).toBeVisible();
   await page.getByTestId("library-continue-the-copper-lantern").click();
-  await expect(page.getByTestId("section-title")).toHaveText("Section 1");
+  await expect(page.getByTestId("section-title")).toHaveText("You stand in a small room with a copper lantern on a hook.");
 
   await page.getByTestId("side-library").click();
   await page.getByTestId("import-input").setInputFiles(scanned);
@@ -68,7 +87,7 @@ test("converts a PDF through review, then an EPUB, and removes a book", async ({
   await expect(page.getByTestId("review")).toHaveCount(0);
 
   await page.getByTestId("import-input").setInputFiles(epub);
-  await expect(page.getByTestId("review-page-ref")).toHaveText("Page 4");
+  await expect(page.getByTestId("review-page-ref")).toHaveText("Page 4 of this EPUB");
   await page.getByTestId("review-choice-to-0").fill("5");
   await page.getByTestId("review-mark").click();
   await page.getByTestId("review-add").click();
@@ -105,6 +124,10 @@ test("stacks the review on a phone and keeps the book buttons in a row", async (
 
   await page.getByTestId("import-input").setInputFiles(pdf);
   await expect(page.getByTestId("review")).toBeVisible();
+  const choice = await page.getByTestId("review-choice-label-0").boundingBox();
+  const destination = await page.locator(".choice-edit .dest-field").first().boundingBox();
+  expect(choice && destination && Math.abs(choice.y - destination.y) < 8).toBe(true);
+  expect(destination && Math.abs(destination.width - 90) <= 4).toBe(true);
   const list = await page.getByTestId("review-list").boundingBox();
   const source = await page.getByTestId("review-source").boundingBox();
   const editor = await page.getByTestId("review-editor").boundingBox();
