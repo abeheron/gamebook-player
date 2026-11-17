@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedBecause, rollFormula, sectionDestination } from "../../src/ui/wording";
+import { blockedBecause, rollFormula, sectionDestination, sectionHeading } from "../../src/ui/wording";
 
 describe("sample wording", () => {
   it("prints the sample roll without inventing a modifier", () => {
@@ -26,6 +26,14 @@ describe("sample wording", () => {
       name: "Pass, section 4, The reading",
     });
     expect(sectionDestination("Fight over", "7", "Above").prefix).toBe("Fight over → §7 · ");
+    expect(sectionDestination("Pass", "326", "")).toEqual({
+      prefix: "Pass → §326",
+      title: "",
+      name: "Pass, section 326",
+    });
+    expect(sectionDestination("Pass", "326", "   ").title).toBe("");
+    expect(sectionHeading("326", "")).toBe("§326");
+    expect(sectionHeading("1", "The stair")).toBe("The stair");
   });
 
   it("describes a ticked-box block as the sample's own gate", () => {

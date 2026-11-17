@@ -75,7 +75,7 @@ test("converts a PDF through review, then an EPUB, and removes a book", async ({
   await page.getByTestId("side-library").click();
   await expect(page.getByTestId("library-book-the-copper-lantern")).toBeVisible();
   await page.getByTestId("library-continue-the-copper-lantern").click();
-  await expect(page.getByTestId("section-title")).toHaveText("You stand in a small room with a copper lantern on a hook.");
+  await expect(page.getByTestId("section-title")).toHaveText("§1");
 
   await page.getByTestId("side-library").click();
   await page.getByTestId("import-input").setInputFiles(scanned);

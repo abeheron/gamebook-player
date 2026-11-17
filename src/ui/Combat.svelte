@@ -106,7 +106,7 @@
     </p>
     {#if held}
       <p class="outcome {defeated ? "lose" : "win"}" role="status" data-testid="combat-outcome">
-        {defeated ? `Defeat · turn to §${continueTo} · ${continueTitle}` : `You win the fight · turn to §${continueTo} · ${continueTitle}`}
+        {defeated ? `Defeat · turn to §${continueTo}` : `You win the fight · turn to §${continueTo}`}{continueTitle.trim() ? ` · ${continueTitle}` : ""}
       </p>
     {/if}
   </div>

@@ -47,7 +47,7 @@ describe("section structuring", () => {
     expect(built.ok).toBe(true);
     if (built.ok) {
       expect(built.book.id).toBe("the-copper-lantern");
-      expect(built.book.sections[0]?.title).toBe("You stand in a small room with a copper lantern on a hook.");
+      expect(built.book.sections[0]?.title).toBe("");
       expect(built.book.sections).toHaveLength(5);
       expect(built.book.sections.find((entry) => entry.id === "5")?.combat?.label).toBe("PAPER MOTH");
       expect(built.book.sections.find((entry) => entry.id === "2")?.test?.stat).toBe("talent");

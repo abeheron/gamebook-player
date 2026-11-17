@@ -452,7 +452,7 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
   }
   const base = {
     id: number,
-    title: clip(section.title.trim() || body[0] || number, 120),
+    title: clip(section.title.trim(), 120),
     body,
   };
   if (fightOn) {
