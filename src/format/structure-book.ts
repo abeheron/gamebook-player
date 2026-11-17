@@ -70,16 +70,21 @@ export type BuiltBook =
   | { ok: true; book: Book }
   | { ok: false; step: 5 | 6; error: string };
 
-const HEADER = /^(\d{1,4})\.\s*$/;
-const WIN = /if you win(?: the fight)?,?\s*turn to (\d+)/i;
+const HEADER = /^(\d{1,4})\s*\.\s*$/;
+const COUNT = "(\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)";
+const WIN = /if you (?:win(?: the fight)?|survive),?\s*turn to (\d+)/i;
 const LOSE = /if you (?:are defeated|lose),?\s*turn to (\d+)/i;
-const ROUNDS_AT = /(?:fight for )?(\d+) rounds at\s*([−-]?\d+)/i;
-const ROUNDS = /fight for (\d+) rounds/i;
-const TEST = /test your ([A-Za-z]+)/i;
-const SUCCESS = /if you are successful,?\s*turn to (\d+)/i;
+const ROUNDS_AT = new RegExp(`(?:fight (?:for )?)?${COUNT} rounds? at\\s*([−-]?\\d+)`, "i");
+const ROUNDS = new RegExp(`fight (?:for )?${COUNT} rounds?\\b`, "i");
+/** A stat line such as "Wolf Fight two rounds at -1". The words before "Fight" name the enemy. */
+const FIGHT_LINE = new RegExp(`^(.{1,40}?)\\s+fight (?:for )?${COUNT} rounds?\\b`, "i");
+const TEST = /\btest (?:your )?([A-Za-z]+)/i;
+const SUCCESS = /if you (?:are successful|succeed),?\s*turn to (\d+)/i;
 const FAIL = /if you fail,?\s*turn to (\d+)/i;
-const TICK = /if the box above is ticked,?\s*turn to (\d+)/i;
+const TICK = /\bthe box above is ticked,?\s*turn to (\d+)/i;
 const TURN = /turn to (\d+)/i;
+const TURNS = /turn to (\d+)(?:\s*\))?/gi;
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
 /** Turn extracted pages into a draft. Uncertain structure is flagged, not guessed. */
 export function structurePages(
@@ -89,10 +94,13 @@ export function structurePages(
 ): DraftBook {
   const raws: { number: string; lines: string[]; pageIndex: number }[] = [];
   let current: { number: string; lines: string[]; pageIndex: number } | null = null;
+  let previous = "";
   pages.forEach((page, pageIndex) => {
     for (const line of page.text.split(/\n/)) {
       const header = HEADER.exec(line.trim());
-      if (header?.[1]) {
+      const wrapped = /\bturn(?: to)?$/i.test(previous);
+      if (line.trim()) previous = line.trim();
+      if (header?.[1] && !wrapped) {
         current = { number: header[1], lines: [], pageIndex };
         raws.push(current);
         continue;
@@ -291,84 +299,86 @@ function parseSection(
   system: SystemDef,
 ): DraftSection {
   const flags: string[] = [];
-  const trimmed = raw.lines.map((line) => line.trim());
-  const winIndex = trimmed.findIndex((line) => WIN.test(line));
-  const sawFight = winIndex >= 0 || trimmed.some((line) => LOSE.test(line) || ROUNDS.test(line) || ROUNDS_AT.test(line));
-  const fightName = winIndex >= 0 ? monsterName(trimmed, winIndex) : "";
-  const winLine = winIndex >= 0 ? trimmed[winIndex] ?? "" : "";
-  const winTo = WIN.exec(winLine)?.[1] ?? "";
+  const units = sentences(logicalLines(raw.lines));
+  const segmented = units.map((unit) => turnSegments(unit));
+  const winIndex = segmented.findIndex((segments) => segments.some((segment) => WIN.test(segment)));
+  const sawFight =
+    winIndex >= 0 || units.some((unit) => ROUNDS.test(unit) || ROUNDS_AT.test(unit)) || segmented.some((segments) => segments.some((segment) => LOSE.test(segment)));
+  const fightName = sawFight ? monsterName(units, winIndex >= 0 ? winIndex : units.length) : "";
+  let winTo = "";
   let loseTo = "";
   let fightRounds = "";
   let fightPenalty = "";
   let sawTest = false;
+  let tests = 0;
   let testLabel = "";
   let skill = "";
-  let unknownSkill = false;
+  let unclearTest = false;
   let passTo = "";
   let failTo = "";
   let ticked = false;
+  let unclearFight = false;
   const choices: DraftChoice[] = [];
   const body: string[] = [];
 
-  for (const line of trimmed) {
-    if (!line) {
+  units.forEach((unit, index) => {
+    if (!unit) {
       body.push("");
-      continue;
+      return;
     }
-    const lose = LOSE.exec(line);
-    if (lose?.[1]) {
-      loseTo = lose[1];
-      continue;
-    }
-    const roundsAt = ROUNDS_AT.exec(line);
-    if (roundsAt?.[1]) {
-      fightRounds = roundsAt[1];
-      fightPenalty = normalizePenalty(roundsAt[2] ?? "");
-      continue;
-    }
-    const rounds = ROUNDS.exec(line);
+    const roundsAt = ROUNDS_AT.exec(unit);
+    const rounds = roundsAt ?? ROUNDS.exec(unit);
     if (rounds?.[1]) {
-      fightRounds = rounds[1];
-      continue;
+      fightRounds = countValue(rounds[1]);
+      if (roundsAt?.[2]) fightPenalty = normalizePenalty(roundsAt[2]);
+      const rest = unit.replace(rounds[0], "").replace(fightName, "").replace(/[\s.,;:]+/g, "");
+      if (!rest) return;
     }
-    if (WIN.test(line)) continue;
-    if (sawFight && (/^talent\b/i.test(line) || /^vitality\b/i.test(line) || line === fightName)) continue;
-    const tested = TEST.exec(line);
-    if (tested?.[1]) {
+    if (sawFight && (/^talent\b/i.test(unit) || /^vitality\b/i.test(unit) || unit === fightName)) return;
+    const test = findTest(unit, system);
+    if (test) {
       sawTest = true;
-      testLabel = clip(line, 160);
-      const known = system.skills.find((entry) => entry.label.toLowerCase() === tested[1]?.toLowerCase());
-      if (known) skill = known.id;
-      else if (tested[1].toLowerCase() !== "talent") unknownSkill = true;
-      body.push(line);
-      continue;
+      tests += 1;
+      testLabel = clip(unit, 160);
+      skill = test.skill;
+      if (test.unclear) unclearTest = true;
     }
-    const success = SUCCESS.exec(line);
-    if (success?.[1]) {
-      passTo = success[1];
-      continue;
+    const segments = segmented[index] ?? [];
+    if (test || segments.length === 0) body.push(unit);
+    for (const segment of segments) {
+      const win = WIN.exec(segment);
+      if (win?.[1] && !winTo) {
+        winTo = win[1];
+        continue;
+      }
+      if (win?.[1]) unclearFight = true;
+      const lose = LOSE.exec(segment);
+      if (lose?.[1] && !loseTo) {
+        loseTo = lose[1];
+        continue;
+      }
+      if (lose?.[1]) unclearFight = true;
+      const success = SUCCESS.exec(segment);
+      if (success?.[1] && !passTo) {
+        passTo = success[1];
+        continue;
+      }
+      if (success?.[1]) unclearTest = true;
+      const failure = FAIL.exec(segment);
+      if (failure?.[1] && !failTo) {
+        failTo = failure[1];
+        continue;
+      }
+      if (failure?.[1]) unclearTest = true;
+      const to = TURN.exec(segment)?.[1] ?? "";
+      if (TICK.test(segment)) ticked = true;
+      choices.push({ label: clip(segment, 160), to });
     }
-    const failure = FAIL.exec(line);
-    if (failure?.[1]) {
-      failTo = failure[1];
-      continue;
-    }
-    const tick = TICK.exec(line);
-    if (tick?.[1]) {
-      ticked = true;
-      choices.push({ label: clip(line, 160), to: tick[1] });
-      continue;
-    }
-    const turn = TURN.exec(line);
-    if (turn?.[1]) {
-      choices.push({ label: clip(line, 160), to: turn[1] });
-      continue;
-    }
-    body.push(line);
-  }
+  });
+  if ((passTo || failTo) && !sawTest) sawTest = true;
 
-  if (sawFight && (!fightName || !winTo || !loseTo || !validRounds(fightRounds))) flags.push("Unparsed fight.");
-  if (sawTest && (unknownSkill || !passTo || !failTo)) flags.push("Unparsed test.");
+  if (sawFight && (unclearFight || !fightName || !winTo || !loseTo || !validRounds(fightRounds))) flags.push("Unparsed fight.");
+  if (sawTest && (unclearTest || tests !== 1 || !passTo || !failTo)) flags.push("Unparsed test.");
   const modes = [sawFight, sawTest, choices.length > 0].filter(Boolean).length;
   if (modes > 1) flags.push("This section has more than one kind of exit.");
   if (!sawFight && !sawTest && choices.length === 0) flags.push("This section has no exits.");
@@ -514,9 +524,13 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
   return { ok: true, section: { ...base, choices: built } };
 }
 
-function monsterName(lines: readonly string[], winIndex: number): string {
+function monsterName(units: readonly string[], winIndex: number): string {
+  for (const unit of units) {
+    const named = FIGHT_LINE.exec(unit)?.[1]?.trim() ?? "";
+    if (named && /^[A-Z]/.test(named) && !/[.,;:!?]/.test(named) && !/\b(?:if|you|your)\b/i.test(named)) return named;
+  }
   for (let index = winIndex - 1; index >= 0; index -= 1) {
-    const line = lines[index] ?? "";
+    const line = units[index] ?? "";
     if (!line) continue;
     if (/^talent\b/i.test(line) || /^vitality\b/i.test(line)) continue;
     if (ROUNDS.test(line) || ROUNDS_AT.test(line) || LOSE.test(line) || WIN.test(line)) continue;
@@ -524,6 +538,96 @@ function monsterName(lines: readonly string[], winIndex: number): string {
     return line;
   }
   return "";
+}
+
+/**
+ * Rejoin lines that a page wrapped in the middle of a sentence, so "turn to" and its
+ * number stay together. A line ending in . ! ? or : ends a sentence. A short line, such
+ * as an enemy's name or a stat line, stays on its own unless the next line plainly
+ * continues it.
+ */
+export function logicalLines(lines: readonly string[]): string[] {
+  const out: string[] = [];
+  let previous = "";
+  for (const raw of lines) {
+    const line = tidyLine(raw);
+    if (!line) {
+      out.push("");
+      previous = "";
+      continue;
+    }
+    const last = out.length - 1;
+    if (previous && last >= 0 && continues(previous, line)) out[last] = tidyLine(`${out[last]} ${line}`);
+    else out.push(line);
+    previous = line;
+  }
+  return out;
+}
+
+function continues(previous: string, next: string): boolean {
+  if (/[.!?:]['"’”)]*$/.test(previous)) return false;
+  if (/^[a-z(,;)]/.test(next)) return true;
+  if (/(?:^|\s)(?:turn|turn to|to)$/i.test(previous)) return true;
+  if (FIGHT_LINE.test(previous) || ROUNDS.test(previous) || ROUNDS_AT.test(previous)) return false;
+  return previous.length >= 40;
+}
+
+/** Remove the stray spaces PDF text often leaves before punctuation, as in "turn to 12 ." */
+function tidyLine(line: string): string {
+  return line
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?)])/g, "$1")
+    .replace(/\(\s+/g, "(")
+    .trim();
+}
+
+/** Split logical lines into sentences. Blank lines stay as paragraph breaks. */
+export function sentences(lines: readonly string[]): string[] {
+  return lines.flatMap((line) => (line ? line.split(/(?<=[.!?]['"’”)]?)\s+(?=['"‘“(]?[A-Z])/).filter(Boolean) : [""]));
+}
+
+/**
+ * One piece per "turn to N" in a sentence, so "If you win, turn to 4. If you lose, turn to 9."
+ * or "the door (turn to 4) or the stairs (turn to 9)" give two exits with their own words.
+ */
+function turnSegments(unit: string): string[] {
+  const ends = [...unit.matchAll(TURNS)].map((match) => (match.index ?? 0) + match[0].length);
+  if (ends.length === 0) return [];
+  if (ends.length === 1) return [unit];
+  const segments: string[] = [];
+  let start = 0;
+  ends.forEach((end, index) => {
+    const stop = index === ends.length - 1 ? unit.length : end;
+    const segment = unit
+      .slice(start, stop)
+      .replace(/^[\s,;]+/, "")
+      .replace(/[\s,;]+$/, "");
+    if (segment) segments.push(segment);
+    start = stop;
+  });
+  return segments;
+}
+
+/**
+ * "Test your X" is always a test. "Test X" counts only when X is Talent or a skill of this
+ * system, so ordinary words such as "test the rope" are left alone. A modifier such as
+ * "at -2" or "with a bonus" cannot be stored on a draft test yet, so it keeps the test flagged.
+ */
+function findTest(unit: string, system: SystemDef): { skill: string; unclear: boolean } | null {
+  const match = /\btest (your )?([A-Za-z]+)/i.exec(unit);
+  const word = match?.[2]?.toLowerCase();
+  if (!match || !word) return null;
+  const known = system.skills.find((entry) => entry.label.toLowerCase() === word);
+  const talent = word === "talent";
+  if (!match[1] && !known && !talent) return null;
+  const after = unit.slice((match.index ?? 0) + match[0].length);
+  const modifier = /^\s*\(?\s*(?:at\s*[−+-]?\d|with\b)/i.test(after);
+  return { skill: known?.id ?? "", unclear: (!known && !talent) || modifier };
+}
+
+function countValue(raw: string): string {
+  const word = NUMBER_WORDS.indexOf(raw.toLowerCase());
+  return word >= 0 ? String(word) : raw;
 }
 
 function passageText(lines: readonly string[]): string {
