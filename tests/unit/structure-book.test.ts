@@ -1,7 +1,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { demoSystem } from "../../src/format/demo";
-import { countDraft, draftToBook, flaggedNotice, formatCounts, listLabel, placeFlags, sourcePageHeading, structurePages } from "../../src/format/structure-book";
+import {
+  countDraft,
+  draftToBook,
+  flaggedNotice,
+  formatCounts,
+  listLabel,
+  logicalLines,
+  placeFlags,
+  sentences,
+  sourcePageHeading,
+  structurePages,
+} from "../../src/format/structure-book";
 
 const copper = readFileSync(new URL("../fixtures/convert/copper-lantern.txt", import.meta.url), "utf8");
 
@@ -150,3 +161,179 @@ describe("section structuring", () => {
     if (book.ok) expect(book.book.sections[0]?.choices?.[0]).toEqual({ id: "c1", label: "If the box above is ticked, turn to 2.", to: "2" });
   });
 });
+
+function draftOf(...lines: string[]) {
+  return structurePages([{ ref: "Page 1", text: lines.join("\n") }], { title: "Sample", author: "Original sample", source: "pdf" }, demoSystem);
+}
+
+function section(draft: ReturnType<typeof draftOf>, number: string) {
+  const found = draft.sections.find((entry) => entry.number === number);
+  if (!found) throw new Error(`missing §${number}`);
+  return found;
+}
+
+describe("wrapped and crowded PDF lines", () => {
+  it("reads a header with a space before the dot, but not a destination wrapped onto its own line", () => {
+    const draft = draftOf(
+      "1 .",
+      "The canal is narrow here. If you want to follow the towpath, turn to",
+      "3 .",
+      "Otherwise, turn",
+      "to 2 .",
+      "2 .",
+      "A heron watches you.",
+      "Turn to 3.",
+      "3.",
+      "The lock gate creaks.",
+      "Turn to 1.",
+    );
+    expect(draft.sections.map((entry) => entry.number)).toEqual(["1", "2", "3"]);
+    expect(section(draft, "1").choices).toEqual([
+      { label: "If you want to follow the towpath, turn to 3.", to: "3" },
+      { label: "Otherwise, turn to 2.", to: "2" },
+    ]);
+    expect(section(draft, "1").passage).toBe("The canal is narrow here.");
+    expect(countDraft(draft)).toMatchObject({ sections: 3, flagged: 0, choices: 4, missingDestinations: 0 });
+  });
+
+  it("keeps a choice whole when its words wrap over lines", () => {
+    const draft = draftOf(
+      "1.",
+      "If you would rather climb the bell tower and look out over the",
+      "Saltmarsh, turn to 2.",
+      "If you have a brass whistle and want to blow it, turn",
+      "to 2.",
+      "2.",
+      "Gulls wheel overhead.",
+      "Turn to 1.",
+    );
+    expect(section(draft, "1").choices.map((choice) => choice.label)).toEqual([
+      "If you would rather climb the bell tower and look out over the Saltmarsh, turn to 2.",
+      "If you have a brass whistle and want to blow it, turn to 2.",
+    ]);
+  });
+
+  it("splits two links that share a line or a sentence", () => {
+    const draft = draftOf(
+      "1.",
+      "You could take the ferry (turn to 2 ) or wade across the ford",
+      "(turn to 3 ).",
+      "2.",
+      "The ferry rocks. If you have a coin, turn to 3 ; if not, turn to 1 .",
+      "3.",
+      "Dry land at last.",
+      "Turn to 1.",
+    );
+    expect(section(draft, "1").choices).toEqual([
+      { label: "You could take the ferry (turn to 2)", to: "2" },
+      { label: "or wade across the ford (turn to 3).", to: "3" },
+    ]);
+    expect(section(draft, "2").choices).toEqual([
+      { label: "If you have a coin, turn to 3", to: "3" },
+      { label: "if not, turn to 1.", to: "1" },
+    ]);
+    expect(section(draft, "2").passage).toBe("The ferry rocks.");
+    expect(section(draft, "2").flags).toEqual([]);
+  });
+
+  it("keeps a narrative sentence in the passage when a link shares its line", () => {
+    const draft = draftOf("1.", "You thank the miller and step outside. Turn to 2 .", "2.", "Rain.", "Turn to 1.");
+    expect(section(draft, "1").passage).toBe("You thank the miller and step outside.");
+    expect(section(draft, "1").choices).toEqual([{ label: "Turn to 2.", to: "2" }]);
+  });
+
+  it("does not join a short name line to the stat line under it", () => {
+    expect(logicalLines(["Old badger", "Fight one round", "If you win, turn to 2 ."])).toEqual(["Old badger", "Fight one round", "If you win, turn to 2."]);
+    expect(sentences(["One. 'Two,' she says. Three?", "", "Four."])).toEqual(["One.", "'Two,' she says.", "Three?", "", "Four."]);
+  });
+});
+
+describe("test and fight wording", () => {
+  it("reads 'Test Skill' and 'If you succeed' on one line", () => {
+    const draft = draftOf(
+      "1.",
+      "The hedge maze twists back on itself. Test Tracking .",
+      "If you succeed, turn to 2 . If you fail, turn to 3 .",
+      "2.",
+      "Out.",
+      "Turn to 1.",
+      "3.",
+      "Lost.",
+      "Turn to 1.",
+    );
+    const maze = section(draft, "1");
+    expect(maze.sawTest).toBe(true);
+    expect(maze.skill).toBe("tracking");
+    expect(maze.passTo).toBe("2");
+    expect(maze.failTo).toBe("3");
+    expect(maze.flags).toEqual([]);
+    const built = draftToBook(draft, demoSystem);
+    expect(built.ok).toBe(true);
+    if (built.ok) expect(built.book.sections[0]?.test?.success.to).toBe("2");
+  });
+
+  it("does not treat an ordinary use of 'test' as a test", () => {
+    const draft = draftOf("1.", "You test the rope before trusting it.", "Turn to 2.", "2.", "Fine.", "Turn to 1.");
+    expect(section(draft, "1").sawTest).toBe(false);
+    expect(section(draft, "1").flags).toEqual([]);
+  });
+
+  it("keeps a test flagged when it carries a modifier the draft cannot hold", () => {
+    const draft = draftOf(
+      "1.",
+      "Test your Talent at -2.",
+      "If you succeed, turn to 2. If you fail, turn to 2.",
+      "2.",
+      "Test Diplomacy with a +1 bonus if you have a seal.",
+      "If you succeed, turn to 1. If you fail, turn to 1.",
+    );
+    expect(section(draft, "1").flags).toContain("Unparsed test.");
+    expect(section(draft, "2").flags).toContain("Unparsed test.");
+  });
+
+  it("keeps every link when a section holds more than one test", () => {
+    const draft = draftOf(
+      "1.",
+      "To climb, Test Climbing and if you are successful, turn to 2.",
+      "To swim, Test Swimming and if you are successful, turn to 3.",
+      "2.",
+      "Up.",
+      "Turn to 1.",
+      "3.",
+      "Across.",
+      "Turn to 1.",
+    );
+    const both = section(draft, "1");
+    expect(both.passTo).toBe("2");
+    expect(both.choices.map((choice) => choice.to)).toEqual(["3"]);
+    expect(both.flags).toContain("Unparsed test.");
+  });
+
+  it("reads an enemy on its stat line, with rounds in words and a penalty", () => {
+    const draft = draftOf(
+      "1.",
+      "Something stirs in the reeds. You must fight:",
+      "Marsh troll Fight two rounds at -1",
+      "If you survive, turn to 2 .",
+      "2.",
+      "The reeds fall still.",
+      "Turn to 1.",
+    );
+    const fight = section(draft, "1");
+    expect(fight.sawFight).toBe(true);
+    expect(fight.fightName).toBe("Marsh troll");
+    expect(fight.fightRounds).toBe("2");
+    expect(fight.fightPenalty).toBe("−1");
+    expect(fight.winTo).toBe("2");
+    expect(fight.choices).toEqual([]);
+    expect(fight.passage).toBe("Something stirs in the reeds. You must fight:");
+    // No defeat destination is given, so the reader still has to supply one.
+    expect(fight.flags).toEqual(["Unparsed fight."]);
+  });
+
+  it("flags a ticked-box link that follows 'If not, but'", () => {
+    const draft = draftOf("1.", "If you hold a lantern, turn to 2.", "If not, but the box above is ticked, turn to 2.", "Turn to 2.", "2.", "End.", "Turn to 1.");
+    expect(section(draft, "1").flags).toContain("A ticked box needs a name before it can be a condition.");
+  });
+});
+
