@@ -188,7 +188,7 @@ function validateSection(input: unknown, path: string, system: SystemDef): Secti
   ]);
   const section: Section = {
     id: sectionId(root.id, `${path}.id`),
-    title: text(root.title, `${path}.title`, 1, 120),
+    title: text(root.title, `${path}.title`, 0, 120),
     body: arrayOf(root.body, `${path}.body`, 1, 12).map((paragraph, index) =>
       text(paragraph, `${path}.body[${index}]`, 1, 2000),
     ),

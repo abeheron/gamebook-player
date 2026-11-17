@@ -30,17 +30,31 @@ export function sectionTitle(sections: readonly Section[], sectionId: string): s
   return sections.find((section) => section.id === sectionId)?.title ?? sectionId;
 }
 
-/** A pass, fail, or fight destination. The title can ellipsize; the prefix keeps the section number. */
+/** A pass, fail, or fight destination. A blank title is not shown, so the control reads "Pass → §326". */
 export function sectionDestination(heading: string, sectionId: string, title: string): {
   prefix: string;
   title: string;
   name: string;
 } {
+  const named = title.trim();
+  if (!named) {
+    return {
+      prefix: `${heading} → §${sectionId}`,
+      title: "",
+      name: `${heading}, section ${sectionId}`,
+    };
+  }
   return {
     prefix: `${heading} → §${sectionId} · `,
-    title,
-    name: `${heading}, section ${sectionId}, ${title}`,
+    title: named,
+    name: `${heading}, section ${sectionId}, ${named}`,
   };
+}
+
+/** The heading a player sees. A blank title is only the section number. */
+export function sectionHeading(id: string, title: string): string {
+  const named = title.trim();
+  return named ? named : `§${id}`;
 }
 
 export function ticksOnSection(section: Section): { id: string; label: string }[] {

@@ -15,4 +15,11 @@ describe("memory save store", () => {
     await store.clear("demo");
     expect(await store.load("demo")).toBeNull();
   });
+
+  it("removes a stored book", async () => {
+    const store = createMemoryStore();
+    await store.putBook({ id: "sample", book: demoBook, addedAt: "2026-11-10T00:00:00.000Z" });
+    await store.deleteBook("sample");
+    expect(await store.listBooks()).toEqual([]);
+  });
 });

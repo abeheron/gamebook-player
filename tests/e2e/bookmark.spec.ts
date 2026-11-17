@@ -53,7 +53,7 @@ test("loads a version 2 save without bookmarks", async ({ page }) => {
       },
     };
     await new Promise<void>((resolve, reject) => {
-      const opening = indexedDB.open("gamebook-player", 1);
+      const opening = indexedDB.open("gamebook-player", 2);
       opening.onerror = () => reject(opening.error);
       opening.onsuccess = () => {
         const database = opening.result;

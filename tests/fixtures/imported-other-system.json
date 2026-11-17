@@ -1,0 +1,16 @@
+{
+  "id": "other-system",
+  "title": "Other system",
+  "author": "Original sample",
+  "rights": "Original sample text.",
+  "system": "fighting-fantasy",
+  "start": "1",
+  "sections": [
+    {
+      "id": "1",
+      "title": "A door",
+      "body": ["An original passage for an unsupported system."],
+      "choices": [{ "id": "stay", "label": "Stay here", "to": "1" }]
+    }
+  ]
+}

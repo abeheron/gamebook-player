@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, createReadStream, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import type { Plugin } from "vite";
 
@@ -16,6 +16,26 @@ const CSP = [
   "object-src 'none'",
 ].join("; ");
 
+/** Serves the PDF standard fonts from the installed package during development. */
+export function pdfjsDevFonts(): Plugin {
+  const fonts = resolve("node_modules/pdfjs-dist/standard_fonts");
+  return {
+    name: "pdfjs-dev-fonts",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use("/pdfjs/standard_fonts", (req, res, next) => {
+        const name = decodeURIComponent((req.url ?? "/").split("?")[0] ?? "").replace(/^\/+/, "");
+        const file = join(fonts, name);
+        if (!name || name.includes("..") || !existsSync(file) || !statSync(file).isFile()) {
+          next();
+          return;
+        }
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 /** Production-only app-shell cache and a strict content security policy. */
 export function gamebookPwa(): Plugin {
   return {
@@ -27,6 +47,7 @@ export function gamebookPwa(): Plugin {
     },
     closeBundle() {
       const dist = resolve("dist");
+      cpSync(resolve("node_modules/pdfjs-dist/standard_fonts"), join(dist, "pdfjs/standard_fonts"), { recursive: true });
       const files = walk(dist).sort();
       const hash = createHash("sha256");
       const urls: string[] = [];

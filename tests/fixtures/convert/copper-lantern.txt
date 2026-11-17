@@ -1,0 +1,37 @@
+The Copper Lantern
+
+1.
+
+You stand in a small room with a copper lantern on a hook.
+
+Take the lantern and turn to 2.
+
+Leave it and turn to 3.
+2.
+
+The lantern is warm. Test your Talent.
+
+If you are successful, turn to 4.
+
+If you fail, turn to 3.
+3.
+
+The room stays dark.
+
+Turn to 5.
+4.
+
+The landing is empty.
+
+Go back and turn to 9.
+5.
+
+A paper moth settles on the lantern.
+
+PAPER MOTH
+Talent 6
+Vitality 2
+
+Fight for 2 rounds.
+If you win, turn to 4.
+If you are defeated, turn to 3.

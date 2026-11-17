@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { isSampleArtId } from "../format/sample-art";
   import type { Section } from "../format/types";
+  import { sectionHeading } from "./wording";
   import type { IllustrationMode } from "./dice-prefs";
   import SampleArt from "./SampleArt.svelte";
   import TickBox from "./TickBox.svelte";
@@ -49,7 +50,9 @@
 
 <article class="reader" data-testid="reader">
   <div class="kicker">
-    <p class="secno">Section {section.id}</p>
+    {#if section.title.trim()}
+      <p class="secno">Section {section.id}</p>
+    {/if}
     <button
       type="button"
       class="bm"
@@ -61,7 +64,7 @@
       <span class="star" aria-hidden="true">{bookmarked ? "★" : "☆"}</span><span class="txt">{bookmarked ? "Bookmarked" : "Bookmark"}</span>
     </button>
   </div>
-  <h1 data-testid="section-title">{section.title}</h1>
+  <h1 data-testid="section-title">{sectionHeading(section.id, section.title)}</h1>
   {#each ticks as tick (tick.id)}
     <p class="tickrow">
       <TickBox ticked={tick.count > 0} label={tick.label} />

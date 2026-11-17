@@ -14,18 +14,18 @@ test("uses the parchment shell and only opens screens the app has", async ({ pag
     "Character",
     "Test & fight",
     "Keywords & ticks",
-    "Library Not in this build",
+    "Library",
     "Rules",
   ]);
   await expect(page.getByTestId("side-read")).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("sheet-stat-talent")).toHaveText("9");
   await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3");
 
-  await page.getByTestId("side-library").focus();
-  await expect(page.getByTestId("side-library")).toBeFocused();
-  await page.keyboard.press("Enter");
+  await page.getByTestId("side-library").click();
+  await expect(page.getByTestId("library")).toBeVisible();
+  await expect(page.getByTestId("side-library")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("side-read").click();
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
-  await expect(page.getByTestId("side-read")).toHaveAttribute("aria-current", "page");
 
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("side-character").click();
