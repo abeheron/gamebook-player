@@ -37,6 +37,21 @@ describe("file extraction", () => {
     expect(other).toEqual({ ok: false, step: 2, error: UNREADABLE });
   });
 
+  it("reports step 2 after extraction and step 3 after structuring", async () => {
+    const seen: number[] = [];
+    const pdf = await convertBytes(readFileSync(new URL("copper-lantern.pdf", dir)), "copper-lantern.pdf", demoSystem, async (step) => {
+      seen.push(step);
+    });
+    expect(pdf.ok).toBe(true);
+    expect(seen).toEqual([2, 3]);
+
+    const failed: number[] = [];
+    await convertBytes(readFileSync(new URL("scanned.pdf", dir)), "scanned.pdf", demoSystem, (step) => {
+      failed.push(step);
+    });
+    expect(failed).toEqual([]);
+  });
+
   it("keeps XHTML lines without the tags", () => {
     const text = xhtmlToText("<html><body><p>1.</p><p>Turn to 2.</p></body></html>");
     expect(text).toBe("1.\nTurn to 2.");
