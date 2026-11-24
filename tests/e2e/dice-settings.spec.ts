@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("remembers the dice toggles and keeps the sound credit", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("side-test").click();
   await expect(page.getByTestId("dice-anim")).toBeChecked();
@@ -25,7 +26,7 @@ test("remembers the dice toggles and keeps the sound credit", async ({ page }) =
 test("starts with animation off when reduced motion is requested", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("mobile-test").click();
   await expect(page.getByTestId("dice-anim")).not.toBeChecked();
@@ -36,7 +37,7 @@ test("starts with animation off when reduced motion is requested", async ({ page
 
 test("locks the destination until an animated roll settles", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();
@@ -53,7 +54,7 @@ test("locks the destination until an animated roll settles", async ({ page }) =>
 
 test("pulses the current fight round only while the dice are rolling", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-face-the-moth").click();
   await page.getByTestId("side-test").click();

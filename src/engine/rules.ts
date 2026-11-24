@@ -5,6 +5,7 @@ import { applyEffects, cloneState, conditionHolds, initialSession, recordRoll } 
 import { sectionMap } from "../format/validate";
 import type {
   Book,
+  Character,
   Choice,
   GameState,
   PendingAction,
@@ -17,8 +18,9 @@ import type {
 
 const UNDO_LIMIT = 50;
 
-export function startSession(book: Book, system: SystemDef): Session {
-  const session = initialSession(book.id, system, book.start);
+/** Starts a book at its start section with a character from creation, then runs that section's hook. */
+export function startSession(book: Book, system: SystemDef, character: Character): Session {
+  const session = initialSession(book.id, book.start, character);
   return { ...session, state: arrive(book, system, session.state) };
 }
 

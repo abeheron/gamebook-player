@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { acceptTest, choose, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../../src/engine/rules";
+import { fixtureCharacter } from "../../src/engine/creation";
 import { demoBook, demoSystem } from "../../src/format/demo";
 
 const low = () => 0;
 
 function atMark() {
-  let session = startSession(demoBook, demoSystem);
+  let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
   session = choose(session, demoBook, demoSystem, "take-lantern");
   session = choose(session, demoBook, demoSystem, "tick-and-study");
   return session;
@@ -81,7 +82,7 @@ describe("Fortune reroll", () => {
   });
 
   it("rerolls one die of the current fight round and keeps it on the save", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "face-the-moth");
     session = rollCombatRound(session, demoBook, demoSystem, () => 0.99);
     expect(session.state.sectionId).toBe("10");

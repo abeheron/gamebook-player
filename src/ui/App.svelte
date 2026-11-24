@@ -2,9 +2,10 @@
   import { onDestroy, onMount } from "svelte";
   import { demoBook, demoSystem } from "../format/demo";
   import { exploredSections } from "../format/import-book";
-  import type { Book, Illustration, RollRecord, Session } from "../format/types";
+  import type { Book, Character, Illustration, RollRecord, Session } from "../format/types";
+  import { fixtureCharacter } from "../engine/creation";
   import { canRestore } from "../engine/restore";
-  import { conditionHolds } from "../engine/state";
+  import { conditionHolds, initialSession } from "../engine/state";
   import { acceptTest, adventureOver, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
@@ -16,6 +17,7 @@
   import { SAVE_VERSION, type SaveRecord } from "../storage/types";
   import Choices from "./Choices.svelte";
   import Combat from "./Combat.svelte";
+  import Creation from "./Creation.svelte";
   import IllustrationViewer from "./IllustrationViewer.svelte";
   import Reader from "./Reader.svelte";
   import Library from "./Library.svelte";
@@ -29,6 +31,8 @@
   type ViewName = "read" | "sheet" | "test" | "log" | "rules" | "library";
   type ViewMark = { view: ViewName; scroll: number };
   type Arrival = { kind: "combat"; session: Session };
+  /** Loading reads the save. Create is the new-character screen, where nothing is saved. Play has a session from Begin or a save. */
+  type Phase = "loading" | "create" | "play";
   const store = createIndexedDbStore();
   const runtime = detectRuntime();
 
@@ -36,7 +40,9 @@
   let imported = $state<Book[]>([]);
   let otherSaves = $state<Record<string, SaveRecord | null>>({});
   let switching = $state(false);
-  let session = $state(startSession(demoBook, demoSystem));
+  let session = $state(placeholder(demoBook));
+  let phase = $state<Phase>("loading");
+  const creating = $derived(phase === "create");
   let ready = $state(false);
   let saveError = $state("");
   let writes = Promise.resolve();
@@ -62,6 +68,17 @@
   let dicePreview = $state<number[]>([]);
   let motionFrame = 0;
   let motionTimer = 0;
+
+  /**
+   * Hidden test fixture, not linked anywhere: ?fixture=demo starts a first launch with the ready-made
+   * Lantern Stair hero instead of character creation, so automated tests can jump into a section.
+   */
+  const testFixture = typeof location !== "undefined" && new URLSearchParams(location.search).get("fixture") === "demo";
+
+  /** Keeps the derived views valid while no game is running. It is never shown or saved. */
+  function placeholder(target: Book): Session {
+    return initialSession(target.id, target.start, fixtureCharacter(demoSystem));
+  }
 
   const ROLL_MS = 750;
   const FRAME_MS = 70;
@@ -270,11 +287,18 @@
           session = migrated.session;
           bookmarks = migrated.bookmarks;
           if (migrated.session.state.pending?.kind === "test") panelOpen = true;
+          phase = "play";
+        } else if (testFixture) {
+          session = startSession(book, demoSystem, fixtureCharacter(demoSystem));
+          phase = "play";
         }
       } catch (error) {
         saveError = error instanceof Error ? error.message : "Could not read the save.";
       } finally {
-        if (!ignore) ready = true;
+        if (!ignore) {
+          if (phase === "loading") phase = "create";
+          ready = true;
+        }
       }
     })();
     return () => {
@@ -334,7 +358,8 @@
   }
 
   $effect(() => {
-    if (!ready || switching) return;
+    // Nothing is written during creation. The first write comes after Begin.
+    if (!ready || switching || phase !== "play") return;
     queueSave(currentRecord());
   });
 
@@ -489,20 +514,35 @@
     session = undo(plainSession());
   }
 
-  function onNewGame(): void {
+  /** Opens character creation. The current save stays until Begin replaces it. */
+  function openCreation(): void {
     clearMotion();
     arrival = null;
     panelOpen = false;
-    session = startSession(book, demoSystem);
+    combatSelected = null;
+    phase = "create";
+    view = "read";
+    history = [];
+    queueMicrotask(() => {
+      window.scrollTo(0, 0);
+      mainEl?.focus();
+    });
+  }
+
+  function onNewGame(): void {
+    openCreation();
+  }
+
+  function onBegin(character: Character): void {
+    session = startSession(book, demoSystem, character);
     bookmarks = [];
-    if (view === "test") {
-      view = "read";
-      history = [];
-      queueMicrotask(() => {
-        window.scrollTo(0, 0);
-        mainEl?.focus();
-      });
-    }
+    phase = "play";
+    view = "read";
+    history = [];
+    queueMicrotask(() => {
+      window.scrollTo(0, 0);
+      mainEl?.focus();
+    });
   }
 
   function rollsFor(source: Session, id: string | undefined): RollRecord[] {
@@ -542,17 +582,19 @@
       const record = await store.load(saveSlot(target.id));
       const migrated = migrateSave(record, demoSystem, target);
       book = target;
+      arrival = null;
       if (migrated && canRestore(migrated.session, target, demoSystem)) {
         session = migrated.session;
         bookmarks = migrated.bookmarks;
         panelOpen = migrated.session.state.pending?.kind === "test";
+        switching = false;
       } else {
-        session = startSession(target, demoSystem);
+        session = placeholder(target);
         bookmarks = [];
-        panelOpen = false;
+        switching = false;
+        openCreation();
+        return;
       }
-      arrival = null;
-      switching = false;
     }
     show("read");
   }
@@ -583,9 +625,9 @@
           bookmarks = migrated.bookmarks;
           panelOpen = migrated.session.state.pending?.kind === "test";
         } else {
-          session = startSession(demoBook, demoSystem);
+          session = placeholder(demoBook);
           bookmarks = [];
-          panelOpen = false;
+          openCreation();
         }
       }
     } finally {
@@ -625,30 +667,37 @@
   <nav class="side" aria-label="Screens" data-testid="side-nav">
     <p class="brand">Gamebook Player<small>sample reader</small></p>
     <p class="book-tag" data-testid="book-title">{book.title}</p>
-    <button type="button" data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
+    {#if creating}
+      <span class="nav-step" aria-current="step" data-testid="side-new-character">New character</span>
+    {/if}
+    <button type="button" class:locked={creating} disabled={creating} data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
       Read
     </button>
-    <button type="button" data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
+    <button type="button" class:locked={creating} disabled={creating} data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
       Character
     </button>
-    <button type="button" data-testid="side-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
+    <button type="button" class:locked={creating} disabled={creating} data-testid="side-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
       Test &amp; fight
     </button>
-    <button type="button" data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
+    <button type="button" class:locked={creating} disabled={creating} data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
       Keywords &amp; ticks
     </button>
-    <button type="button" data-testid="side-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
+    <button type="button" class:locked={creating} disabled={creating} data-testid="side-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
       Library
     </button>
-    <button type="button" data-testid="side-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
+    <button type="button" class:locked={creating} disabled={creating} data-testid="side-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
       Rules
     </button>
     <div class="foot">
-      <p>Back returns to the previous screen and keeps its scroll. It does not rewind the story.</p>
+      {#if creating}
+        <p data-testid="side-locked-note">Other screens open after you begin.</p>
+      {:else}
+        <p>Back returns to the previous screen and keeps its scroll. It does not rewind the story.</p>
+      {/if}
       <p class="runtime" data-testid="runtime">{runtime === "tauri" ? "Linux desktop shell" : "Web"}</p>
     </div>
   </nav>
-  <main id="main" tabindex="-1" bind:this={mainEl}>
+  <main id="main" tabindex="-1" class:creating bind:this={mainEl}>
     <p class="mobile-book">{book.title}</p>
     <div class="backbar">
       {#if history.length > 0}
@@ -660,7 +709,7 @@
         {/if}
       {/if}
     </div>
-    {#if view !== "library"}
+    {#if view !== "library" && phase === "play"}
       <div class="toolbar">
         <button type="button" class="btn ghost" data-testid="undo" disabled={!ready || session.undo.length === 0} onclick={onUndo}>
           Undo turn
@@ -671,7 +720,11 @@
     {#if saveError}
       <p class="error" data-testid="save-error">{saveError}</p>
     {/if}
-    {#if view === "read"}
+    {#if phase === "loading"}
+      <!-- The save is still being read. -->
+    {:else if creating}
+      <Creation system={demoSystem} startSection={book.start} {onBegin} />
+    {:else if view === "read"}
       <div class="layout">
         <div>
           <Reader
@@ -873,6 +926,7 @@
     <p class="rights">{book.rights}</p>
   </main>
 </div>
+{#if !creating}
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
   <button type="button" data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
     Read
@@ -893,6 +947,7 @@
     Rules
   </button>
 </nav>
+{/if}
 {#if viewer}
   <IllustrationViewer art={viewer} onClose={closeViewer} />
 {/if}

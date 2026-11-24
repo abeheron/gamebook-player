@@ -1,4 +1,4 @@
-import type { Condition, Section, SystemDef } from "../format/types";
+import type { Condition, Section, SystemDef, WeaponType } from "../format/types";
 
 /** Words for the values on the loaded book and system. */
 
@@ -89,4 +89,16 @@ export function blockedBecause(condition: Condition): string {
       return String(unreachable);
     }
   }
+}
+
+/** Approved P31 names and one-liners for the three starting weapon types. */
+export const WEAPON_TEXT: Record<WeaponType, { name: string; line: string }> = {
+  "one-handed": { name: "One-handed weapon", line: "One hand, so you may also take a shield." },
+  long: { name: "Long weapon", line: "Both hands, no shield. The book may give a bonus where length matters." },
+  "two-handed": { name: "Two-handed weapon", line: "Both hands, no shield. Re-roll the first 6 you roll each fight round." },
+};
+
+/** The weapon line on the sheet and the creation summary, for example "One-handed weapon + shield". */
+export function weaponSummary(weapon: WeaponType, shield: boolean): string {
+  return WEAPON_TEXT[weapon].name + (shield ? " + shield" : "");
 }

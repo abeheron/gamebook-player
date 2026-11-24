@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("opens the full skill test and keeps the destination locked until the dice settle", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("side-test").click();
   await expect(page.getByTestId("test-empty")).toBeVisible();
@@ -51,7 +52,7 @@ test("opens the full skill test and keeps the destination locked until the dice 
 
 test("runs the passage fight on the test screen and withholds the ending until the rounds are done", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-face-the-moth").click();
   await expect(page.getByTestId("section-title")).toHaveText("The pale moth");
@@ -90,7 +91,7 @@ test("runs the passage fight on the test screen and withholds the ending until t
 
 test("wraps the fight tracker on a phone without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-face-the-moth").click();
   await page.getByTestId("mobile-test").click();
@@ -100,14 +101,22 @@ test("wraps the fight tracker on a phone without horizontal overflow", async ({ 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("new game from the test screen returns to the opening", async ({ page }) => {
+test("new game from the test screen opens character creation, then Begin returns to the opening", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("side-test").click();
   await expect(page.getByRole("heading", { name: "Test & fight" })).toBeVisible();
   await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("creation")).toBeVisible();
+  await expect(page.getByTestId("side-new-character")).toHaveAttribute("aria-current", "step");
+  await expect(page.getByTestId("test-view")).toHaveCount(0);
+  await expect(page.getByTestId("view-back")).toHaveCount(0);
+  await page.getByTestId("create-skill-search").click();
+  await page.getByTestId("create-skill-stealth").click();
+  await page.getByTestId("create-weapon-long").click();
+  await page.getByTestId("create-begin").click();
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
   await expect(page.getByTestId("side-read")).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("test-view")).toHaveCount(0);
@@ -116,7 +125,7 @@ test("new game from the test screen returns to the opening", async ({ page }) =>
 
 test("opens the test screen on a phone without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();

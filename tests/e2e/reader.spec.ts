@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("saves, reloads, undoes, and still opens offline", async ({ page, context }) => {
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("book-title")).toHaveText("The Lantern Stair");
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
   await expect(page.getByTestId("sheet-stat-fortune")).toHaveText("3");
@@ -67,7 +68,7 @@ test("saves, reloads, undoes, and still opens offline", async ({ page, context }
 
 test("stacks the sheet on a phone and keeps Back off the story", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await expect(page.getByTestId("side-nav")).toBeHidden();
   await expect(page.getByTestId("mobile-nav")).toBeVisible();

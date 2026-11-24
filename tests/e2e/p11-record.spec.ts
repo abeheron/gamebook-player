@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 import { assertDemoCursor, demoClick, demoHold, installDemoCursor } from "./support/demo-cursor";
 
 test.use({
@@ -9,7 +10,7 @@ test.use({
 test("records the library drop zone with a visible cursor", async ({ page }) => {
   test.setTimeout(60_000);
   await installDemoCursor(page);
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await assertDemoCursor(page);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await demoClick(page.getByTestId("side-library"));

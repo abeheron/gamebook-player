@@ -47,4 +47,12 @@ describe("rules summary", () => {
     expect(skills?.lines[1]?.text).toContain("+2");
     expect(skills?.lines[1]?.text).toContain("−2");
   });
+
+  it("marks the creation weapon, shield, and Talent trades as in the app, but not shield fight modifiers", () => {
+    const stats = rulesSummary.find((section) => section.id === "stats");
+    expect(stats?.lines[1]).toMatchObject({ status: "in-app", page: "p. 6" });
+    expect(stats?.lines[1]?.text).toContain("up to three trades of one Talent");
+    const combat = rulesSummary.find((section) => section.id === "combat");
+    expect(combat?.lines.find((line) => line.text.includes("A shield lowers"))?.status).toBe("not-yet");
+  });
 });

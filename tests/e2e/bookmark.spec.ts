@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("bookmarks the current section and keeps it after reload", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await expect(page.locator(".kicker").getByTestId("bookmark")).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByTestId("bookmark")).toHaveText(/☆\s*Bookmark/);
@@ -27,7 +28,7 @@ test("bookmarks the current section and keeps it after reload", async ({ page })
 });
 
 test("loads a version 2 save without bookmarks", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.evaluate(async () => {
     const record = {
@@ -72,7 +73,7 @@ test("loads a version 2 save without bookmarks", async ({ page }) => {
 
 test("keeps the bookmark on the section line at desktop and 390px", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   const desktop = await page.evaluate(() => {
     const section = document.querySelector(".secno")?.getBoundingClientRect();

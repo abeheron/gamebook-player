@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 async function reachMark(page: import("@playwright/test").Page): Promise<void> {
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();
@@ -59,7 +60,7 @@ test("shows the same Fortune control on a phone", async ({ page }) => {
 
 test("rerolls the current fight round and keeps it after reload", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-face-the-moth").click();
   await expect(page.getByTestId("combat")).toBeVisible();

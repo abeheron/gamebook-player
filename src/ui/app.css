@@ -1464,6 +1464,338 @@ button.die {
   display: none;
 }
 
+/* P31 character creation */
+.creation h1 {
+  margin: 0 0 4px;
+}
+
+.creation h2 {
+  margin: 0 0 6px;
+}
+
+.creation .note {
+  margin: 0 0 12px;
+}
+
+.creation .create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: "picks rail";
+  gap: 16px 24px;
+  align-items: start;
+}
+
+.creation .picks {
+  grid-area: picks;
+  display: grid;
+  gap: 16px;
+}
+
+.creation .rail {
+  grid-area: rail;
+  display: grid;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.creation .statline {
+  margin-bottom: 10px;
+}
+
+.creation .summary .stat {
+  padding: 10px 4px;
+}
+
+.creation .stat.changed {
+  border-color: var(--accent);
+}
+
+.creation .stat .delta {
+  display: block;
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--accent);
+  font-weight: 600;
+  min-height: 18px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.creation .chips,
+.creation .kit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.creation .kit {
+  gap: 8px;
+}
+
+.creation .chip {
+  background: var(--chip);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+
+.creation .chip.traded {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.creation .chips .note {
+  margin: 0;
+}
+
+.creation dl.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.creation dl.kv dt {
+  color: var(--muted);
+}
+
+.creation dl.kv dd {
+  margin: 0;
+}
+
+.creation .head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.creation .counter {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.creation .counter b {
+  color: var(--ink);
+}
+
+.creation .trades {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.creation .trades i {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+}
+
+.creation .trades i.on {
+  background: var(--accent);
+}
+
+.creation .skills {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.creation .skill {
+  width: 100%;
+  text-align: left;
+  font: 15px var(--sans);
+  padding: 10px 12px;
+  min-height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.creation .skill:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.creation .skill[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel));
+}
+
+.creation .skill:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.creation .skill .nm {
+  font-weight: 600;
+}
+
+.creation .skill .ds {
+  display: block;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.creation .skill .cost {
+  font: 600 12px var(--sans);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.creation .skill[aria-pressed="true"] .cost {
+  color: var(--accent);
+}
+
+.creation .undo-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.creation .undo-row .note {
+  margin: 0;
+}
+
+.creation .btn {
+  min-height: 44px;
+}
+
+.creation .btn .to {
+  font: 600 14px var(--mono);
+}
+
+.creation .weapons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.creation .weapon {
+  display: block;
+  text-align: left;
+  font: 15px var(--sans);
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.creation .weapon:hover {
+  border-color: var(--accent);
+}
+
+.creation .weapon[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel));
+}
+
+.creation .weapon .nm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+
+.creation .radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.creation .weapon[aria-checked="true"] .radio::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.creation .weapon .ds {
+  display: block;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.creation .shield {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 0;
+  min-height: 44px;
+}
+
+.creation .shield input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.creation .shield.off {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.creation .reason {
+  font-size: 14px;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.creation .reason.ready {
+  color: var(--ok);
+}
+
+.creation .begin .btn {
+  width: 100%;
+}
+
+.side .nav-step {
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.side button.locked,
+.side button.locked:hover {
+  color: var(--muted);
+  background: transparent;
+  cursor: default;
+}
+
 @media (max-width: 860px) {
   .app {
     grid-template-columns: 1fr;
@@ -1524,6 +1856,39 @@ button.die {
     background: transparent;
     color: var(--accent);
     font-weight: 700;
+  }
+}
+
+@media (max-width: 860px) {
+  main.creating {
+    padding-bottom: 32px;
+  }
+
+  .creation .create {
+    grid-template-columns: 1fr;
+    grid-template-areas: "summary" "picks" "begin";
+  }
+
+  .creation .rail {
+    display: contents;
+  }
+
+  .creation .summary {
+    grid-area: summary;
+  }
+
+  .creation .begin {
+    grid-area: begin;
+  }
+
+  .creation .weapons {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .creation .skills {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -32,7 +32,7 @@ export const rulesSummary: readonly RuleSection[] = [
       {
         text: "Creation also includes a weapon, a shield only with a one-handed weapon, and up to three trades of one Talent for one extra basic skill.",
         page: "p. 6",
-        status: "not-yet",
+        status: "in-app",
       },
     ],
   },

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { GameState, SystemDef } from "../format/types";
   import TickBox from "./TickBox.svelte";
+  import { weaponSummary } from "./wording";
 
   let { system, state, brief = false }: { system: SystemDef; state: GameState; brief?: boolean } = $props();
 
@@ -47,6 +48,8 @@
       {/each}
     </ul>
   {/if}
+  <h2>Weapon</h2>
+  <p data-testid="sheet-weapon">{weaponSummary(state.weapon, state.shield)}</p>
   <h2>Coin pouch</h2>
   <p data-testid="sheet-gold">{state.gold} gp</p>
   <h2>Items</h2>
@@ -83,7 +86,6 @@
     </ul>
   {/if}
   {#if !brief}
-    <p class="note" data-testid="sheet-skills-note">The two basic skills on this character are a sample choice.</p>
     <p class="note" data-testid="sheet-missing">This book does not define titles.</p>
     <p class="attribution">{system.attribution}</p>
   {/if}

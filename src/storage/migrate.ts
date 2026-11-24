@@ -1,27 +1,30 @@
 import type { Book, GameState, NamedValue, Session, SystemDef } from "../format/types";
+import { TALENT } from "../engine/creation";
 import { SAVE_VERSION, type SaveRecord } from "./types";
 
-/** Turns a version 1, 2, or 3 save into version 4. A version 4 save is returned unchanged. */
+/**
+ * Turns a version 1, 2, 3, or 4 save into version 5. A version 5 save is returned unchanged.
+ * Saves before version 5 were the ready-made demo character: no trades and no chosen weapon.
+ * They gain a Talent maximum at the starting Talent, a one-handed weapon, and no shield.
+ */
 export function migrateSave(value: unknown, system: SystemDef, book: Book): SaveRecord | null {
   if (!isRecord(value) || typeof value.savedAt !== "string") return null;
-  if (value.version === SAVE_VERSION) {
+  const version = value.version;
+  if (version === SAVE_VERSION) {
     if (!isSession(value.session)) return null;
     const bookmarks = parseBookmarks(value.bookmarks, book);
     if (!bookmarks) return null;
     return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks };
   }
-  if (value.version === 3 && isSession(value.session)) {
-    const bookmarks = parseBookmarks(value.bookmarks, book);
-    if (!bookmarks) return null;
-    return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks };
-  }
-  if (value.version === 2 && isSession(value.session)) {
-    return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks: [] };
-  }
-  if (value.version !== 1 || !isSession(value.session)) return null;
-  const session = migrateSession(value.session, system);
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return null;
+  if (!isSession(value.session)) return null;
+  const bookmarks = version >= 3 ? parseBookmarks(value.bookmarks, book) : [];
+  if (!bookmarks) return null;
+  const earlier = version === 1 ? migrateSession(value.session, system) : value.session;
+  if (!earlier) return null;
+  const session = equipSession(earlier, system);
   if (!session) return null;
-  return { version: SAVE_VERSION, savedAt: value.savedAt, session, bookmarks: [] };
+  return { version: SAVE_VERSION, savedAt: value.savedAt, session, bookmarks };
 }
 
 function parseBookmarks(value: unknown, book: Book): string[] | null {
@@ -47,6 +50,31 @@ function migrateSession(session: Session, system: SystemDef): Session | null {
     undo.push(next);
   }
   return { bookId: session.bookId, state, undo };
+}
+
+/** Adds the version 5 character fields to every state in a version 1 to 4 session. */
+function equipSession(session: Session, system: SystemDef): Session | null {
+  const state = equipState(session.state, system);
+  if (!state) return null;
+  const undo: GameState[] = [];
+  for (const entry of session.undo) {
+    const next = equipState(entry, system);
+    if (!next) return null;
+    undo.push(next);
+  }
+  return { bookId: session.bookId, state, undo };
+}
+
+function equipState(value: unknown, system: SystemDef): GameState | null {
+  if (!isRecord(value)) return null;
+  const next = structuredClone(value) as unknown as GameState;
+  const talent = system.stats.find((stat) => stat.id === TALENT);
+  // Every older save started at Talent 9 with no trades. A Talent already above that keeps its value as the ceiling.
+  const current = isRecord(next.stats) ? next.stats[TALENT] : undefined;
+  next.maxima = talent ? { [TALENT]: Math.max(talent.initial, typeof current === "number" ? current : 0) } : {};
+  next.weapon = "one-handed";
+  next.shield = false;
+  return next;
 }
 
 function migrateState(value: unknown, system: SystemDef): GameState | null {

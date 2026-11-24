@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 async function expectFortuneOnOneLine(page: Page): Promise<void> {
   const value = await page.getByTestId("sheet-stat-fortune").boundingBox();
@@ -13,7 +14,7 @@ async function expectFortuneOnOneLine(page: Page): Promise<void> {
 
 test("keeps Fortune beside the reroll on a desktop and under it at 390px", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await expect(page.getByTestId("choice-take-lantern")).not.toContainText("§");
   await page.getByTestId("choice-take-lantern").click();

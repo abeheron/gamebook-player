@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Rng } from "../../src/engine/dice";
 import { choose, currentSection, rollTest, startSession } from "../../src/engine/rules";
+import { fixtureCharacter } from "../../src/engine/creation";
 import { skillAdjustment } from "../../src/engine/skills";
 import { demoBook, demoSystem } from "../../src/format/demo";
 import { validateBook } from "../../src/format/validate";
@@ -24,7 +25,7 @@ describe("skill bonus and penalty", () => {
   });
 
   it("passes an 11 on Linguistics +2 and would have failed on Talent 9 alone", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "take-lantern");
     session = choose(session, demoBook, demoSystem, "tick-and-study");
     session = rollTest(session, demoBook, demoSystem, scripted([0.7, 0.84]));
@@ -33,7 +34,7 @@ describe("skill bonus and penalty", () => {
   });
 
   it("fails an 8 on Search, which is inside unmodified Talent", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "take-lantern");
     session = choose(session, demoBook, demoSystem, "search-crack");
     session = rollTest(session, demoBook, demoSystem, scripted([0.2, 0.84]));
@@ -71,12 +72,12 @@ describe("skill bonus and penalty", () => {
       },
       demoSystem,
     );
-    let passed = startSession(book, demoSystem);
+    let passed = startSession(book, demoSystem, fixtureCharacter(demoSystem));
     passed = rollTest(passed, book, demoSystem, scripted([0.5, 0.7]));
     expect(passed.state.rolls[0]).toMatchObject({ total: 9, success: true });
     expect(currentSection(book, passed).id).toBe("2");
 
-    let failed = startSession(book, demoSystem);
+    let failed = startSession(book, demoSystem, fixtureCharacter(demoSystem));
     failed = rollTest(failed, book, demoSystem, scripted([0.5, 0.84]));
     expect(failed.state.rolls[0]).toMatchObject({ total: 10, success: false });
     expect(currentSection(book, failed).id).toBe("3");
@@ -117,7 +118,7 @@ describe("skill bonus and penalty", () => {
       ...demoSystem,
       startingSkills: [{ id: "linguistics", bonus: 4 }],
     };
-    let session = startSession(book, system);
+    let session = startSession(book, system, fixtureCharacter(system));
     session = rollTest(session, book, system, scripted([0.7, 0.99]));
     expect(session.state.rolls[0]).toMatchObject({ total: 11, success: true });
     expect(currentSection(book, session).id).toBe("2");

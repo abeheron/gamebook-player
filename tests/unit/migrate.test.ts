@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { canRestore } from "../../src/engine/restore";
 import { startSession } from "../../src/engine/rules";
+import { fixtureCharacter } from "../../src/engine/creation";
 import { demoBook, demoSystem } from "../../src/format/demo";
+import type { GameState, Session } from "../../src/format/types";
 import { migrateSave } from "../../src/storage/migrate";
 import { SAVE_VERSION } from "../../src/storage/types";
+
+/** A session as versions 2 to 4 stored it, before weapon, shield, and stat maxima. */
+function legacy(session: Session): Session {
+  const strip = (state: GameState) => {
+    const copy = structuredClone(state) as Partial<GameState>;
+    delete copy.maxima;
+    delete copy.weapon;
+    delete copy.shield;
+    return copy as GameState;
+  };
+  return { bookId: session.bookId, state: strip(session.state), undo: session.undo.map(strip) };
+}
 
 describe("save migration", () => {
   it("gives a version 1 save the sample skills, 10gp, and a ration", () => {
@@ -50,11 +64,13 @@ describe("save migration", () => {
     expect(saved?.session.undo[0]?.items.map((item) => item.id)).toEqual(["ration"]);
     expect(saved?.session.undo[0]?.gold).toBe(10);
     expect(saved?.bookmarks).toEqual([]);
+    expect(saved?.session.state).toMatchObject({ maxima: { talent: 9 }, weapon: "one-handed", shield: false });
+    expect(saved?.session.undo[0]).toMatchObject({ maxima: { talent: 9 }, weapon: "one-handed", shield: false });
     expect(saved && canRestore(saved.session, demoBook, demoSystem)).toBe(true);
   });
 
   it("does not add the ration again to a version 2 save", () => {
-    const session = startSession(demoBook, demoSystem);
+    const session = legacy(startSession(demoBook, demoSystem, fixtureCharacter(demoSystem)));
     session.state.items = session.state.items.filter((item) => item.id !== "ration");
     const saved = migrateSave(
       { version: 2, savedAt: "2026-11-09T00:00:00.000Z", session },
@@ -69,7 +85,7 @@ describe("save migration", () => {
   });
 
   it("keeps version 3 bookmarks and rejects an unknown section", () => {
-    const session = startSession(demoBook, demoSystem);
+    const session = legacy(startSession(demoBook, demoSystem, fixtureCharacter(demoSystem)));
     const saved = migrateSave(
       { version: 3, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: ["2"] },
       demoSystem,
@@ -77,12 +93,12 @@ describe("save migration", () => {
     );
     expect(saved?.bookmarks).toEqual(["2"]);
     expect(migrateSave({ version: 3, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: ["99"] }, demoSystem, demoBook)).toBeNull();
-    expect(migrateSave({ version: 5, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook)).toBeNull();
+    expect(migrateSave({ version: 6, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook)).toBeNull();
     expect(migrateSave({ version: 1, session }, demoSystem, demoBook)).toBeNull();
   });
 
   it("keeps a pending test roll when a version 4 save is loaded", () => {
-    const session = startSession(demoBook, demoSystem);
+    const session = legacy(startSession(demoBook, demoSystem, fixtureCharacter(demoSystem)));
     session.state.sectionId = "3";
     session.state.pending = {
       kind: "test",
@@ -123,5 +139,57 @@ describe("save migration", () => {
       demoBook,
     );
     expect(lied && canRestore(lied.session, demoBook, demoSystem)).toBe(false);
+  });
+  it("gives version 2 to 4 saves a Talent maximum of 9, a one-handed weapon, and no shield", () => {
+    for (const version of [2, 3, 4]) {
+      const played = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
+      const earlier = structuredClone(played.state);
+      played.undo = [earlier];
+      played.state.sectionId = "2";
+      played.state.gold = 14;
+      played.state.items.push({ id: "lantern", label: "Lantern" });
+      played.state.stats.vitality = 2;
+      const record = { version, savedAt: "2026-11-12T00:00:00.000Z", session: legacy(played), bookmarks: ["2"] };
+      const saved = migrateSave(record, demoSystem, demoBook);
+      expect(saved?.version).toBe(5);
+      expect(saved?.session.state).toMatchObject({
+        sectionId: "2",
+        gold: 14,
+        maxima: { talent: 9 },
+        weapon: "one-handed",
+        shield: false,
+        stats: { talent: 9, vitality: 2, fortune: 3 },
+      });
+      expect(saved?.session.state.skills.map((skill) => skill.id)).toEqual(["climbing", "linguistics"]);
+      expect(saved?.session.state.items.map((item) => item.id)).toEqual(["ration", "lantern"]);
+      expect(saved?.session.undo[0]).toMatchObject({ maxima: { talent: 9 }, weapon: "one-handed", shield: false });
+      expect(saved?.bookmarks).toEqual(version === 2 ? [] : ["2"]);
+      expect(saved && canRestore(saved.session, demoBook, demoSystem)).toBe(true);
+    }
+  });
+
+  it("returns a version 5 save unchanged and requires its new fields", () => {
+    const session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
+    session.state.maxima = { talent: 7 };
+    session.state.stats.talent = 7;
+    session.state.weapon = "two-handed";
+    const saved = migrateSave({ version: 5, savedAt: "2026-11-24T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook);
+    expect(saved?.session).toEqual(session);
+    expect(saved && canRestore(saved.session, demoBook, demoSystem)).toBe(true);
+
+    const missing = legacy(session);
+    expect(canRestore(missing, demoBook, demoSystem)).toBe(false);
+    const shielded = structuredClone(session);
+    shielded.state.shield = true;
+    expect(canRestore(shielded, demoBook, demoSystem)).toBe(false);
+    const oddWeapon = structuredClone(session) as unknown as { state: { weapon: string } };
+    oddWeapon.state.weapon = "bow";
+    expect(canRestore(oddWeapon, demoBook, demoSystem)).toBe(false);
+    const overMax = structuredClone(session);
+    overMax.state.stats.talent = 8;
+    expect(canRestore(overMax, demoBook, demoSystem)).toBe(false);
+    const unknownStat = structuredClone(session);
+    unknownStat.state.maxima = { talent: 7, luck: 3 };
+    expect(canRestore(unknownStat, demoBook, demoSystem)).toBe(false);
   });
 });
