@@ -53,12 +53,25 @@
   let reviewKey = $state(0);
   let picker = $state<HTMLInputElement | null>(null);
   let confirming = $state<string | null>(null);
+  let trackerOpen = $state(false);
   let readerReady = false;
+
+  const started = $derived(busy || draft !== null || steps.some((mark) => mark !== "wait"));
+  /** The step the tracker names: the failed step, the step in progress, or step 7 once every step is done. */
+  const stepNow = $derived.by(() => {
+    const failed = steps.indexOf("fail");
+    if (failed >= 0) return failed;
+    const waiting = steps.indexOf("wait");
+    return waiting >= 0 ? waiting : labels.length - 1;
+  });
+  /** Only a step that is under way, such as Review and correct, gets the accent outline. */
+  const inProgress = $derived((busy || draft !== null) && !steps.includes("fail"));
 
   function stop(step: number, error: string): void {
     steps = labels.map((_, index) => (index + 1 < step ? "ok" : index + 1 === step ? "fail" : "wait"));
     failure = error;
     message = `Import stopped at step ${step}.`;
+    trackerOpen = true;
     busy = false;
   }
 
@@ -68,6 +81,7 @@
     draft = null;
     confirming = null;
     failure = "";
+    trackerOpen = false;
     steps = labels.map(() => "wait");
     message = `Reading ${file.name}.`;
     let bytes: Uint8Array;
@@ -141,90 +155,119 @@
 <section class="library" data-testid="library" aria-labelledby="library-title">
   <h1 id="library-title">Library</h1>
   <p class="sub">Books stay local on this device. A file is read in this browser and is not sent anywhere.</p>
+  <div class="tracker" class:open={trackerOpen} role="group" aria-label="Import steps" data-testid="import-tracker">
+    <button
+      type="button"
+      class="tracker-phone"
+      data-testid="import-tracker-toggle"
+      aria-expanded={trackerOpen}
+      aria-controls="import-steps"
+      onclick={() => (trackerOpen = !trackerOpen)}
+    >
+      <span class="tracker-line">
+        <span class="now" data-testid="import-step-now">Step {stepNow + 1} of {labels.length} · {labels[stepNow]}</span>
+        <span class="chev" aria-hidden="true">▾</span>
+      </span>
+      <span class="prog" aria-hidden="true" data-testid="import-progress">
+        <span style:width="{started ? ((stepNow + 1) / labels.length) * 100 : 0}%"></span>
+      </span>
+    </button>
+    <ol class="steps" id="import-steps" data-testid="import-steps">
+      {#each labels as label, index (label)}
+        <li
+          data-testid="import-step-{index + 1}"
+          data-state={steps[index]}
+          class:current={inProgress && index === stepNow}
+          aria-current={inProgress && index === stepNow ? "step" : undefined}
+        >
+          <span
+            class="s"
+            class:ok={steps[index] === "ok"}
+            class:fail={steps[index] === "fail"}
+            class:cur={inProgress && index === stepNow}
+          >{steps[index] === "ok" ? "✓" : steps[index] === "fail" ? "✕" : index + 1}</span>
+          <span class="lab">
+            {label}
+            {#if steps[index] === "fail"}
+              <span class="note">{failure}</span>
+            {/if}
+          </span>
+        </li>
+      {/each}
+    </ol>
+    <p class="status" data-testid="import-message" aria-live="polite">{message}</p>
+  </div>
   {#if draft}
     {#key reviewKey}
       <Review {draft} {focus} {busy} onChange={(next) => (draft = next)} onFocus={(index) => (focus = index)} onAdd={() => void addDraft()} />
     {/key}
-  {/if}
-  <div class="grid2">
-    <div class="library-list">
-      {#if cards.length === 0}
-        <p class="note" data-testid="library-empty">No books yet. Import a book file to start.</p>
-      {/if}
-      {#each cards as card (card.id)}
-        <div class="card book" data-testid="library-book-{card.id}">
-          <div class="cover" class:alt={card.altCover} aria-hidden="true">{card.title}</div>
-          <div>
-            <h2>{card.title}</h2>
-            <div class="note">{card.author} · {card.system} · {sectionCount(card.sections)}</div>
-            <div class="explored">{exploredLabel(card.explored)}</div>
-            <div class="bar" aria-hidden="true"><div style:width="{card.sections === 0 ? 0 : (card.explored / card.sections) * 100}%"></div></div>
-          </div>
-          {#if confirming === card.id}
-            <div class="remove-confirm" data-testid="remove-confirm">
-              <p>Remove {card.title}? Its saves on this device are deleted too.</p>
-              <div class="library-actions">
-                <button type="button" class="btn ghost" data-testid="remove-do" onclick={() => void confirmRemove(card.id)}>Remove</button>
-                <button type="button" class="btn" data-testid="remove-keep" onclick={() => (confirming = null)}>Keep</button>
+  {:else}
+    <div class="grid2">
+      <div class="library-list" data-testid="library-list">
+        {#if cards.length === 0}
+          <p class="note" data-testid="library-empty">No books yet. Import a book file to start.</p>
+        {/if}
+        {#each cards as card (card.id)}
+          <div class="card book" data-testid="library-book-{card.id}">
+            <div class="cover" class:alt={card.altCover} aria-hidden="true">{card.title}</div>
+            <div>
+              <h2>{card.title}</h2>
+              <div class="note">{card.author} · {card.system} · {sectionCount(card.sections)}</div>
+              <div class="explored">{exploredLabel(card.explored)}</div>
+              <div class="bar" aria-hidden="true"><div style:width="{card.sections === 0 ? 0 : (card.explored / card.sections) * 100}%"></div></div>
+            </div>
+            {#if confirming === card.id}
+              <div class="remove-confirm" data-testid="remove-confirm">
+                <p>Remove {card.title}? Its saves on this device are deleted too.</p>
+                <div class="library-actions">
+                  <button type="button" class="btn ghost" data-testid="remove-do" onclick={() => void confirmRemove(card.id)}>Remove</button>
+                  <button type="button" class="btn" data-testid="remove-keep" onclick={() => (confirming = null)}>Keep</button>
+                </div>
               </div>
-            </div>
-          {:else}
-            <div class="library-actions">
-              <button type="button" class="btn" data-testid="library-continue-{card.id}" onclick={() => onContinue(card.id)}>
-                Continue · §{card.sectionId}
-              </button>
-              <button type="button" class="btn ghost" disabled>New adventurer</button>
-              <button type="button" class="btn ghost" disabled>Save slots</button>
-              {#if card.removable}
-                <button type="button" class="btn ghost" data-testid="library-remove-{card.id}" onclick={() => (confirming = card.id)}>
-                  Remove from library
+            {:else}
+              <div class="library-actions">
+                <button type="button" class="btn" data-testid="library-continue-{card.id}" onclick={() => onContinue(card.id)}>
+                  Continue · §{card.sectionId}
                 </button>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {/each}
-    </div>
-    <aside class="card">
-      <h2>Import a book</h2>
-      <div
-        class="drop"
-        role="group"
-        aria-label="Drop a book file"
-        data-testid="import-drop"
-        ondragover={(event) => event.preventDefault()}
-        ondrop={onDrop}
-      >
-        <div class="drop-mark" aria-hidden="true">⇪</div>
-        Drop a book file (PDF or EPUB)<br />
-        <button type="button" class="btn ghost" data-testid="import-choose" onclick={() => picker?.click()}>Choose a file</button>
-        <input
-          bind:this={picker}
-          data-testid="import-input"
-          type="file"
-          accept=".pdf,.epub,application/pdf,application/epub+zip"
-          onchange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            if (file) void importFile(file);
-            event.currentTarget.value = "";
-          }}
-        />
-      </div>
-      <p class="note">A PDF or EPUB is converted on this device, then you review the result before it is added.</p>
-      <ol class="steps" data-testid="import-steps">
-        {#each labels as label, index (label)}
-          <li data-testid="import-step-{index + 1}" data-state={steps[index]}>
-            <span class="s" class:ok={steps[index] === "ok"} class:fail={steps[index] === "fail"}>{steps[index] === "ok" ? "✓" : steps[index] === "fail" ? "✕" : index + 1}</span>
-            <span>
-              {label}
-              {#if steps[index] === "fail"}
-                <span class="note">{failure}</span>
-              {/if}
-            </span>
-          </li>
+                <button type="button" class="btn ghost" disabled>New adventurer</button>
+                <button type="button" class="btn ghost" disabled>Save slots</button>
+                {#if card.removable}
+                  <button type="button" class="btn ghost" data-testid="library-remove-{card.id}" onclick={() => (confirming = card.id)}>
+                    Remove from library
+                  </button>
+                {/if}
+              </div>
+            {/if}
+          </div>
         {/each}
-      </ol>
-      <p class="note" data-testid="import-message" aria-live="polite">{message}</p>
-    </aside>
-  </div>
+      </div>
+      <aside class="card">
+        <h2>Import a book</h2>
+        <div
+          class="drop"
+          role="group"
+          aria-label="Drop a book file"
+          data-testid="import-drop"
+          ondragover={(event) => event.preventDefault()}
+          ondrop={onDrop}
+        >
+          <div class="drop-mark" aria-hidden="true">⇪</div>
+          Drop a book file (PDF or EPUB)<br />
+          <button type="button" class="btn ghost" data-testid="import-choose" onclick={() => picker?.click()}>Choose a file</button>
+          <input
+            bind:this={picker}
+            data-testid="import-input"
+            type="file"
+            accept=".pdf,.epub,application/pdf,application/epub+zip"
+            onchange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) void importFile(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </div>
+        <p class="note">A PDF or EPUB is converted on this device, then you review the result before it is added.</p>
+      </aside>
+    </div>
+  {/if}
 </section>

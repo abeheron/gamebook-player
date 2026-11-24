@@ -31,8 +31,11 @@
   type ViewName = "read" | "sheet" | "test" | "log" | "rules" | "library";
   type ViewMark = { view: ViewName; scroll: number };
   type Arrival = { kind: "combat"; session: Session };
-  /** Loading reads the save. Create is the new-character screen, where nothing is saved. Play has a session from Begin or a save. */
-  type Phase = "loading" | "create" | "play";
+  /**
+   * Loading reads the save. None means no book is in play, so only the Library and Rules open.
+   * Create is the new-character screen, where nothing is saved. Play has a session from Begin or a save.
+   */
+  type Phase = "loading" | "none" | "create" | "play";
   const store = createIndexedDbStore();
   const runtime = detectRuntime();
 
@@ -43,6 +46,8 @@
   let session = $state(placeholder(demoBook));
   let phase = $state<Phase>("loading");
   const creating = $derived(phase === "create");
+  const noBook = $derived(phase === "loading" || phase === "none");
+  const bookLine = $derived(noBook ? "No book in play" : book.title);
   let ready = $state(false);
   let saveError = $state("");
   let writes = Promise.resolve();
@@ -70,8 +75,9 @@
   let motionTimer = 0;
 
   /**
-   * Hidden test fixture, not linked anywhere: ?fixture=demo starts a first launch with the ready-made
-   * Lantern Stair hero instead of character creation, so automated tests can jump into a section.
+   * Hidden test fixture, not linked anywhere: ?fixture=demo puts The Lantern Stair in play with the ready-made
+   * hero (or its existing save), so automated tests can jump into a section. Players never see that book:
+   * it is not a Library card, and a plain first launch has no book in play.
    */
   const testFixture = typeof location !== "undefined" && new URLSearchParams(location.search).get("fixture") === "demo";
 
@@ -276,27 +282,48 @@
     window.addEventListener("keydown", onKey);
     void (async () => {
       try {
-        const record = await store.load(saveSlot(demoBook.id));
+        const record = testFixture ? await store.load(saveSlot(demoBook.id)) : null;
         imported = (await store.listBooks()).map((entry) => entry.book);
         const next: Record<string, SaveRecord | null> = {};
         for (const entry of imported) next[entry.id] = await store.load(saveSlot(entry.id));
         otherSaves = next;
         if (ignore) return;
-        const migrated = migrateSave(record, demoSystem, book);
-        if (migrated && canRestore(migrated.session, book, demoSystem)) {
-          session = migrated.session;
-          bookmarks = migrated.bookmarks;
-          if (migrated.session.state.pending?.kind === "test") panelOpen = true;
+        if (testFixture) {
+          const migrated = migrateSave(record, demoSystem, demoBook);
+          book = demoBook;
+          if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
+            session = migrated.session;
+            bookmarks = migrated.bookmarks;
+            if (migrated.session.state.pending?.kind === "test") panelOpen = true;
+          } else {
+            session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
+          }
           phase = "play";
-        } else if (testFixture) {
-          session = startSession(book, demoSystem, fixtureCharacter(demoSystem));
-          phase = "play";
+        } else {
+          // The most recently saved imported book comes back in play. With no save there is no book in play.
+          let latest: { target: Book; migrated: NonNullable<ReturnType<typeof migrateSave>>; at: string } | null = null;
+          for (const entry of imported) {
+            const migrated = migrateSave(next[entry.id] ?? null, demoSystem, entry);
+            if (!migrated || !canRestore(migrated.session, entry, demoSystem)) continue;
+            const at = next[entry.id]?.savedAt ?? "";
+            if (!latest || at > latest.at) latest = { target: entry, migrated, at };
+          }
+          if (latest) {
+            book = latest.target;
+            session = latest.migrated.session;
+            bookmarks = latest.migrated.bookmarks;
+            if (latest.migrated.session.state.pending?.kind === "test") panelOpen = true;
+            phase = "play";
+          }
         }
       } catch (error) {
         saveError = error instanceof Error ? error.message : "Could not read the save.";
       } finally {
         if (!ignore) {
-          if (phase === "loading") phase = "create";
+          if (phase === "loading") {
+            phase = "none";
+            view = "library";
+          }
           ready = true;
         }
       }
@@ -571,14 +598,16 @@
   }
 
   async function openLibraryBook(id: string): Promise<void> {
-    const target = id === demoBook.id ? demoBook : imported.find((entry) => entry.id === id);
+    const target = imported.find((entry) => entry.id === id);
     if (!target || !ready) return;
-    if (target.id !== book.id) {
+    if (target.id !== book.id || phase !== "play") {
       switching = true;
-      const leavingId = book.id;
-      const leavingRecord = currentRecord();
-      await store.save(saveSlot(leavingId), leavingRecord);
-      otherSaves = { ...otherSaves, [leavingId]: leavingRecord };
+      if (phase === "play") {
+        const leavingId = book.id;
+        const leavingRecord = currentRecord();
+        await store.save(saveSlot(leavingId), leavingRecord);
+        otherSaves = { ...otherSaves, [leavingId]: leavingRecord };
+      }
       const record = await store.load(saveSlot(target.id));
       const migrated = migrateSave(record, demoSystem, target);
       book = target;
@@ -587,6 +616,7 @@
         session = migrated.session;
         bookmarks = migrated.bookmarks;
         panelOpen = migrated.session.state.pending?.kind === "test";
+        phase = "play";
         switching = false;
       } else {
         session = placeholder(target);
@@ -616,19 +646,17 @@
       delete rest[id];
       otherSaves = rest;
       if (book.id === id) {
-        const record = await store.load(saveSlot(demoBook.id));
-        const migrated = migrateSave(record, demoSystem, demoBook);
+        // The book in play is gone, so no book is in play. The Library stays open.
+        clearMotion();
         book = demoBook;
+        session = placeholder(demoBook);
+        bookmarks = [];
         arrival = null;
-        if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
-          session = migrated.session;
-          bookmarks = migrated.bookmarks;
-          panelOpen = migrated.session.state.pending?.kind === "test";
-        } else {
-          session = placeholder(demoBook);
-          bookmarks = [];
-          openCreation();
-        }
+        panelOpen = false;
+        combatSelected = null;
+        phase = "none";
+        view = "library";
+        history = [];
       }
     } finally {
       switching = false;
@@ -636,7 +664,8 @@
   }
 
   const libraryCards = $derived.by(() => {
-    const entries = [demoBook, ...imported.filter((entry) => entry.id !== demoBook.id)];
+    // The Lantern Stair is a hidden test fixture, never a Library card.
+    const entries = imported.filter((entry) => entry.id !== demoBook.id);
     return entries.map((entry) => {
       const record = entry.id === book.id ? currentRecord() : (otherSaves[entry.id] ?? null);
       return {
@@ -647,8 +676,8 @@
         sections: entry.sections.length,
         explored: exploredFor(record),
         sectionId: sectionFor(record, entry.start),
-        altCover: entry.id !== demoBook.id,
-        removable: entry.id !== demoBook.id,
+        altCover: true,
+        removable: true,
       };
     });
   });
@@ -666,20 +695,20 @@
 <div class="app">
   <nav class="side" aria-label="Screens" data-testid="side-nav">
     <p class="brand">Gamebook Player<small>sample reader</small></p>
-    <p class="book-tag" data-testid="book-title">{book.title}</p>
+    <p class="book-tag" data-testid="book-title">{bookLine}</p>
     {#if creating}
       <span class="nav-step" aria-current="step" data-testid="side-new-character">New character</span>
     {/if}
-    <button type="button" class:locked={creating} disabled={creating} data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
+    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
       Read
     </button>
-    <button type="button" class:locked={creating} disabled={creating} data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
+    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
       Character
     </button>
-    <button type="button" class:locked={creating} disabled={creating} data-testid="side-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
+    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
       Test &amp; fight
     </button>
-    <button type="button" class:locked={creating} disabled={creating} data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
+    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
       Keywords &amp; ticks
     </button>
     <button type="button" class:locked={creating} disabled={creating} data-testid="side-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
@@ -698,7 +727,7 @@
     </div>
   </nav>
   <main id="main" tabindex="-1" class:creating bind:this={mainEl}>
-    <p class="mobile-book">{book.title}</p>
+    <p class="mobile-book" data-testid="mobile-book">{bookLine}</p>
     <div class="backbar">
       {#if history.length > 0}
         {@const previous = history[history.length - 1]}
@@ -923,21 +952,23 @@
         <Sheet system={demoSystem} state={session.state} />
       </div>
     {/if}
-    <p class="rights">{book.rights}</p>
+    {#if phase === "play"}
+      <p class="rights">{book.rights}</p>
+    {/if}
   </main>
 </div>
 {#if !creating}
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
-  <button type="button" data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
+  <button type="button" disabled={noBook} data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
     Read
   </button>
-  <button type="button" data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
+  <button type="button" disabled={noBook} data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
     Character
   </button>
-  <button type="button" data-testid="mobile-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
+  <button type="button" disabled={noBook} data-testid="mobile-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
     Test &amp; fight
   </button>
-  <button type="button" data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
+  <button type="button" disabled={noBook} data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
     Keywords &amp; ticks
   </button>
   <button type="button" data-testid="mobile-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>

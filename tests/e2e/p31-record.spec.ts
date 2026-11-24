@@ -1,16 +1,19 @@
 import { expect, test } from "@playwright/test";
 import { assertDemoCursor, demoClick, demoHold, installDemoCursor } from "./support/demo-cursor";
+import { addCopperLantern } from "./support/sample-import";
 
 test.use({
   viewport: { width: 1280, height: 800 },
   video: { mode: "on", size: { width: 1280, height: 800 } },
 });
 
-test("records character creation from a first open to the start section", async ({ page }) => {
+test("records character creation from opening an imported book to the start section", async ({ page }) => {
   test.setTimeout(120_000);
   await installDemoCursor(page);
   await page.goto("/");
   await assertDemoCursor(page);
+  await addCopperLantern(page);
+  await demoClick(page.getByTestId("library-continue-the-copper-lantern"));
   await expect(page.getByTestId("creation")).toBeVisible();
   await expect(page.getByTestId("create-reason")).toHaveText("To begin, pick 2 more skills and choose a weapon.");
   await demoHold(page, 1800);
@@ -39,7 +42,7 @@ test("records character creation from a first open to the start section", async 
   await demoHold(page, 1500);
 
   await demoClick(page.getByTestId("create-begin"));
-  await expect(page.getByTestId("section-title")).toHaveText("The stair");
+  await expect(page.getByTestId("section-title")).toHaveText("§1");
   await expect(page.getByTestId("sheet-stat-talent")).toHaveText("8");
   await demoHold(page, 1500);
   await demoClick(page.getByTestId("open-sheet"));

@@ -1,33 +1,25 @@
 import { expect, test, type Page } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
+import { addCopperLantern, savedSlot } from "./support/sample-import";
 
-async function savedDemo(page: Page): Promise<unknown> {
-  return page.evaluate(
-    () =>
-      new Promise((resolve, reject) => {
-        const opening = indexedDB.open("gamebook-player", 2);
-        opening.onerror = () => reject(opening.error);
-        opening.onsuccess = () => {
-          const database = opening.result;
-          if (!database.objectStoreNames.contains("saves")) {
-            database.close();
-            resolve(null);
-            return;
-          }
-          const reading = database.transaction("saves", "readonly").objectStore("saves").get("demo");
-          reading.onsuccess = () => {
-            database.close();
-            resolve(reading.result ?? null);
-          };
-          reading.onerror = () => reject(reading.error);
-        };
-      }),
-  );
+/** A first open has no book in play. Importing the sample book and opening it with no save starts creation. */
+async function openCopperCreation(page: Page): Promise<void> {
+  await page.goto("/");
+  await expect(page.getByTestId("library")).toBeVisible();
+  await expect(page.getByTestId("library-empty")).toHaveText("No books yet. Import a book file to start.");
+  await addCopperLantern(page);
+  await page.getByTestId("library-continue-the-copper-lantern").click();
+  await expect(page.getByTestId("creation")).toBeVisible();
 }
 
-test("first open goes through creation, trades Talent for a skill, and begins at the start section", async ({ page }) => {
+test("opening an imported book with no save goes through creation, trades Talent for a skill, and begins at the start section", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
-  await expect(page.getByTestId("creation")).toBeVisible();
+  await openCopperCreation(page);
+  await expect(page.getByTestId("book-title")).toHaveText("The Copper Lantern");
+  await expect(page.locator(".rights")).toHaveCount(0);
+  await expect(page.locator("main")).not.toContainText("Converted on this device from a file the reader supplied.");
+  await expect(page.locator("main")).not.toContainText("Original sample text");
   await expect(page.getByRole("heading", { name: "New character" })).toBeVisible();
   await expect(page.getByTestId("creation")).toContainText(
     "Pick two skills and a weapon. You can give up 1 Talent for each extra skill, up to three times.",
@@ -114,10 +106,11 @@ test("first open goes through creation, trades Talent for a skill, and begins at
   await expect(reason).toHaveText("Ready. You start with Talent 8.");
   expect(await reason.evaluate((node) => getComputedStyle(node).color)).toBe("rgb(47, 107, 58)");
   await expect(begin).toBeEnabled();
-  expect(await savedDemo(page)).toBeNull();
+  expect(await savedSlot(page, "the-copper-lantern")).toBeNull();
 
   await begin.click();
-  await expect(page.getByTestId("section-title")).toHaveText("The stair");
+  await expect(page.getByTestId("section-title")).toHaveText("§1");
+  await expect(page.getByTestId("book-title")).toHaveText("The Copper Lantern");
   await expect(page.getByTestId("creation")).toHaveCount(0);
   await expect(page.getByTestId("side-read")).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
@@ -132,21 +125,22 @@ test("first open goes through creation, trades Talent for a skill, and begins at
   await expect(page.getByTestId("sheet-item-ration")).toHaveText("Ration");
 
   await page.reload();
-  await expect(page.getByTestId("section-title")).toHaveText("The stair");
+  await expect(page.getByTestId("section-title")).toHaveText("§1");
   await expect(page.getByTestId("creation")).toHaveCount(0);
   await expect(page.getByTestId("sheet-stat-talent")).toHaveText("8");
 });
 
 test("New game opens creation and keeps the old save until Begin", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await openCopperCreation(page);
   await page.getByTestId("create-skill-larceny").click();
   await page.getByTestId("create-skill-naturalist").click();
   await page.getByTestId("create-weapon-two-handed").click();
   await page.getByTestId("create-begin").click();
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
-  await page.getByTestId("choice-take-lantern").click();
-  await expect(page.getByTestId("section-title")).toHaveText("The landing");
+  await page.getByTestId("choice-c2").click();
+  await expect(page.getByTestId("section-title")).toHaveText("§3");
   await expect(page.getByTestId("autosave")).toHaveAttribute("data-phase", "saved");
 
   await page.getByTestId("new-game").click();
@@ -154,14 +148,14 @@ test("New game opens creation and keeps the old save until Begin", async ({ page
   await expect(page.getByTestId("create-reason")).toHaveText("To begin, pick 2 more skills and choose a weapon.");
   await page.getByTestId("create-skill-swimming").click();
   await page.reload();
-  await expect(page.getByTestId("section-title")).toHaveText("The landing");
+  await expect(page.getByTestId("section-title")).toHaveText("§3");
   await expect(page.getByTestId("sheet-skill-larceny")).toHaveText("Larceny +2");
 });
 
 test("stacks creation on a phone: character, skills, weapon, kit, then Begin", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  await expect(page.getByTestId("creation")).toBeVisible();
+  await openCopperCreation(page);
   await expect(page.getByTestId("side-nav")).toBeHidden();
   await expect(page.getByTestId("mobile-nav")).toHaveCount(0);
   const order = ["create-summary", "create-skills", "create-weapon", "create-kit", "create-begin-card"];
@@ -187,6 +181,18 @@ test("stacks creation on a phone: character, skills, weapon, kit, then Begin", a
   await page.getByTestId("create-weapon-long").click();
   await expect(page.getByTestId("create-talent")).toHaveText("8");
   await page.getByTestId("create-begin").click();
-  await expect(page.getByTestId("section-title")).toHaveText("The stair");
+  await expect(page.getByTestId("section-title")).toHaveText("§1");
   await expect(page.getByTestId("mobile-nav")).toBeVisible();
+  await expect(page.getByTestId("mobile-book")).toHaveText("The Copper Lantern");
+});
+
+test("New game on the hidden fixture book shows no sample-rights line under creation", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(FIXTURE_URL);
+  await expect(page.getByTestId("book-title")).toHaveText("The Lantern Stair");
+  await expect(page.locator(".rights")).toContainText("Original sample text");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("creation")).toBeVisible();
+  await expect(page.locator(".rights")).toHaveCount(0);
+  await expect(page.locator("main")).not.toContainText("Original sample text");
 });

@@ -164,7 +164,7 @@ input {
 }
 
 .library .btn,
-.review button {
+.review-area button {
   min-height: 44px;
 }
 
@@ -176,7 +176,7 @@ input {
   display: grid;
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) minmax(260px, 1fr);
   gap: 12px;
-  margin: 0 0 16px;
+  margin: 0;
   align-items: start;
   min-width: 0;
 }
@@ -189,6 +189,9 @@ input {
   display: grid;
   gap: 8px;
   min-width: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding-bottom: 2px;
 }
 
 .review-tally {
@@ -240,7 +243,7 @@ input {
   white-space: pre-wrap;
   font: 15px/1.45 var(--serif);
   margin: 0;
-  max-height: 320px;
+  max-height: 220px;
   overflow: auto;
 }
 
@@ -362,18 +365,34 @@ input {
   clip: rect(0 0 0 0);
 }
 
+.tracker {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+  margin: 0 0 14px;
+}
+
 .steps {
   list-style: none;
   padding: 0;
-  margin: 14px 0 0;
-  display: grid;
-  gap: 8px;
-  font-size: 14px;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
 }
 
 .steps li {
+  flex: 1 1 108px;
+  min-width: 0;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
 }
 
 .steps .s {
@@ -385,6 +404,7 @@ input {
   font-size: 12px;
   font-weight: 700;
   background: var(--chip);
+  color: var(--ink);
   flex: none;
 }
 
@@ -393,13 +413,125 @@ input {
   color: var(--panel);
 }
 
+.steps .s.cur {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .steps .s.fail {
   color: #8a2f1d;
   font-size: 14px;
 }
 
+.steps .lab {
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+.steps li.current .lab {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .steps .note {
   display: block;
+}
+
+.tracker .status {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.tracker-phone {
+  display: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.tracker-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.tracker-line .now {
+  font: 600 14px var(--sans);
+  color: var(--ink);
+  min-width: 0;
+}
+
+.chev {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tracker.open .chev {
+  transform: rotate(180deg);
+}
+
+.prog {
+  display: block;
+  height: 6px;
+  background: var(--chip);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.prog > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.checklist {
+  padding: 14px 16px 12px;
+  margin: 0 0 14px;
+}
+
+.flag-list {
+  display: grid;
+  gap: 8px;
+  max-height: 148px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.review-actions {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.review-actions .btn {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.checklist .note {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.all-label {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .side button,
@@ -1860,6 +1992,61 @@ button.die {
 }
 
 @media (max-width: 860px) {
+  .steps {
+    display: none;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin: 10px 0 0;
+    font-size: 14px;
+  }
+
+  .tracker.open .steps {
+    display: grid;
+  }
+
+  .steps li {
+    flex: none;
+    flex-direction: row;
+    align-items: flex-start;
+    text-align: left;
+    gap: 10px;
+  }
+
+  .steps .lab,
+  .steps li.current .lab {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    font-weight: 400;
+  }
+
+  .tracker-phone {
+    display: block;
+  }
+
+  .tracker .status {
+    text-align: left;
+  }
+
+  .section-list {
+    max-height: 240px;
+  }
+
+  .source-text {
+    max-height: 140px;
+  }
+
+  .review-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .review-actions .add-lib {
+    width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
   main.creating {
     padding-bottom: 32px;
   }
@@ -1949,4 +2136,8 @@ button.die {
     animation: none;
     opacity: 0.7;
   }
+}
+
+.mobilebar button:disabled {
+  cursor: default;
 }
