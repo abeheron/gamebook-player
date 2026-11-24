@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { demoSystem } from "../../src/format/demo";
-import { adventureOver, choose, currentSection, rollCombatRound, startSession, visibleChoices } from "../../src/engine/rules";
+import { adventureOver, choose, currentSection, rollCombatRound, rollTest, startSession, visibleChoices } from "../../src/engine/rules";
 import {
   FLAG,
   countDraft,
@@ -294,7 +294,7 @@ describe("test and fight wording", () => {
     expect(section(draft, "1").flags).toEqual([]);
   });
 
-  it("keeps a test flagged when it carries a modifier the draft cannot hold", () => {
+  it("keeps a plain 'at -N' modifier, but flags a keyword bonus the draft cannot hold", () => {
     const draft = draftOf(
       "1.",
       "Test your Talent at -2.",
@@ -302,10 +302,24 @@ describe("test and fight wording", () => {
       "2.",
       "Test Diplomacy with a +1 bonus if you have a seal.",
       "If you succeed, turn to 1. If you fail, turn to 1.",
+      "3.",
+      "Test Occult (with a +1 bonus if you have the keyword Lamp), and if you succeed, turn to 1. If you fail, turn to 2.",
+      "4.",
+      "Test Search at +1. If you succeed, turn to 1. If you fail, turn to 2.",
     );
-    expect(section(draft, "1").flags).toEqual([FLAG.testModifier]);
+    expect(section(draft, "1").flags).toEqual([]);
+    expect(section(draft, "1").testModifier).toBe("−2");
+    expect(section(draft, "4").testModifier).toBe("+1");
     expect(section(draft, "2").flags).toEqual([FLAG.testModifier]);
-    expect(placeFlags(section(draft, "1")).test).toEqual([FLAG.testModifier]);
+    expect(section(draft, "3").flags).toEqual([FLAG.testModifier]);
+    expect(placeFlags(section(draft, "2")).test).toEqual([FLAG.testModifier]);
+    const fixed = structuredClone(draft);
+    for (const entry of fixed.sections) entry.flags = [];
+    const built = draftToBook(fixed, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    expect(built.book.sections[0]?.test?.modifier).toBe(-2);
+    expect(built.book.sections[3]?.test?.modifier).toBe(1);
+    expect(built.book.sections[1]?.test?.modifier).toBeUndefined();
   });
 
   it("keeps every link when a section holds more than one test", () => {
@@ -550,5 +564,229 @@ describe("a ticked box with a fight", () => {
     expect(session.state.pending).toBeNull();
     expect(adventureOver(book, session.state)).toBe(true);
     expect(() => rollCombatRound(session, book, demoSystem, () => 0)).toThrow("The adventure is over.");
+  });
+});
+
+describe("a test told in the section, then one shared destination", () => {
+  it("sends both results to the shared link and puts the lost Talent on the fail branch", () => {
+    const draft = draftOf(
+      "1.",
+      "The plank bends under you. Test your Talent.",
+      "If you succeed, you hop across lightly. If you fail, you bang your knee; deduct one Talent.",
+      "Turn to 2.",
+      "2.",
+      "The far bank.",
+      "Turn to 1.",
+    );
+    const plank = section(draft, "1");
+    expect(plank.flags).toEqual([]);
+    expect(plank.choices).toEqual([]);
+    expect(plank).toMatchObject({ passTo: "2", failTo: "2", passEffects: [], failEffects: [{ op: "adjustStat", stat: "talent", by: -1 }] });
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    expect(built.book.sections[0]?.test).toMatchObject({
+      success: { to: "2" },
+      failure: { to: "2", effects: [{ op: "adjustStat", stat: "talent", by: -1 }] },
+    });
+    expect(built.book.sections[0]?.choices).toBeUndefined();
+    const failed = rollTest(startSession(built.book, demoSystem), built.book, demoSystem, () => 0.99, [6, 6]);
+    expect(currentSection(built.book, failed).id).toBe("2");
+    expect(failed.state.stats.talent).toBe(8);
+  });
+
+  it("reads Wounds on either branch, a plain modifier, and 'If you are still alive'", () => {
+    const draft = draftOf(
+      "1.",
+      "Hail drums on the roof. Test your Talent at -3; if you succeed, you only Take one Wound, but if you fail, you Take two Wounds.",
+      "If you are still alive, you shelter in the porch; turn to 2.",
+      "2.",
+      "Dry at last.",
+      "Turn to 1.",
+    );
+    const hail = section(draft, "1");
+    expect(hail.flags).toEqual([]);
+    expect(hail).toMatchObject({
+      testModifier: "−3",
+      passTo: "2",
+      failTo: "2",
+      passEffects: [{ op: "adjustStat", stat: "vitality", by: -1 }],
+      failEffects: [{ op: "adjustStat", stat: "vitality", by: -2 }],
+    });
+    // The words of the shared link stay readable in the passage.
+    expect(hail.passage).toContain("you shelter in the porch");
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    expect(built.book.sections[0]?.test?.modifier).toBe(-3);
+  });
+
+  it("puts a keyword and a tick from the shared link on both branches", () => {
+    const draft = draftOf(
+      "1.",
+      "The ferryman eyes your purse. Test Diplomacy.",
+      "If you succeed, he grins. If you fail, he sulks and you must Take a Wound.",
+      "Gain the keyword Oar, put a tick in the box above and turn to 2.",
+      "2.",
+      "Across the river.",
+      "Turn to 1.",
+    );
+    const ferry = section(draft, "1");
+    expect(ferry.flags).toEqual([]);
+    const shared = [
+      { op: "gainKeyword", id: "oar", label: "Oar" },
+      { op: "tick", id: "box-1", label: "§1 box" },
+    ];
+    expect(ferry.passEffects).toEqual(shared);
+    expect(ferry.failEffects).toEqual([{ op: "adjustStat", stat: "vitality", by: -1 }, ...shared]);
+    expect(draftToBook(draft, demoSystem).ok).toBe(true);
+  });
+
+  it("leaves the cases it cannot wire flagged", () => {
+    const draft = draftOf(
+      // A test beside several ordinary choices.
+      "1.",
+      "Test your Talent. If you fail, you Take a Wound.",
+      "If you want to go north, turn to 2.",
+      "If you want to go south, turn to 3.",
+      // Two alternative tests.
+      "2.",
+      "You can either Test Climbing to scale it, or Test Swimming to go round.",
+      "If you fail both, lose one Talent.",
+      "Turn to 1.",
+      // A test that leads into a fight.
+      "3.",
+      "Test Stealth. If you fail, you fight with Disadvantage.",
+      "Marsh troll Fight two rounds",
+      "If you win, turn to 1.",
+      // A keyword bonus.
+      "4.",
+      "Test Occult with a +1 bonus if you have the keyword Lamp.",
+      "If you succeed, you feel calm. If you fail, lose one Talent.",
+      "Turn to 1.",
+      // A result the draft cannot store.
+      "5.",
+      "Test Diplomacy. If you succeed, she pays you two gold pieces.",
+      "Turn to 1.",
+    );
+    for (const number of ["1", "2", "3", "5"]) {
+      expect(section(draft, number).flags).toEqual(expect.arrayContaining([FLAG.mixedExits]));
+      expect(section(draft, number).passTo).toBe("");
+    }
+    expect(section(draft, "2").flags).toContain(FLAG.testTwice);
+    expect(section(draft, "4").flags).toEqual([FLAG.testModifier]);
+  });
+});
+
+describe("near-miss destination wording", () => {
+  it("accepts flavour before 'turn to N' and close win wording", () => {
+    const draft = draftOf(
+      "1.",
+      "It snarls.",
+      "Bog hound Fight one round",
+      "If you win, you shake the mud from your boots; turn to 2.",
+      "2.",
+      "It hisses.",
+      "Reed cat Fight one round",
+      "If you overcome the cat, turn to 3.",
+      "3.",
+      "It roars.",
+      "Hill giant Fight three rounds at -4",
+      "If by some chance you win, turn to 4.",
+      "4.",
+      "It dives.",
+      "Storm crow Fight two rounds",
+      "If you survive this onslaught, turn to 5.",
+      "5.",
+      "It wakes.",
+      "Cave bear Fight one round",
+      "If you defeat the bear, you must still find the way out; turn to 6.",
+      "6.",
+      "It rises.",
+      "Ash wraith Fight one round",
+      "If you survive, the wraith fades into the walls. The air warms again.",
+      "Turn to 1.",
+    );
+    expect(draft.sections.map((entry) => [entry.winTo, entry.flags])).toEqual([
+      ["2", []],
+      ["3", []],
+      ["4", []],
+      ["5", []],
+      ["6", []],
+      ["1", []],
+    ]);
+    expect(section(draft, "6").passage).toContain("The air warms again.");
+  });
+
+  it("accepts flavour on a test result", () => {
+    const draft = draftOf(
+      "1.",
+      "Test Climbing.",
+      "If you succeed, you reach the ledge and rest; turn to 2.",
+      "If you fail, you slide back into the reeds; turn to 3.",
+      "2.",
+      "Up.",
+      "Turn to 1.",
+      "3.",
+      "Down.",
+      "Turn to 1.",
+    );
+    expect(section(draft, "1")).toMatchObject({ passTo: "2", failTo: "3", flags: [] });
+  });
+
+  it("still flags a real extra step on a fight or an extra option on a test", () => {
+    const draft = draftOf(
+      "1.",
+      "Bog hound Fight one round",
+      "If you win, put a tick in the box above and turn to 2.",
+      "2.",
+      "Reed cat Fight one round",
+      "If you win, you can either take the bridge (turn to 1)",
+      "or wade the ford (turn to 3).",
+      "3.",
+      "Rope ghost Fight one round",
+      "If you win and are heading north, turn to 1.",
+      "4.",
+      "Test Naturalist and if you succeed, turn to 1.",
+      "If you fail and want to taste the berries anyway, turn to 2.",
+    );
+    for (const number of ["1", "2", "3"]) expect(section(draft, number).flags).toContain(FLAG.winExtra);
+    expect(section(draft, "4").flags).toContain(FLAG.failExtra);
+  });
+
+  it("stores a tick on the success branch and keeps the ticked-box jump", () => {
+    const draft = draftOf(
+      "1.",
+      "If the box above is ticked, turn to 3. If not, read on.",
+      "A loose tile glints; this could be a trap, so Test Larceny.",
+      "If you succeed, put a tick in the box above and turn to 2. If you fail, turn to 3.",
+      "2.",
+      "Safe.",
+      "Turn to 1.",
+      "3.",
+      "Ouch.",
+      "Turn to 1.",
+    );
+    const tile = section(draft, "1");
+    expect(tile.flags).toEqual([]);
+    expect(tile).toMatchObject({ tickTo: "3", passTo: "2", failTo: "3", passEffects: [{ op: "tick", id: "box-1", label: "§1 box" }], failEffects: [] });
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    expect(built.book.sections[0]).toMatchObject({
+      enter: { jump: { when: { op: "ticked", id: "box-1" }, to: "3" } },
+      test: { skill: "larceny", success: { to: "2", effects: [{ op: "tick", id: "box-1", label: "§1 box" }] }, failure: { to: "3" } },
+    });
+  });
+
+  it("does not read quoted speech or 'test your skills' as a test", () => {
+    const draft = draftOf(
+      "1.",
+      "The ogre laughs. 'Let's test your skills then!' it roars, and charges:",
+      "Ogre Fight two rounds",
+      "If you survive this onslaught, turn to 2.",
+      "2.",
+      "'Test your Talent, they always say,' mutters the guard.",
+      "Turn to 1.",
+    );
+    expect(section(draft, "1")).toMatchObject({ sawTest: false, winTo: "2", flags: [] });
+    expect(section(draft, "2")).toMatchObject({ sawTest: false, flags: [] });
   });
 });
