@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("switches illustration display and returns focus from the viewer", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
   await expect(page.getByTestId("illus-figure")).toBeVisible();

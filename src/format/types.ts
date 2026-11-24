@@ -170,13 +170,33 @@ export interface PendingTest {
 
 export type PendingAction = PendingCombat | PendingTest;
 
+/** The starting weapon is stored by type only. It has no name or bonus. */
+export type WeaponType = "one-handed" | "long" | "two-handed";
+
+/** Everything a new game needs from character creation, before the start section's hook runs. */
+export interface Character {
+  stats: Record<string, number>;
+  /** Current ceilings for stats this character tracks, such as Talent after trades. */
+  maxima: Record<string, number>;
+  skills: SkillRank[];
+  gold: number;
+  items: NamedValue[];
+  weapon: WeaponType;
+  /** Only with a one-handed weapon. */
+  shield: boolean;
+}
+
 export interface GameState {
   sectionId: string;
   stats: Record<string, number>;
+  /** Current ceilings, such as Talent after trades at creation. A stat not listed here uses the system maximum. */
+  maxima: Record<string, number>;
   skills: SkillRank[];
   /** Coin pouch. The rules give it no capacity. */
   gold: number;
   items: NamedValue[];
+  weapon: WeaponType;
+  shield: boolean;
   keywords: NamedValue[];
   ticks: Record<string, TickMark>;
   rolls: RollRecord[];

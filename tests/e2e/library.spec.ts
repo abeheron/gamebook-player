@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 import { readFileSync } from "node:fs";
 
 const pdf = {
@@ -20,7 +21,7 @@ const epub = {
 test("converts a PDF through review, then an EPUB, and removes a book", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("side-library").click();
   await expect(page.getByTestId("import-drop")).toContainText("Drop a book file (PDF or EPUB)");
@@ -75,7 +76,15 @@ test("converts a PDF through review, then an EPUB, and removes a book", async ({
   await page.getByTestId("side-library").click();
   await expect(page.getByTestId("library-book-the-copper-lantern")).toBeVisible();
   await page.getByTestId("library-continue-the-copper-lantern").click();
+  await expect(page.getByTestId("creation")).toBeVisible();
+  await expect(page.getByTestId("book-title")).toHaveText("The Copper Lantern");
+  await expect(page.getByTestId("create-begin")).toContainText("→ §1");
+  await page.getByTestId("create-skill-climbing").click();
+  await page.getByTestId("create-skill-occult").click();
+  await page.getByTestId("create-weapon-one-handed").click();
+  await page.getByTestId("create-begin").click();
   await expect(page.getByTestId("section-title")).toHaveText("§1");
+  await expect(page.getByTestId("sheet-skill-occult")).toHaveText("Occult +2");
 
   await page.getByTestId("side-library").click();
   await page.getByTestId("import-input").setInputFiles(scanned);
@@ -105,7 +114,7 @@ test("converts a PDF through review, then an EPUB, and removes a book", async ({
 
 test("stacks the review on a phone and keeps the book buttons in a row", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("mobile-library").click();
   const actions = page.getByTestId("library-book-lantern-stair").locator(".library-actions .btn");

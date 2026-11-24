@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 import { readFileSync } from "node:fs";
 import { assertDemoCursor, demoClick, demoFill, demoHold, installDemoCursor } from "./support/demo-cursor";
 
@@ -21,7 +22,7 @@ test.use({
 test("records a PDF conversion and a scanned-PDF rejection", async ({ page }) => {
   test.setTimeout(120_000);
   await installDemoCursor(page);
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await assertDemoCursor(page);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await demoClick(page.getByTestId("side-library"));

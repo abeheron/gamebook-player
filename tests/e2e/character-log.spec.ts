@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("opens the character sheet from the summary and lists only real fields", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await expect(page.getByText("Unlimited.", { exact: true })).toHaveCount(0);
@@ -17,12 +18,13 @@ test("opens the character sheet from the summary and lists only real fields", as
   await expect(page.getByTestId("sheet-item-ration")).toHaveText("Ration");
   await expect(page.getByTestId("sheet-item-lantern")).toHaveText("Lantern");
   await expect(page.getByTestId("sheet-missing")).toHaveText("This book does not define titles.");
-  await expect(page.getByTestId("sheet-skills-note")).toContainText("sample choice");
+  await expect(page.getByTestId("sheet-weapon")).toHaveText("One-handed weapon");
+  await expect(page.getByTestId("sheet-view")).not.toContainText("sample choice");
   await expect(page.getByTestId("side-character")).toHaveAttribute("aria-current", "page");
 });
 
 test("migrates a version 1 save to the sample skills, gold, and ration", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.evaluate(async () => {
     const record = {
@@ -60,11 +62,12 @@ test("migrates a version 1 save to the sample skills, gold, and ration", async (
   await expect(page.getByTestId("sheet-gold")).toHaveText("10 gp");
   await expect(page.getByTestId("sheet-item-ration")).toHaveText("Ration");
   await expect(page.getByTestId("sheet-item-lantern")).toHaveText("Lantern");
+  await expect(page.getByTestId("sheet-weapon")).toHaveText("One-handed weapon");
 });
 
 test("searches the shared keyword and tick log without changing the story", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 640 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();
@@ -93,7 +96,7 @@ test("searches the shared keyword and tick log without changing the story", asyn
 
 test("opens the log from the phone navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();

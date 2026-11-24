@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Rng } from "../../src/engine/dice";
 import { choose, currentSection, rollCombatRound, rollTest, startSession } from "../../src/engine/rules";
+import { fixtureCharacter } from "../../src/engine/creation";
 import { demoBook, demoSystem } from "../../src/format/demo";
 import { validateBook } from "../../src/format/validate";
 
@@ -18,7 +19,7 @@ const miss = () => scripted([0.99, 0.99]);
 
 describe("minimum fight rules", () => {
   it("applies the passage penalty and still finishes after a miss", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "face-the-moth");
     session = rollCombatRound(session, demoBook, demoSystem, scripted([0.5, 0.7]));
     expect(session.state.rolls[0]).toMatchObject({ id: "pale-moth", faces: [4, 5], total: 9, success: false });
@@ -65,7 +66,7 @@ describe("minimum fight rules", () => {
       },
       demoSystem,
     );
-    let session = startSession(book, demoSystem);
+    let session = startSession(book, demoSystem, fixtureCharacter(demoSystem));
     session = rollCombatRound(session, book, demoSystem, miss());
     session = rollCombatRound(session, book, demoSystem, miss());
     expect(currentSection(book, session).id).toBe("1");
@@ -80,7 +81,7 @@ describe("minimum fight rules", () => {
 
 describe("typed dice", () => {
   it("resolves entered faces with the same target and does not roll", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "take-lantern");
     session = choose(session, demoBook, demoSystem, "tick-and-study");
     const rng: Rng = () => {
@@ -92,7 +93,7 @@ describe("typed dice", () => {
   });
 
   it("rejects a face the die cannot show", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "take-lantern");
     session = choose(session, demoBook, demoSystem, "tick-and-study");
     expect(() => rollTest(session, demoBook, demoSystem, scripted([0]), [7, 1])).toThrow(/whole number/);

@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("shows the autosave time and leaves the toolbar without a save line", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   const note = page.getByTestId("autosave");
   await expect(note).toHaveText(/✓\s*Autosaved on this device · \d{2}:\d{2}/);
   await expect(note).toHaveAttribute("aria-live", "polite");
@@ -15,7 +16,7 @@ test("shows the autosave time and leaves the toolbar without a save line", async
 test("shows Saving only when the write is slow", async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem("gbp-save-delay", "1200"));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   const note = page.getByTestId("autosave");
   await expect(note).toContainText("Saving…");
   await expect(note).toHaveAttribute("aria-live", "polite");
@@ -27,7 +28,7 @@ test("shows Saving only when the write is slow", async ({ page }) => {
 test("keeps a refused save until Try again succeeds", async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem("gbp-save-fail", "1"));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   const note = page.getByTestId("autosave");
   await expect(note).toContainText("Not saved — this device's storage refused the save");
   await expect(note).toHaveAttribute("role", "alert");

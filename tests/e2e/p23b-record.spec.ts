@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 import { assertDemoCursor, demoClick, demoFill, demoHold, installDemoCursor } from "./support/demo-cursor";
 
 test.use({
@@ -9,7 +10,7 @@ test.use({
 test("records the Fortune demo with a visible cursor", async ({ page }) => {
   test.setTimeout(120_000);
   await installDemoCursor(page);
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await assertDemoCursor(page);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await demoClick(page.getByTestId("choice-take-lantern"));
@@ -36,6 +37,11 @@ test("records the Fortune demo with a visible cursor", async ({ page }) => {
   await demoHold(page, 3000);
 
   await demoClick(page.getByTestId("new-game"));
+  await expect(page.getByTestId("creation")).toBeVisible();
+  await demoClick(page.getByTestId("create-skill-climbing"));
+  await demoClick(page.getByTestId("create-skill-linguistics"));
+  await demoClick(page.getByTestId("create-weapon-one-handed"));
+  await demoClick(page.getByTestId("create-begin"));
   await expect(page.getByTestId("section-title")).toHaveText("The stair");
   await demoClick(page.getByTestId("choice-face-the-moth"));
   await demoClick(page.getByTestId("side-test"));

@@ -4,7 +4,7 @@ Status: approved as P08, P10, P14, P15, and P18, and implemented on this branch.
 
 ## What opened
 
-Character, in the sidebar and on the Full sheet button, opens the existing sheet. It shows the stats, skills, coin pouch, items, keywords, and ticks from the current game. The sample lists the ten GNAT skills. Climbing and Linguistics are a sample choice of the two basic skills a new character starts with. Each is +2. Gold starts at 10gp in an unlimited coin pouch, and the ration is an item. The sheet still says that this book does not define titles.
+Character, in the sidebar and on the Full sheet button, opens the existing sheet. It shows the stats, skills, coin pouch, items, keywords, and ticks from the current game. The sample lists the ten GNAT skills. The skills are the ones picked on the New character screen (P31). Each is +2. The sheet also shows the chosen weapon and whether the character has a shield. Gold starts at 10gp in an unlimited coin pouch, and the ration is an item. The sheet still says that this book does not define titles.
 
 Keywords & ticks opens a log of those same records. The search box matches the name or id. All, Keywords, and Ticks only hide rows. They do not change the game. The reading view and the log both read `session.state.ticks`. A tick still changes only when a story choice applies it. Opening the log, the character sheet, or the skill-test panel does not tick anything.
 

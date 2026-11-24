@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_URL } from "./support/fixture";
 
 test("opens the rules summary and returns without moving the story", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 480 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.evaluate(() => window.scrollTo(0, 200));
   const scroll = await page.evaluate(() => window.scrollY);
@@ -30,7 +31,7 @@ test("opens the rules summary and returns without moving the story", async ({ pa
 
 test("opens rules from the phone navigation without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
   await page.getByTestId("mobile-rules").click();
   await expect(page.getByTestId("rules-view")).toBeVisible();

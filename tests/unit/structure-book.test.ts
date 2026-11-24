@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { demoSystem } from "../../src/format/demo";
 import { adventureOver, choose, currentSection, rollCombatRound, rollTest, startSession, visibleChoices } from "../../src/engine/rules";
+import { fixtureCharacter } from "../../src/engine/creation";
 import {
   FLAG,
   countDraft,
@@ -507,7 +508,7 @@ describe("a ticked box with a fight", () => {
     const book = built.book;
     const always = () => 0;
 
-    let session = startSession(book, demoSystem);
+    let session = startSession(book, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, book, demoSystem, "c1");
     expect(currentSection(book, session).id).toBe("2");
     expect(session.state.ticks["box-2"]).toEqual({ label: "§2 box", count: 1 });
@@ -541,7 +542,7 @@ describe("a ticked box with a fight", () => {
     if (!built.ok) throw new Error(built.error);
     const book = built.book;
     expect(book.sections[0]?.enter).toEqual({ jump: { when: { op: "ticked", id: "box-1" }, to: "3" } });
-    let session = startSession(book, demoSystem);
+    let session = startSession(book, demoSystem, fixtureCharacter(demoSystem));
     expect(currentSection(book, session).id).toBe("1");
     expect(visibleChoices(currentSection(book, session), session.state).map((choice) => choice.id)).toEqual(["c1", "c2"]);
     session = choose(session, book, demoSystem, "c1");
@@ -555,7 +556,7 @@ describe("a ticked box with a fight", () => {
     const built = draftToBook(draft, demoSystem);
     if (!built.ok) throw new Error(built.error);
     const book = built.book;
-    let session = startSession(book, demoSystem);
+    let session = startSession(book, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, book, demoSystem, "c1");
     session.state.stats.vitality = 1;
     session = rollCombatRound(session, book, demoSystem, () => 0.99);
@@ -589,7 +590,7 @@ describe("a test told in the section, then one shared destination", () => {
       failure: { to: "2", effects: [{ op: "adjustStat", stat: "talent", by: -1 }] },
     });
     expect(built.book.sections[0]?.choices).toBeUndefined();
-    const failed = rollTest(startSession(built.book, demoSystem), built.book, demoSystem, () => 0.99, [6, 6]);
+    const failed = rollTest(startSession(built.book, demoSystem, fixtureCharacter(demoSystem)), built.book, demoSystem, () => 0.99, [6, 6]);
     expect(currentSection(built.book, failed).id).toBe("2");
     expect(failed.state.stats.talent).toBe(8);
   });

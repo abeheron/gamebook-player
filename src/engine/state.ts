@@ -1,4 +1,4 @@
-import type { Condition, Effect, GameState, Session, SystemDef } from "../format/types";
+import type { Character, Condition, Effect, GameState, Session, SystemDef } from "../format/types";
 
 const ROLL_LIMIT = 40;
 
@@ -6,15 +6,16 @@ export function cloneState(state: GameState): GameState {
   return structuredClone(state);
 }
 
-export function initialState(system: SystemDef, sectionId: string): GameState {
-  const stats: Record<string, number> = {};
-  for (const stat of system.stats) stats[stat.id] = stat.initial;
+export function initialState(sectionId: string, character: Character): GameState {
   return {
     sectionId,
-    stats,
-    skills: system.startingSkills.map((skill) => ({ id: skill.id, bonus: skill.bonus })),
-    gold: system.startingGold,
-    items: system.startingItems.map((item) => ({ id: item.id, label: item.label })),
+    stats: { ...character.stats },
+    maxima: { ...character.maxima },
+    skills: character.skills.map((skill) => ({ id: skill.id, bonus: skill.bonus })),
+    gold: character.gold,
+    items: character.items.map((item) => ({ id: item.id, label: item.label })),
+    weapon: character.weapon,
+    shield: character.shield,
     keywords: [],
     ticks: {},
     rolls: [],
@@ -22,8 +23,8 @@ export function initialState(system: SystemDef, sectionId: string): GameState {
   };
 }
 
-export function initialSession(bookId: string, system: SystemDef, sectionId: string): Session {
-  return { bookId, state: initialState(system, sectionId), undo: [] };
+export function initialSession(bookId: string, sectionId: string, character: Character): Session {
+  return { bookId, state: initialState(sectionId, character), undo: [] };
 }
 
 export function conditionHolds(condition: Condition, state: GameState): boolean {
@@ -84,7 +85,8 @@ function applyEffect(state: GameState, system: SystemDef, effect: Effect): void 
       const def = system.stats.find((stat) => stat.id === effect.stat);
       const current = state.stats[effect.stat];
       if (!def || current === undefined) throw new Error(`Unknown stat ${effect.stat}`);
-      state.stats[effect.stat] = Math.min(def.max, Math.max(def.min, current + effect.by));
+      const ceiling = Math.min(def.max, state.maxima[effect.stat] ?? def.max);
+      state.stats[effect.stat] = Math.min(ceiling, Math.max(def.min, current + effect.by));
       return;
     }
     default: {

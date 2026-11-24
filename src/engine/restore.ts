@@ -1,4 +1,5 @@
-import type { Book, GameState, RollRecord, Session, SystemDef } from "../format/types";
+import type { Book, GameState, RollRecord, Session, SystemDef, WeaponType } from "../format/types";
+import { WEAPONS } from "./creation";
 import { sectionMap } from "../format/validate";
 import { parseDice } from "./dice";
 import { skillAdjustment } from "./skills";
@@ -26,6 +27,10 @@ function isState(value: unknown, book: Book, system: SystemDef): value is GameSt
     if (typeof current !== "number" || !Number.isInteger(current)) return false;
     if (current < stat.min || current > stat.max) return false;
   }
+  if (!maximaFit(value.maxima, value.stats, system)) return false;
+  if (typeof value.weapon !== "string" || !WEAPONS.includes(value.weapon as WeaponType)) return false;
+  if (typeof value.shield !== "boolean") return false;
+  if (value.shield && value.weapon !== "one-handed") return false;
   if (!Array.isArray(value.skills) || !skillsFit(value.skills, system)) return false;
   if (typeof value.gold !== "number" || !Number.isSafeInteger(value.gold) || value.gold < 0) return false;
   if (!Array.isArray(value.items) || !value.items.every(isNamed)) return false;
@@ -95,6 +100,19 @@ function isRoll(value: unknown): value is RollRecord {
   if (typeof value.total !== "number" || !Number.isInteger(value.total)) return false;
   if (typeof value.success !== "boolean") return false;
   return Array.isArray(value.faces) && value.faces.every((face) => typeof face === "number" && Number.isInteger(face));
+}
+
+/** Each stored ceiling names a known stat, stays inside the system bounds, and is not below the current value. */
+function maximaFit(value: unknown, stats: Record<string, unknown>, system: SystemDef): boolean {
+  if (!isRecord(value)) return false;
+  for (const [id, max] of Object.entries(value)) {
+    const def = system.stats.find((stat) => stat.id === id);
+    if (!def || typeof max !== "number" || !Number.isInteger(max)) return false;
+    if (max < def.min || max > def.max) return false;
+    const current = stats[id];
+    if (typeof current !== "number" || current > max) return false;
+  }
+  return true;
 }
 
 function skillsFit(value: unknown[], system: SystemDef): boolean {

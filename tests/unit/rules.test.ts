@@ -3,6 +3,7 @@ import { demoBook, demoSystem } from "../../src/format/demo";
 import type { Rng } from "../../src/engine/dice";
 import { canRestore } from "../../src/engine/restore";
 import { choose, currentSection, rollCombatRound, rollTest, startSession, undo, visibleChoices } from "../../src/engine/rules";
+import { fixtureCharacter } from "../../src/engine/creation";
 import { conditionHolds } from "../../src/engine/state";
 import { validateBook } from "../../src/format/validate";
 
@@ -21,7 +22,7 @@ const high = scripted([0, 0]);
 
 describe("sample book rules", () => {
   it("takes the lantern, ticks the landing, and undoes both", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "take-lantern");
     expect(currentSection(demoBook, session).title).toBe("The landing");
     expect(session.state.items.map((item) => item.id)).toEqual(["ration", "lantern"]);
@@ -45,7 +46,7 @@ describe("sample book rules", () => {
   });
 
   it("records a failed roll-under test and can undo it", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "take-lantern");
     session = choose(session, demoBook, demoSystem, "tick-and-study");
     session = rollTest(session, demoBook, demoSystem, scripted([0.99, 0.99]));
@@ -59,7 +60,7 @@ describe("sample book rules", () => {
   });
 
   it("passes the test on a low roll and gains the keyword", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "take-lantern");
     session = choose(session, demoBook, demoSystem, "tick-and-study");
     session = rollTest(session, demoBook, demoSystem, scripted([0, 0]));
@@ -69,7 +70,7 @@ describe("sample book rules", () => {
   });
 
   it("resolves fixed-round combat, including defeat, and keeps each round undoable", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "climb-dark");
     expect(session.state.stats.vitality).toBe(2);
     session = choose(session, demoBook, demoSystem, "keep-climbing");
@@ -90,7 +91,7 @@ describe("sample book rules", () => {
   });
 
   it("ends combat on the following section when the rounds are passed", () => {
-    let session = startSession(demoBook, demoSystem);
+    let session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, demoBook, demoSystem, "climb-dark");
     session = choose(session, demoBook, demoSystem, "keep-climbing");
     session = rollCombatRound(session, demoBook, demoSystem, high);
@@ -153,7 +154,7 @@ describe("sample book rules", () => {
       },
       demoSystem,
     );
-    let session = startSession(book, demoSystem);
+    let session = startSession(book, demoSystem, fixtureCharacter(demoSystem));
     session = choose(session, book, demoSystem, "drop");
     expect(session.state.stats.vitality).toBe(0);
     expect(visibleChoices(currentSection(book, session), session.state).map((choice) => choice.id)).toEqual(["stay"]);
@@ -161,7 +162,7 @@ describe("sample book rules", () => {
   });
 
   it("accepts its own session and rejects a different book", () => {
-    const session = startSession(demoBook, demoSystem);
+    const session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     expect(canRestore(session, demoBook, demoSystem)).toBe(true);
     expect(canRestore({ ...session, bookId: "other" }, demoBook, demoSystem)).toBe(false);
     expect(canRestore({ bookId: demoBook.id, state: { sectionId: "missing" }, undo: [] }, demoBook, demoSystem)).toBe(
