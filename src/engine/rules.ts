@@ -18,7 +18,44 @@ import type {
 const UNDO_LIMIT = 50;
 
 export function startSession(book: Book, system: SystemDef): Session {
-  return initialSession(book.id, system, book.start);
+  const session = initialSession(book.id, system, book.start);
+  return { ...session, state: arrive(book, system, session.state) };
+}
+
+/**
+ * Runs the enter hook of the section the player has just reached. The jump is checked first,
+ * so a box ticked on this visit cannot open its own jump. A jump lands on another section,
+ * whose own hook then runs.
+ */
+export function arrive(book: Book, system: SystemDef, state: GameState): GameState {
+  const sections = sectionMap(book);
+  const seen = new Set<string>();
+  let next = state;
+  while (!seen.has(next.sectionId)) {
+    seen.add(next.sectionId);
+    const enter = sections.get(next.sectionId)?.enter;
+    if (!enter) return next;
+    if (enter.jump && conditionHolds(enter.jump.when, next)) {
+      next = cloneState(next);
+      next.sectionId = enter.jump.to;
+      continue;
+    }
+    return enter.effects ? applyEffects(next, system, enter.effects) : next;
+  }
+  return next;
+}
+
+/** A fight with no defeat section was lost: the adventure ends here. */
+export function adventureOver(book: Book, state: GameState): boolean {
+  const section = sectionMap(book).get(state.sectionId);
+  return section !== undefined && lostHere(section, state);
+}
+
+function lostHere(section: Section, state: GameState): boolean {
+  const combat = section.combat;
+  if (!combat || combat.defeatSection !== undefined || state.pending) return false;
+  const wound = state.stats[combat.wound.stat];
+  return wound !== undefined && wound <= combat.wound.defeatAtOrBelow;
 }
 
 export function undo(session: Session): Session {
@@ -32,7 +69,7 @@ export function undo(session: Session): Session {
 }
 
 export function visibleChoices(section: Section, state: GameState): Choice[] {
-  if (state.pending) return [];
+  if (state.pending || lostHere(section, state)) return [];
   return (section.choices ?? []).filter((choice) => !choice.when || conditionHolds(choice.when, state));
 }
 
@@ -44,7 +81,7 @@ export function choose(session: Session, book: Book, system: SystemDef, choiceId
   let state = applyEffects(session.state, system, choice.effects ?? []);
   state.sectionId = choice.to;
   state.pending = null;
-  return commit(session, state);
+  return commit(session, arrive(book, system, state));
 }
 
 export function rollTest(session: Session, book: Book, system: SystemDef, rng: Rng, faces?: readonly number[]): Session {
@@ -72,7 +109,7 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
   state.rolls = recordRoll(state, roll);
   state.sectionId = branch.to;
   state.pending = null;
-  return commit(session, state);
+  return commit(session, arrive(book, system, state));
 }
 
 /** Rolls a skill test and keeps it on this section until the player takes the result. */
@@ -148,7 +185,7 @@ export function acceptTest(session: Session, book: Book, system: SystemDef): Ses
   state.rolls = recordRoll(state, pending.roll);
   state.sectionId = branch.to;
   state.pending = null;
-  return commit(session, state);
+  return commit(session, arrive(book, system, state));
 }
 
 /** One fight round: Talent test at the passage penalty. A miss is one Wound. Vitality at the defeat line ends the fight; otherwise it is won by finishing the rounds. */
@@ -156,6 +193,7 @@ export function rollCombatRound(session: Session, book: Book, system: SystemDef,
   const section = requireSection(book, session.state.sectionId);
   const combat = section.combat;
   if (!combat) throw new Error("This section has no combat.");
+  if (adventureOver(book, session.state)) throw new Error("The adventure is over.");
   const completed = completedRounds(session.state.pending, section.id);
   if (completed >= combat.rounds) throw new Error("This combat is already over.");
   const stat = session.state.stats[combat.stat];
@@ -180,7 +218,8 @@ export function rollCombatRound(session: Session, book: Book, system: SystemDef,
   const wound = state.stats[combat.wound.stat];
   const nextRound = completed + 1;
   if (wound !== undefined && wound <= combat.wound.defeatAtOrBelow) {
-    state.sectionId = combat.defeatSection;
+    // With no defeat section, the player stays here and the adventure is over.
+    state.sectionId = combat.defeatSection ?? section.id;
     state.pending = null;
   } else if (nextRound >= combat.rounds) {
     state.sectionId = combat.then;
@@ -189,7 +228,7 @@ export function rollCombatRound(session: Session, book: Book, system: SystemDef,
     const pending: PendingCombat = { kind: "combat", sectionId: section.id, round: nextRound };
     state.pending = pending;
   }
-  return commit(session, state);
+  return commit(session, state.sectionId === section.id ? state : arrive(book, system, state));
 }
 
 /** Spends 1 Fortune to replace one die on the current fight round. Earlier rounds stay as they were. */
@@ -236,10 +275,10 @@ export function rerollCombatDie(
   }
   const wound = state.stats[combat.wound.stat];
   if (wound !== undefined && wound <= combat.wound.defeatAtOrBelow) {
-    state.sectionId = combat.defeatSection;
+    state.sectionId = combat.defeatSection ?? section.id;
     state.pending = null;
   }
-  return commit(session, state);
+  return commit(session, state.sectionId === section.id ? state : arrive(book, system, state));
 }
 
 function lastCombatRoll(rolls: readonly RollRecord[], combatId: string): number {

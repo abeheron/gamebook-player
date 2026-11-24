@@ -1,4 +1,4 @@
-import type { Book, Section, SystemDef } from "./types";
+import type { Book, Effect, Section, SectionEnter, SystemDef } from "./types";
 import { BookValidationError, validateBook } from "./validate";
 
 export interface SourcePage {
@@ -9,6 +9,8 @@ export interface SourcePage {
 export interface DraftChoice {
   label: string;
   to: string;
+  /** Taking this choice ticks the section's box, as in "put a tick in the box above and turn to N". */
+  tick?: boolean;
 }
 
 /** A section the reader can correct before it is stored. */
@@ -26,7 +28,12 @@ export interface DraftSection {
   /** Signed penalty, such as "−2". Empty when the text gives none. */
   fightPenalty: string;
   winTo: string;
+  /** Empty when the book gives no defeat section: losing the fight ends the adventure. */
   loseTo: string;
+  /** "If the box above is ticked, turn to N": N, or empty. The box is named after the section. */
+  tickTo: string;
+  /** "If not, put a tick there now and read on": the box is ticked on arrival, after the jump check. */
+  tickOnEnter: boolean;
   sawTest: boolean;
   sawFight: boolean;
   pageIndex: number;
@@ -66,6 +73,53 @@ export interface ConvertCounts {
   missingDestinations: number;
 }
 
+/** Flag reasons. placeFlags puts each one under the field it talks about. */
+export const FLAG = {
+  fightName: "No enemy name found for this fight.",
+  fightRounds: "Round count unclear.",
+  fightTwice: "More than one fight in this section.",
+  noWin: "No section to turn to if you win.",
+  secondWin: "More than one section to turn to if you win.",
+  winExtra: "The win link has extra steps the draft cannot hold.",
+  secondLose: "More than one section to turn to if you lose.",
+  loseExtra: "The lose link has extra steps the draft cannot hold.",
+  noTest: "Success or fail links, but no test to roll.",
+  testTwice: "More than one test in this section.",
+  testModifier: "This test has a modifier the draft cannot hold.",
+  testSkill: "This test names a skill the system does not include.",
+  noPass: "No section to turn to if you succeed.",
+  secondPass: "More than one section to turn to if you succeed.",
+  passExtra: "The success link has extra steps the draft cannot hold.",
+  noFail: "No section to turn to if you fail.",
+  secondFail: "More than one section to turn to if you fail.",
+  failExtra: "The fail link has extra steps the draft cannot hold.",
+  mixedExits: "This section has more than one kind of exit.",
+  noExits: "This section has no exits.",
+  tickCondition: "A ticked-box link with another condition cannot be wired yet.",
+  tickNever: "Nothing in this section ticks the box above.",
+} as const;
+
+const FLAG_FIELD: Record<string, "fight" | "win" | "lose" | "test" | "pass" | "fail"> = {
+  [FLAG.fightName]: "fight",
+  [FLAG.fightRounds]: "fight",
+  [FLAG.fightTwice]: "fight",
+  [FLAG.noWin]: "win",
+  [FLAG.secondWin]: "win",
+  [FLAG.winExtra]: "win",
+  [FLAG.secondLose]: "lose",
+  [FLAG.loseExtra]: "lose",
+  [FLAG.noTest]: "test",
+  [FLAG.testTwice]: "test",
+  [FLAG.testModifier]: "test",
+  [FLAG.testSkill]: "test",
+  [FLAG.noPass]: "pass",
+  [FLAG.secondPass]: "pass",
+  [FLAG.passExtra]: "pass",
+  [FLAG.noFail]: "fail",
+  [FLAG.secondFail]: "fail",
+  [FLAG.failExtra]: "fail",
+};
+
 export type BuiltBook =
   | { ok: true; book: Book }
   | { ok: false; step: 5 | 6; error: string };
@@ -81,7 +135,20 @@ const FIGHT_LINE = new RegExp(`^(.{1,40}?)\\s+fight (?:for )?${COUNT} rounds?\\b
 const TEST = /\btest (?:your )?([A-Za-z]+)/i;
 const SUCCESS = /if you (?:are successful|succeed),?\s*turn to (\d+)/i;
 const FAIL = /if you fail,?\s*turn to (\d+)/i;
-const TICK = /\bthe box above is ticked,?\s*turn to (\d+)/i;
+const TICK = /\bthe box above is ticked\b/i;
+/** "If the box above is ticked, turn to N", allowing a clause before "; turn to N". No other condition. */
+const TICK_JUMP = /^if the box above is ticked,\s*(?:[^.;]*;\s*)?turn to (\d+)\b[\s.]*$/i;
+/** "If not, put a tick there now and read on." */
+const TICK_ON_ENTER = /\bput a tick (?:there|in the box above)? ?now and read on\b/i;
+/** A choice that ticks the box as it is taken. */
+const TICK_ON_CHOICE = /\b(?:put a tick in the box above|tick the box above)\b/i;
+/** A win, lose, success or fail link, worded loosely enough to notice extra steps. */
+const LINK_KIND: { kind: "win" | "lose" | "pass" | "fail"; start: RegExp }[] = [
+  { kind: "win", start: /^if you (?:win|survive)\b/i },
+  { kind: "lose", start: /^if you (?:are defeated|lose)\b/i },
+  { kind: "pass", start: /^if you (?:are successful|succeed)\b/i },
+  { kind: "fail", start: /^if you fail\b/i },
+];
 const TURN = /turn to (\d+)/i;
 const TURNS = /turn to (\d+)(?:\s*\))?/gi;
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
@@ -249,12 +316,9 @@ export function placeFlags(section: DraftSection): PlacedFlags {
       if (!used) placed.other.push(flag);
       continue;
     }
-    if (flag === "Unparsed test.") {
-      placed.test.push(flag);
-      continue;
-    }
-    if (flag === "Unparsed fight.") {
-      placed.fight.push(flag);
+    const field = FLAG_FIELD[flag];
+    if (field) {
+      placed[field].push(flag);
       continue;
     }
     if (flag === "This section has no passage.") {
@@ -265,7 +329,7 @@ export function placeFlags(section: DraftSection): PlacedFlags {
       placed.number.push(flag);
       continue;
     }
-    if (flag.startsWith("A ticked box")) {
+    if (flag === FLAG.tickCondition) {
       const index = section.choices.findIndex((choice) => /ticked/i.test(choice.label));
       if (index >= 0) placed.choices[index]?.push(flag);
       else placed.other.push(flag);
@@ -309,15 +373,17 @@ function parseSection(
   let loseTo = "";
   let fightRounds = "";
   let fightPenalty = "";
+  let fights = 0;
   let sawTest = false;
   let tests = 0;
   let testLabel = "";
   let skill = "";
-  let unclearTest = false;
+  let tickTo = "";
+  let tickOnEnter = false;
+  const problems = new Set<string>();
+  const extra = new Set<"win" | "lose" | "pass" | "fail">();
   let passTo = "";
   let failTo = "";
-  let ticked = false;
-  let unclearFight = false;
   const choices: DraftChoice[] = [];
   const body: string[] = [];
 
@@ -326,11 +392,14 @@ function parseSection(
       body.push("");
       return;
     }
+    if (TICK_ON_ENTER.test(unit)) tickOnEnter = true;
     const roundsAt = ROUNDS_AT.exec(unit);
     const rounds = roundsAt ?? ROUNDS.exec(unit);
     if (rounds?.[1]) {
+      fights += 1;
       fightRounds = countValue(rounds[1]);
       if (roundsAt?.[2]) fightPenalty = normalizePenalty(roundsAt[2]);
+      // Only a bare "Name Fight N rounds" line leaves the passage. Condition words stay visible.
       const rest = unit.replace(rounds[0], "").replace(fightName, "").replace(/[\s.,;:]+/g, "");
       if (!rest) return;
     }
@@ -341,7 +410,8 @@ function parseSection(
       tests += 1;
       testLabel = clip(unit, 160);
       skill = test.skill;
-      if (test.unclear) unclearTest = true;
+      if (test.unknownSkill) problems.add(FLAG.testSkill);
+      if (test.modifier) problems.add(FLAG.testModifier);
     }
     const segments = segmented[index] ?? [];
     if (test || segments.length === 0) body.push(unit);
@@ -351,38 +421,70 @@ function parseSection(
         winTo = win[1];
         continue;
       }
-      if (win?.[1]) unclearFight = true;
+      if (win?.[1]) problems.add(FLAG.secondWin);
       const lose = LOSE.exec(segment);
       if (lose?.[1] && !loseTo) {
         loseTo = lose[1];
         continue;
       }
-      if (lose?.[1]) unclearFight = true;
+      if (lose?.[1]) problems.add(FLAG.secondLose);
       const success = SUCCESS.exec(segment);
       if (success?.[1] && !passTo) {
         passTo = success[1];
         continue;
       }
-      if (success?.[1]) unclearTest = true;
+      if (success?.[1]) problems.add(FLAG.secondPass);
       const failure = FAIL.exec(segment);
       if (failure?.[1] && !failTo) {
         failTo = failure[1];
         continue;
       }
-      if (failure?.[1]) unclearTest = true;
+      if (failure?.[1]) problems.add(FLAG.secondFail);
       const to = TURN.exec(segment)?.[1] ?? "";
-      if (TICK.test(segment)) ticked = true;
-      choices.push({ label: clip(segment, 160), to });
+      const jump = TICK_JUMP.exec(segment);
+      if (jump?.[1] && !tickTo) {
+        // Wired as the section's box jump. The words stay in the passage.
+        tickTo = jump[1];
+        body.push(segment);
+        continue;
+      }
+      if (TICK.test(segment)) problems.add(FLAG.tickCondition);
+      if (!win && !lose && !success && !failure) {
+        const kind = LINK_KIND.find((entry) => entry.start.test(segment))?.kind;
+        if (kind) extra.add(kind);
+      }
+      choices.push({ label: clip(segment, 160), to, ...(TICK_ON_CHOICE.test(segment) ? { tick: true } : {}) });
     }
   });
   if ((passTo || failTo) && !sawTest) sawTest = true;
 
-  if (sawFight && (unclearFight || !fightName || !winTo || !loseTo || !validRounds(fightRounds))) flags.push("Unparsed fight.");
-  if (sawTest && (unclearTest || tests !== 1 || !passTo || !failTo)) flags.push("Unparsed test.");
+  if (sawFight) {
+    if (!fightName) flags.push(FLAG.fightName);
+    if (!validRounds(fightRounds)) flags.push(FLAG.fightRounds);
+    if (fights > 1) flags.push(FLAG.fightTwice);
+    if (extra.has("win")) flags.push(FLAG.winExtra);
+    else if (!winTo) flags.push(FLAG.noWin);
+    if (problems.has(FLAG.secondWin)) flags.push(FLAG.secondWin);
+    // No lose link means losing ends the adventure, so that is not a flag.
+    if (extra.has("lose")) flags.push(FLAG.loseExtra);
+    if (problems.has(FLAG.secondLose)) flags.push(FLAG.secondLose);
+  }
+  if (sawTest) {
+    if (tests === 0) flags.push(FLAG.noTest);
+    if (tests > 1) flags.push(FLAG.testTwice);
+    for (const flag of [FLAG.testModifier, FLAG.testSkill]) if (problems.has(flag)) flags.push(flag);
+    if (extra.has("pass")) flags.push(FLAG.passExtra);
+    else if (!passTo) flags.push(FLAG.noPass);
+    if (problems.has(FLAG.secondPass)) flags.push(FLAG.secondPass);
+    if (extra.has("fail")) flags.push(FLAG.failExtra);
+    else if (!failTo) flags.push(FLAG.noFail);
+    if (problems.has(FLAG.secondFail)) flags.push(FLAG.secondFail);
+  }
   const modes = [sawFight, sawTest, choices.length > 0].filter(Boolean).length;
-  if (modes > 1) flags.push("This section has more than one kind of exit.");
-  if (!sawFight && !sawTest && choices.length === 0) flags.push("This section has no exits.");
-  if (ticked) flags.push("A ticked box needs a name before it can be a condition.");
+  if (modes > 1) flags.push(FLAG.mixedExits);
+  if (!sawFight && !sawTest && choices.length === 0) flags.push(FLAG.noExits);
+  if (problems.has(FLAG.tickCondition)) flags.push(FLAG.tickCondition);
+  if (tickTo && !tickOnEnter && !choices.some((choice) => choice.tick)) flags.push(FLAG.tickNever);
   const passage = passageText(body);
   if (!passage) flags.push("This section has no passage.");
 
@@ -400,6 +502,8 @@ function parseSection(
     fightPenalty,
     winTo,
     loseTo,
+    tickTo,
+    tickOnEnter: Boolean(tickTo) && tickOnEnter,
     sawTest,
     sawFight,
     pageIndex: raw.pageIndex,
@@ -446,6 +550,7 @@ function destinations(section: DraftSection): string[] {
     section.failTo,
     section.winTo,
     section.loseTo,
+    section.tickTo,
   ].filter((destination) => destination !== "");
 }
 
@@ -453,17 +558,24 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
   const number = section.number.trim();
   const body = passageBody(section.passage);
   if (!body) return { ok: false, step: 5, error: `Section ${number || "?"} needs a passage.` };
-  const fightOn = Boolean(section.fightName.trim() && section.winTo.trim() && section.loseTo.trim() && validRounds(section.fightRounds));
+  // A fight needs a win section. With no lose section, losing ends the adventure.
+  const fightOn = Boolean(section.fightName.trim() && section.winTo.trim() && validRounds(section.fightRounds));
   const testOn = Boolean(section.passTo.trim() && section.failTo.trim());
   const choices = section.choices.filter((choice) => choice.label.trim() || choice.to.trim());
   const filled = [fightOn, testOn, choices.length > 0].filter(Boolean).length;
   if (filled !== 1) {
     return { ok: false, step: 5, error: `Section ${number} needs one exit: choices, a test, or a fight.` };
   }
+  const box = boxTick(number);
+  const tickTo = section.tickTo.trim();
+  const enter: SectionEnter | undefined = tickTo
+    ? { jump: { when: { op: "ticked", id: box.id }, to: tickTo }, ...(section.tickOnEnter ? { effects: [box] } : {}) }
+    : undefined;
   const base = {
     id: number,
     title: clip(section.title.trim(), 120),
     body,
+    ...(enter ? { enter } : {}),
   };
   if (fightOn) {
     const id = bookSlug(section.fightName) === "imported-book" ? "fight" : bookSlug(section.fightName);
@@ -483,7 +595,7 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
           stat: "talent",
           ...(penalty === undefined ? {} : { modifier: penalty }),
           wound: { stat: "vitality", amount: 1, defeatAtOrBelow: 0 },
-          defeatSection: section.loseTo.trim(),
+          ...(section.loseTo.trim() ? { defeatSection: section.loseTo.trim() } : {}),
           then: section.winTo.trim(),
         },
       },
@@ -517,11 +629,17 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
     id: `c${index + 1}`,
     label: clip(choice.label.trim(), 160),
     to: choice.to.trim(),
+    ...(choice.tick && tickTo ? { effects: [box] } : {}),
   }));
   if (built.some((choice) => !choice.label || !choice.to)) {
     return { ok: false, step: 5, error: `Section ${number} has a choice without words or a destination.` };
   }
   return { ok: true, section: { ...base, choices: built } };
+}
+
+/** The box a section asks you to tick, named after the section: "box-12". */
+function boxTick(number: string): Effect & { op: "tick" } {
+  return { op: "tick", id: `box-${number}`, label: `§${number} box` };
 }
 
 function monsterName(units: readonly string[], winIndex: number): string {
@@ -581,9 +699,15 @@ function tidyLine(line: string): string {
     .trim();
 }
 
-/** Split logical lines into sentences. Blank lines stay as paragraph breaks. */
+/**
+ * Split logical lines into sentences. Blank lines stay as paragraph breaks. A capital "If you"
+ * straight after a lowercase word starts a new sentence too: a stat line such as
+ * "Wolf Fight one round with Advantage if you can" has no full stop before "If you win".
+ */
 export function sentences(lines: readonly string[]): string[] {
-  return lines.flatMap((line) => (line ? line.split(/(?<=[.!?]['"’”)]?)\s+(?=['"‘“(]?[A-Z])/).filter(Boolean) : [""]));
+  return lines.flatMap((line) =>
+    line ? line.split(/(?<=[.!?]['"’”)]?)\s+(?=['"‘“(]?[A-Z])|(?<=[a-z])\s+(?=If you\b)/).filter(Boolean) : [""],
+  );
 }
 
 /**
@@ -613,7 +737,7 @@ function turnSegments(unit: string): string[] {
  * system, so ordinary words such as "test the rope" are left alone. A modifier such as
  * "at -2" or "with a bonus" cannot be stored on a draft test yet, so it keeps the test flagged.
  */
-function findTest(unit: string, system: SystemDef): { skill: string; unclear: boolean } | null {
+function findTest(unit: string, system: SystemDef): { skill: string; unknownSkill: boolean; modifier: boolean } | null {
   const match = /\btest (your )?([A-Za-z]+)/i.exec(unit);
   const word = match?.[2]?.toLowerCase();
   if (!match || !word) return null;
@@ -622,7 +746,7 @@ function findTest(unit: string, system: SystemDef): { skill: string; unclear: bo
   if (!match[1] && !known && !talent) return null;
   const after = unit.slice((match.index ?? 0) + match[0].length);
   const modifier = /^\s*\(?\s*(?:at\s*[−+-]?\d|with\b)/i.test(after);
-  return { skill: known?.id ?? "", unclear: (!known && !talent) || modifier };
+  return { skill: known?.id ?? "", unknownSkill: !known && !talent, modifier };
 }
 
 function countValue(raw: string): string {

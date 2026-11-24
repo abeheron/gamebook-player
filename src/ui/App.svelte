@@ -5,7 +5,7 @@
   import type { Book, Illustration, RollRecord, Session } from "../format/types";
   import { canRestore } from "../engine/restore";
   import { conditionHolds } from "../engine/state";
-  import { acceptTest, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
+  import { acceptTest, adventureOver, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
   import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withIllustration, withPref, type IllustrationMode, type StoredDicePrefs } from "./dice-prefs";
@@ -430,7 +430,7 @@
   }
 
   function onRollCombat(): void {
-    if (diceRolling || arrival) return;
+    if (diceRolling || arrival || adventureOver(book, session.state)) return;
     combatSelected = null;
     const next = rollCombatRound(plainSession(), book, demoSystem, Math.random);
     const roll = next.state.rolls[next.state.rolls.length - 1];
@@ -446,7 +446,7 @@
   }
 
   function onRerollCombat(): void {
-    if (diceRolling || arrival || combatSelected === null) return;
+    if (diceRolling || arrival || combatSelected === null || adventureOver(book, session.state)) return;
     if (fortuneNow < demoSystem.fortuneRerollCost) return;
     const last = combatRolls[combatRolls.length - 1];
     if (!last) return;

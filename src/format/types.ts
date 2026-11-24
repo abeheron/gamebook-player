@@ -88,7 +88,8 @@ export interface CombatDef {
   stat: string;
   modifier?: number;
   wound: { stat: string; amount: number; defeatAtOrBelow: number };
-  defeatSection: string;
+  /** Where a defeat sends the player. Absent means defeat ends the adventure. */
+  defeatSection?: string;
   then: string;
 }
 
@@ -100,10 +101,21 @@ export interface Illustration {
   alt: string;
 }
 
+/**
+ * Runs when the player arrives at a section. If `jump.when` already holds, the player goes
+ * straight to `jump.to`. Otherwise `effects` apply and the player stays. A box the book
+ * asks you to tick ("If the box above is ticked, turn to N. If not, tick it now") uses this.
+ */
+export interface SectionEnter {
+  jump?: { when: Condition; to: string };
+  effects?: Effect[];
+}
+
 export interface Section {
   id: string;
   title: string;
   body: string[];
+  enter?: SectionEnter;
   choices?: Choice[];
   test?: TestDef;
   combat?: CombatDef;

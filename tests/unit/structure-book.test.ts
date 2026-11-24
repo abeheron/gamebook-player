@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { demoSystem } from "../../src/format/demo";
+import { adventureOver, choose, currentSection, rollCombatRound, startSession, visibleChoices } from "../../src/engine/rules";
 import {
+  FLAG,
   countDraft,
   draftToBook,
   flaggedNotice,
@@ -96,10 +98,14 @@ describe("section structuring", () => {
     const byNumber = (number: string) => draft.sections.filter((section) => section.number === number);
     expect(byNumber("2")).toHaveLength(2);
     expect(byNumber("2")[0]?.flags).toEqual(expect.arrayContaining(["Duplicate section number.", "Numbering does not start at 1."]));
-    expect(byNumber("4")[0]?.flags).toContain("Unparsed test.");
+    expect(byNumber("4")[0]?.flags).toEqual(expect.arrayContaining([FLAG.testSkill, FLAG.noFail]));
+    expect(byNumber("4")[0]?.flags).not.toContain(FLAG.noPass);
     expect(byNumber("4")[0]?.flags).toContain("Numbering skips 3.");
-    expect(byNumber("6")[0]?.flags).toContain("Unparsed fight.");
-    expect(byNumber("8")[0]?.flags).toContain("A ticked box needs a name before it can be a condition.");
+    expect(byNumber("6")[0]?.flags).toContain(FLAG.fightRounds);
+    if (byNumber("6")[0]) expect(placeFlags(byNumber("6")[0]!).fight).toEqual([FLAG.fightRounds]);
+    expect(byNumber("6")[0]?.flags).not.toContain(FLAG.noWin);
+    expect(byNumber("8")[0]?.tickTo).toBe("2");
+    expect(byNumber("8")[0]?.flags).toContain(FLAG.tickNever);
     expect(byNumber("10")[0]?.flags).toContain("This section has no exits.");
     expect(countDraft(draft).missingDestinations).toBe(0);
   });
@@ -143,22 +149,32 @@ describe("section structuring", () => {
     if (built.ok) expect(built.book.sections[0]?.combat?.modifier).toBe(-2);
   });
 
-  it("keeps a ticked choice as words, not a tick link", () => {
+  it("names a ticked box after its section and wires its jump", () => {
     const draft = structurePages(
-      [{ ref: "Page 1", text: ["1.", "A box is here.", "If the box above is ticked, turn to 2.", "2.", "Onward.", "Turn to 1."].join("\n") }],
+      [
+        {
+          ref: "Page 1",
+          text: ["1.", "If the box above is ticked, turn to 2.", "If not, put a tick there now and read on.", "A box is here.", "Turn to 2.", "2.", "Onward.", "Turn to 1."].join("\n"),
+        },
+      ],
       { title: "Box", author: "Original sample", source: "pdf" },
       demoSystem,
     );
-    const choice = draft.sections[0]?.choices[0];
-    expect(choice?.label).toBe("If the box above is ticked, turn to 2.");
-    expect(choice?.to).toBe("2");
-    expect(draft.sections[0]?.flags).toContain("A ticked box needs a name before it can be a condition.");
-    if (draft.sections[0]) expect(placeFlags(draft.sections[0]).choices[0]).toContain("A ticked box needs a name before it can be a condition.");
-    const built = structuredClone(draft);
-    built.sections[0]?.flags.splice(0);
-    const book = draftToBook(built, demoSystem);
+    const box = draft.sections[0];
+    expect(box?.tickTo).toBe("2");
+    expect(box?.tickOnEnter).toBe(true);
+    expect(box?.choices).toEqual([{ label: "Turn to 2.", to: "2" }]);
+    expect(box?.passage).toBe("If the box above is ticked, turn to 2. If not, put a tick there now and read on. A box is here.");
+    expect(box?.flags).toEqual([]);
+    const book = draftToBook(draft, demoSystem);
     expect(book.ok).toBe(true);
-    if (book.ok) expect(book.book.sections[0]?.choices?.[0]).toEqual({ id: "c1", label: "If the box above is ticked, turn to 2.", to: "2" });
+    if (book.ok) {
+      expect(book.book.sections[0]?.enter).toEqual({
+        jump: { when: { op: "ticked", id: "box-1" }, to: "2" },
+        effects: [{ op: "tick", id: "box-1", label: "§1 box" }],
+      });
+      expect(book.book.sections[0]?.choices).toEqual([{ id: "c1", label: "Turn to 2.", to: "2" }]);
+    }
   });
 });
 
@@ -287,8 +303,9 @@ describe("test and fight wording", () => {
       "Test Diplomacy with a +1 bonus if you have a seal.",
       "If you succeed, turn to 1. If you fail, turn to 1.",
     );
-    expect(section(draft, "1").flags).toContain("Unparsed test.");
-    expect(section(draft, "2").flags).toContain("Unparsed test.");
+    expect(section(draft, "1").flags).toEqual([FLAG.testModifier]);
+    expect(section(draft, "2").flags).toEqual([FLAG.testModifier]);
+    expect(placeFlags(section(draft, "1")).test).toEqual([FLAG.testModifier]);
   });
 
   it("keeps every link when a section holds more than one test", () => {
@@ -306,7 +323,9 @@ describe("test and fight wording", () => {
     const both = section(draft, "1");
     expect(both.passTo).toBe("2");
     expect(both.choices.map((choice) => choice.to)).toEqual(["3"]);
-    expect(both.flags).toContain("Unparsed test.");
+    expect(both.flags).toContain(FLAG.testTwice);
+    expect(both.flags).toContain(FLAG.noFail);
+    expect(placeFlags(both)).toMatchObject({ test: [FLAG.testTwice], fail: [FLAG.noFail], pass: [FLAG.secondPass] });
   });
 
   it("reads an enemy on its stat line, with rounds in words and a penalty", () => {
@@ -327,13 +346,209 @@ describe("test and fight wording", () => {
     expect(fight.winTo).toBe("2");
     expect(fight.choices).toEqual([]);
     expect(fight.passage).toBe("Something stirs in the reeds. You must fight:");
-    // No defeat destination is given, so the reader still has to supply one.
-    expect(fight.flags).toEqual(["Unparsed fight."]);
+    // No defeat destination: losing ends the adventure, so nothing is flagged.
+    expect(fight.loseTo).toBe("");
+    expect(fight.flags).toEqual([]);
+    const built = draftToBook(draft, demoSystem);
+    expect(built.ok).toBe(true);
+    if (built.ok) {
+      expect(built.book.sections[0]?.combat?.then).toBe("2");
+      expect(built.book.sections[0]?.combat).not.toHaveProperty("defeatSection");
+    }
   });
 
-  it("flags a ticked-box link that follows 'If not, but'", () => {
-    const draft = draftOf("1.", "If you hold a lantern, turn to 2.", "If not, but the box above is ticked, turn to 2.", "Turn to 2.", "2.", "End.", "Turn to 1.");
-    expect(section(draft, "1").flags).toContain("A ticked box needs a name before it can be a condition.");
+  it("keeps flagging a ticked-box link that depends on an earlier link", () => {
+    // "If not, but" follows another condition, so jumping on arrival could skip that link.
+    const draft = draftOf("1.", "A hut.", "If you hold a lantern, turn to 2.", "If not, but the box above is ticked, turn to 2.", "Turn to 2.", "2.", "End.", "Turn to 1.");
+    expect(section(draft, "1").tickTo).toBe("");
+    expect(section(draft, "1").flags).toEqual([FLAG.tickCondition]);
+    expect(placeFlags(section(draft, "1")).choices[1]).toEqual([FLAG.tickCondition]);
   });
 });
 
+
+describe("fight condition words stay visible", () => {
+  it("keeps condition words on the same line as the rounds", () => {
+    const draft = draftOf(
+      "1.",
+      "A heron stabs at you:",
+      "Grey heron Fight two rounds with Advantage if you carry a net",
+      "If you win, turn to 2 .",
+      "2.",
+      "Calm water.",
+      "Turn to 1.",
+    );
+    const fight = section(draft, "1");
+    expect(fight.fightName).toBe("Grey heron");
+    expect(fight.fightRounds).toBe("2");
+    expect(fight.winTo).toBe("2");
+    expect(fight.passage).toBe("A heron stabs at you: Grey heron Fight two rounds with Advantage if you carry a net");
+    expect(fight.flags).toEqual([]);
+  });
+
+  it("keeps condition words that wrap onto the next line", () => {
+    const draft = draftOf(
+      "1.",
+      "The kite swoops:",
+      "Red kite Fight one round with Disadvantage unless you can",
+      "shout a warding word, or if you hold a long pole",
+      "If you win, turn to 2 .",
+      "2.",
+      "The sky clears.",
+      "Turn to 1.",
+    );
+    const fight = section(draft, "1");
+    expect(fight.fightName).toBe("Red kite");
+    expect(fight.winTo).toBe("2");
+    expect(fight.passage).toBe(
+      "The kite swoops: Red kite Fight one round with Disadvantage unless you can shout a warding word, or if you hold a long pole",
+    );
+    expect(fight.flags).toEqual([]);
+    const built = draftToBook(draft, demoSystem);
+    expect(built.ok).toBe(true);
+    if (built.ok) expect(built.book.sections[0]?.body.join(" ")).toContain("if you hold a long pole");
+  });
+
+  it("keeps condition words after a short name line above 'Fight one round'", () => {
+    const draft = draftOf(
+      "1.",
+      "A shape rises from the bog.",
+      "Bog wraith",
+      "Fight one round with Advantage if you carry a torch",
+      "If you win, turn to 2 .",
+      "2.",
+      "Mist.",
+      "Turn to 1.",
+    );
+    const fight = section(draft, "1");
+    expect(fight.fightName).toBe("Bog wraith");
+    expect(fight.fightRounds).toBe("1");
+    expect(fight.passage).toBe("A shape rises from the bog. Fight one round with Advantage if you carry a torch");
+    expect(fight.flags).toEqual([]);
+  });
+
+  it("still drops a bare name and rounds line, which the fight already shows", () => {
+    const draft = draftOf("1.", "A rat bites.", "Cellar rat Fight one round", "If you win, turn to 2 .", "2.", "Quiet.", "Turn to 1.");
+    expect(section(draft, "1").passage).toBe("A rat bites.");
+  });
+});
+
+describe("specific flag reasons", () => {
+  it("names the missing, doubled, or overloaded win link and places it under Win", () => {
+    const draft = draftOf(
+      "1.",
+      "A goat charges.",
+      "Hill goat Fight two rounds",
+      "2.",
+      "A crab snaps.",
+      "Shore crab Fight one round",
+      "If you win, turn to 1. If you win, turn to 3.",
+      "3.",
+      "A boar.",
+      "Boar Fight one round",
+      "If you survive, add one to your score and turn to 1.",
+      "If you lose, turn to 2. If you are defeated, turn to 1.",
+    );
+    expect(section(draft, "1").flags).toEqual([FLAG.noWin]);
+    expect(placeFlags(section(draft, "1")).win).toEqual([FLAG.noWin]);
+    expect(section(draft, "2").flags).toEqual(expect.arrayContaining([FLAG.secondWin]));
+    expect(placeFlags(section(draft, "2")).win).toEqual([FLAG.secondWin]);
+    const boar = section(draft, "3");
+    expect(boar.flags).toEqual(expect.arrayContaining([FLAG.winExtra, FLAG.secondLose]));
+    expect(boar.flags).not.toContain(FLAG.noWin);
+    expect(placeFlags(boar)).toMatchObject({ win: [FLAG.winExtra], lose: [FLAG.secondLose], fight: [] });
+  });
+
+  it("never flags a fight only because it has no lose link", () => {
+    const draft = draftOf("1.", "An eel.", "Pond eel Fight one round", "If you win, turn to 2.", "2.", "Done.", "Turn to 1.");
+    expect(section(draft, "1").flags).toEqual([]);
+    expect(draft.sections.flatMap((entry) => entry.flags)).not.toContain("No section to turn to if you lose.");
+  });
+});
+
+describe("a ticked box with a fight", () => {
+  const lines = [
+    "1.",
+    "A ford.",
+    "Turn to 2.",
+    "2.",
+    "If the box above is ticked, turn to 4.",
+    "If not, put a tick there now and read on.",
+    "A gnat swarm rises:",
+    "Gnat swarm Fight one round",
+    "If you win, turn to 3.",
+    "3.",
+    "The swarm is gone.",
+    "Turn to 1.",
+    "4.",
+    "Only the ford remains.",
+    "Turn to 1.",
+  ];
+
+  it("ticks on the first visit, plays the fight, and takes the jump on a later visit", () => {
+    const draft = draftOf(...lines);
+    expect(section(draft, "2").flags).toEqual([]);
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    const book = built.book;
+    const always = () => 0;
+
+    let session = startSession(book, demoSystem);
+    session = choose(session, book, demoSystem, "c1");
+    expect(currentSection(book, session).id).toBe("2");
+    expect(session.state.ticks["box-2"]).toEqual({ label: "§2 box", count: 1 });
+    session = rollCombatRound(session, book, demoSystem, always);
+    expect(currentSection(book, session).id).toBe("3");
+
+    session = choose(session, book, demoSystem, "c1");
+    session = choose(session, book, demoSystem, "c1");
+    expect(currentSection(book, session).id).toBe("4");
+    expect(session.state.ticks["box-2"]?.count).toBe(1);
+  });
+
+  it("ticks through the choice that says so when the section does not tick on arrival", () => {
+    const draft = draftOf(
+      "1.",
+      "If the box above is ticked, turn to 3.",
+      "A vase sits on a plinth.",
+      "If you lift the vase, put a tick in the box above and turn to 2.",
+      "If you leave it, turn to 3.",
+      "2.",
+      "It is heavy.",
+      "Turn to 1.",
+      "3.",
+      "A quiet hall.",
+      "Turn to 1.",
+    );
+    const vase = section(draft, "1");
+    expect(vase.tickOnEnter).toBe(false);
+    expect(vase.flags).toEqual([]);
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    const book = built.book;
+    expect(book.sections[0]?.enter).toEqual({ jump: { when: { op: "ticked", id: "box-1" }, to: "3" } });
+    let session = startSession(book, demoSystem);
+    expect(currentSection(book, session).id).toBe("1");
+    expect(visibleChoices(currentSection(book, session), session.state).map((choice) => choice.id)).toEqual(["c1", "c2"]);
+    session = choose(session, book, demoSystem, "c1");
+    expect(session.state.ticks["box-1"]?.count).toBe(1);
+    session = choose(session, book, demoSystem, "c1");
+    expect(currentSection(book, session).id).toBe("3");
+  });
+
+  it("ends the adventure when a fight with no lose link is lost", () => {
+    const draft = draftOf(...lines);
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    const book = built.book;
+    let session = startSession(book, demoSystem);
+    session = choose(session, book, demoSystem, "c1");
+    session.state.stats.vitality = 1;
+    session = rollCombatRound(session, book, demoSystem, () => 0.99);
+    expect(currentSection(book, session).id).toBe("2");
+    expect(session.state.stats.vitality).toBe(0);
+    expect(session.state.pending).toBeNull();
+    expect(adventureOver(book, session.state)).toBe(true);
+    expect(() => rollCombatRound(session, book, demoSystem, () => 0)).toThrow("The adventure is over.");
+  });
+});
