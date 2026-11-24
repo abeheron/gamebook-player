@@ -182,6 +182,14 @@ test("a first open has no book in play: an empty Library, no Lantern Stair card,
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("mobile-book")).toHaveText("No book in play");
   await expect(page.getByTestId("mobile-library")).toHaveAttribute("aria-current", "page");
+  for (const id of ["mobile-read", "mobile-character", "mobile-test", "mobile-keywords"]) {
+    await expect(page.getByTestId(id)).toHaveClass(/\blocked\b/);
+    await expect(page.getByTestId(id)).toHaveCSS("opacity", "0.5");
+  }
+  for (const id of ["mobile-library", "mobile-rules"]) {
+    await expect(page.getByTestId(id)).not.toHaveClass(/\blocked\b/);
+    await expect(page.getByTestId(id)).toHaveCSS("opacity", "1");
+  }
 
   await page.reload();
   await expect(page.getByTestId("mobile-book")).toHaveText("No book in play");

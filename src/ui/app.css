@@ -1922,7 +1922,8 @@ button.die {
 }
 
 .side button.locked,
-.side button.locked:hover {
+.side button.locked:hover,
+.mobilebar button.locked {
   color: var(--muted);
   background: transparent;
   cursor: default;
@@ -2140,4 +2141,9 @@ button.die {
 
 .mobilebar button:disabled {
   cursor: default;
+}
+
+/* Phone items are already muted, so locked ones also take the .btn:disabled fade. */
+.mobilebar button.locked {
+  opacity: 0.5;
 }

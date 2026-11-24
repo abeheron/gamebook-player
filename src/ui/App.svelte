@@ -959,16 +959,16 @@
 </div>
 {#if !creating}
 <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
-  <button type="button" disabled={noBook} data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
+  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
     Read
   </button>
-  <button type="button" disabled={noBook} data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
+  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
     Character
   </button>
-  <button type="button" disabled={noBook} data-testid="mobile-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
+  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
     Test &amp; fight
   </button>
-  <button type="button" disabled={noBook} data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
+  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
     Keywords &amp; ticks
   </button>
   <button type="button" data-testid="mobile-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
