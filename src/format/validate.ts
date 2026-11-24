@@ -8,6 +8,7 @@ import type {
   Illustration,
   NamedValue,
   Section,
+  SectionEnter,
   SkillDef,
   SkillRank,
   StatDef,
@@ -142,10 +143,13 @@ export function validateBook(input: unknown, system: SystemDef): Book {
       }
     }
     if (section.combat) {
-      if (!ids.has(section.combat.defeatSection) || !ids.has(section.combat.then)) {
+      const defeat = section.combat.defeatSection;
+      if ((defeat !== undefined && !ids.has(defeat)) || !ids.has(section.combat.then)) {
         fail(`book.sections.${section.id}.combat`, "unknown destination");
       }
     }
+    const jump = section.enter?.jump;
+    if (jump && (!ids.has(jump.to) || jump.to === section.id)) fail(`book.sections.${section.id}.enter.jump`, "unknown destination");
   }
   return {
     id: identifier(root.id, "book.id"),
@@ -180,7 +184,8 @@ function validateStat(input: unknown, path: string): StatDef {
 
 function validateSection(input: unknown, path: string, system: SystemDef): Section {
   const root = record(input, path);
-  requireKeys(root, ["id", "title", "body", "choices", "test", "combat", "illustration"], path, [
+  requireKeys(root, ["id", "title", "body", "enter", "choices", "test", "combat", "illustration"], path, [
+    "enter",
     "choices",
     "test",
     "combat",
@@ -193,6 +198,7 @@ function validateSection(input: unknown, path: string, system: SystemDef): Secti
       text(paragraph, `${path}.body[${index}]`, 1, 2000),
     ),
   };
+  if ("enter" in root) section.enter = validateEnter(root.enter, `${path}.enter`, system);
   if ("choices" in root) {
     section.choices = arrayOf(root.choices, `${path}.choices`, 1, 12).map((entry, index) =>
       validateChoice(entry, `${path}.choices[${index}]`, system),
@@ -206,6 +212,27 @@ function validateSection(input: unknown, path: string, system: SystemDef): Secti
     fail(path, "a section needs choices, a test, or a combat, and only one of them");
   }
   return section;
+}
+
+function validateEnter(input: unknown, path: string, system: SystemDef): SectionEnter {
+  const root = record(input, path);
+  requireKeys(root, ["jump", "effects"], path, ["jump", "effects"]);
+  const enter: SectionEnter = {};
+  if ("jump" in root) {
+    const jump = record(root.jump, `${path}.jump`);
+    requireKeys(jump, ["when", "to"], `${path}.jump`);
+    enter.jump = {
+      when: validateCondition(jump.when, `${path}.jump.when`, system, 0),
+      to: sectionId(jump.to, `${path}.jump.to`),
+    };
+  }
+  if ("effects" in root) {
+    enter.effects = arrayOf(root.effects, `${path}.effects`, 1, 8).map((entry, index) =>
+      validateEffect(entry, `${path}.effects[${index}]`, system),
+    );
+  }
+  if (!enter.jump && !enter.effects) fail(path, "expected a jump or effects");
+  return enter;
 }
 
 function validateIllustration(input: unknown, path: string): Illustration {
@@ -272,7 +299,7 @@ function validateCombat(input: unknown, path: string, system: SystemDef): Combat
     root,
     ["id", "label", "rounds", "dice", "stat", "modifier", "wound", "defeatSection", "then"],
     path,
-    ["modifier"],
+    ["modifier", "defeatSection"],
   );
   const wound = record(root.wound, `${path}.wound`);
   requireKeys(wound, ["stat", "amount", "defeatAtOrBelow"], `${path}.wound`);
@@ -287,9 +314,9 @@ function validateCombat(input: unknown, path: string, system: SystemDef): Combat
       amount: integer(wound.amount, `${path}.wound.amount`, 1, 20),
       defeatAtOrBelow: integer(wound.defeatAtOrBelow, `${path}.wound.defeatAtOrBelow`, -100, 100),
     },
-    defeatSection: sectionId(root.defeatSection, `${path}.defeatSection`),
     then: sectionId(root.then, `${path}.then`),
   };
+  if ("defeatSection" in root) combat.defeatSection = sectionId(root.defeatSection, `${path}.defeatSection`);
   if ("modifier" in root) combat.modifier = integer(root.modifier, `${path}.modifier`, -20, 20);
   return combat;
 }

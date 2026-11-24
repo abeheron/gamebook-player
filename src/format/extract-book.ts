@@ -33,19 +33,29 @@ function ensureReader(): void {
   if (!readerReady) throw new Error("PDF reader was not configured.");
 }
 
+/** Called when step 2 (text extracted) or step 3 (structured) completes. It may return a promise to let the UI paint. */
+export type ConvertProgress = (step: 2 | 3) => void | Promise<void>;
+
 /** Read a PDF or EPUB that is already in memory. Step 1, the file read, is the caller's. */
-export async function convertBytes(data: Uint8Array, filename: string, system: SystemDef): Promise<ConvertedFile> {
+export async function convertBytes(
+  data: Uint8Array,
+  filename: string,
+  system: SystemDef,
+  onProgress?: ConvertProgress,
+): Promise<ConvertedFile> {
   const kind = fileKind(data);
   if (kind === "other") return { ok: false, step: 2, error: UNREADABLE };
   try {
     const extracted = kind === "pdf" ? await extractPdf(data, filename) : await extractEpub(data, filename);
     if (!extracted.ok) return extracted;
+    await onProgress?.(2);
     const draft = structurePages(
       extracted.pages,
       { title: extracted.title, author: extracted.author, source: kind === "pdf" ? "pdf" : "epub" },
       system,
     );
     if (draft.sections.length === 0) return { ok: false, step: 3, error: UNRECOGNISED };
+    await onProgress?.(3);
     return { ok: true, draft };
   } catch {
     return { ok: false, step: 2, error: UNREADABLE };

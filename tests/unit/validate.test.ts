@@ -56,6 +56,22 @@ describe("book validation", () => {
     expect(() => validateBook(book, demoSystem)).toThrow(/effect is not allowed/);
   });
 
+  it("allows a fight with no defeat section and checks a section's enter jump", () => {
+    const book = editableBook();
+    const sections = book.sections as Record<string, unknown>[];
+    const fight = sections.find((entry) => "combat" in entry) as { combat: Record<string, unknown> } & Record<string, unknown>;
+    delete fight.combat.defeatSection;
+    fight.enter = { jump: { when: { op: "ticked", id: "box-9" }, to: String(sections[0]?.id) }, effects: [{ op: "tick", id: "box-9", label: "Box" }] };
+    const valid = validateBook(book, demoSystem);
+    const checked = valid.sections.find((entry) => entry.combat);
+    expect(checked?.combat?.defeatSection).toBeUndefined();
+    expect(checked?.enter?.jump?.when).toEqual({ op: "ticked", id: "box-9" });
+    fight.enter = { jump: { when: { op: "ticked", id: "box-9" }, to: "999" } };
+    expect(() => validateBook(book, demoSystem)).toThrow(/enter.jump: unknown destination/);
+    fight.enter = {};
+    expect(() => validateBook(book, demoSystem)).toThrow(/expected a jump or effects/);
+  });
+
   it("rejects links that leave the book and dice that is not dice", () => {
     const book = editableBook();
     const sections = book.sections as { choices?: { to: string }[]; test?: { dice: string } }[];

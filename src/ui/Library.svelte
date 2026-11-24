@@ -82,7 +82,11 @@
       prepareBrowserPdf();
       readerReady = true;
     }
-    const result = await convertBytes(bytes, file.name, system);
+    const result = await convertBytes(bytes, file.name, system, async (done) => {
+      steps = labels.map((_, index) => (index < done ? "ok" : "wait"));
+      // Structuring runs synchronously, so yield once to let the tick paint before it starts.
+      if (done === 2) await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     if (!result.ok) {
       stop(result.step, result.error);
       return;
