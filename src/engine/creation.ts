@@ -111,3 +111,18 @@ export function fixtureCharacter(system: SystemDef): Character {
     shield: false,
   };
 }
+
+/**
+ * The ready-made hero for the hidden P32 fixture: the starting kit, with Climbing and
+ * Naturalist as the free skills, so a Naturalist test reads Talent 9 + 2 Naturalist = 11.
+ */
+export function gladeCharacter(system: SystemDef): Character {
+  const base = fixtureCharacter(system);
+  return {
+    ...base,
+    skills: [
+      { id: "climbing", bonus: system.basicSkillBonus },
+      { id: "naturalist", bonus: system.basicSkillBonus },
+    ],
+  };
+}

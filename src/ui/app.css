@@ -276,6 +276,23 @@ input {
   margin-top: 8px;
 }
 
+/* P32: the fail-only mark on a choice beside a test, styled like the dice-setting checkboxes. */
+.review label.fail-only {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0 0;
+  cursor: pointer;
+}
+
+.review label.fail-only input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
 .choice-edit {
   display: flex;
   flex-wrap: nowrap;
@@ -1145,6 +1162,34 @@ h2 {
 .choice:disabled {
   opacity: 0.62;
   cursor: not-allowed;
+}
+
+/* P32: a locked choice keeps its section number, muted. */
+.choice:disabled .to {
+  color: var(--muted);
+}
+
+/* P32: the label between a standing test card and the choices beside it. */
+.or-label {
+  font: 600 14px var(--sans);
+  color: var(--muted);
+  margin: 18px 0 10px;
+}
+
+.or-label + .choices {
+  margin-top: 0;
+}
+
+/* P32: the muted line under the destinations when a result leaves the player to choose below. */
+.test-panel .fail-hint {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+  margin: 14px 0;
+}
+
+.test-panel .dest + .fail-hint {
+  margin-top: -6px;
 }
 
 .why {
@@ -2171,6 +2216,11 @@ button.die {
   .test-panel .fortune-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  /* P32 phone sketch: on the standing card, Roll is full width too. Test-only cards are unchanged. */
+  .test-panel.standing [data-testid="roll-test"] {
+    width: 100%;
   }
 }
 

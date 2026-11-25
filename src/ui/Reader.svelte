@@ -118,7 +118,8 @@
       <p>{paragraph}</p>
     {/each}
   </div>
-  {#if section.test}
+  {#if section.test && !section.choices}
+    <!-- A test-only section opens its compact test here. Beside choices, the test is a standing card instead. -->
     <button
       id="open-test"
       type="button"

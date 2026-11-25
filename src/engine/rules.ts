@@ -7,6 +7,7 @@ import type {
   Book,
   Character,
   Choice,
+  Effect,
   GameState,
   PendingAction,
   PendingCombat,
@@ -14,6 +15,8 @@ import type {
   Section,
   Session,
   SystemDef,
+  TestBranch,
+  TestDef,
 } from "../format/types";
 
 const UNDO_LIMIT = 50;
@@ -71,19 +74,44 @@ export function undo(session: Session): Session {
 }
 
 export function visibleChoices(section: Section, state: GameState): Choice[] {
-  if (state.pending || lostHere(section, state)) return [];
+  if (lostHere(section, state) || !choicesOpen(section, state)) return [];
   return (section.choices ?? []).filter((choice) => !choice.when || conditionHolds(choice.when, state));
+}
+
+/**
+ * Choices beside a test stay open before the roll and after a result that stays here. A pass
+ * that turns to a section must be taken, as a test pass always is. Any other held action closes them.
+ */
+export function choicesOpen(section: Section, state: GameState): boolean {
+  const pending = state.pending;
+  if (!pending) return true;
+  if (pending.kind !== "test" || pending.sectionId !== section.id || !section.test) return false;
+  return resultBranch(section.test, pending.roll.success)?.to === undefined;
 }
 
 export function choose(session: Session, book: Book, system: SystemDef, choiceId: string): Session {
   const section = requireSection(book, session.state.sectionId);
-  if (session.state.pending) throw new Error("Finish the current combat before choosing.");
+  if (!choicesOpen(section, session.state)) throw new Error("Finish the current action before choosing.");
   const choice = visibleChoices(section, session.state).find((entry) => entry.id === choiceId);
   if (!choice) throw new Error("That choice is not available.");
+  const held = session.state.pending?.kind === "test" ? session.state.pending.roll : null;
   let state = applyEffects(session.state, system, choice.effects ?? []);
+  // A held test roll was settled here: its result effects are already on the sheet. Log the roll as it leaves.
+  if (held) state.rolls = recordRoll(state, held);
   state.sectionId = choice.to;
   state.pending = null;
   return commit(session, arrive(book, system, state));
+}
+
+/** The branch a test result takes. Absent means it stays here with nothing to apply. */
+export function resultBranch(test: TestDef, success: boolean): TestBranch | undefined {
+  return success ? test.success : test.failure;
+}
+
+/** Effects of a result that stays on the section. They apply when the roll settles. */
+function stayEffects(test: TestDef, success: boolean): Effect[] {
+  const branch = resultBranch(test, success);
+  return branch && branch.to === undefined ? (branch.effects ?? []) : [];
 }
 
 export function rollTest(session: Session, book: Book, system: SystemDef, rng: Rng, faces?: readonly number[]): Session {
@@ -98,7 +126,7 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
   const target = stat + (test.modifier ?? 0) + adjustment;
   const rolled = faces ? rollFaces(parsed, faces) : rollDice(parsed, rng);
   const success = skillTestSuccess(rolled.faces, rolled.total, target);
-  const branch = success ? test.success : test.failure;
+  const branch = resultBranch(test, success);
   const roll: RollRecord = {
     id: test.id,
     label: test.label,
@@ -107,7 +135,12 @@ export function rollTest(session: Session, book: Book, system: SystemDef, rng: R
     total: rolled.total,
     success,
   };
-  let state = applyEffects(session.state, system, branch.effects ?? []);
+  let state = applyEffects(session.state, system, branch?.effects ?? []);
+  if (branch?.to === undefined) {
+    // The result stays here: hold the roll so a fail-only choice can open.
+    state.pending = { kind: "test", sectionId: section.id, roll, selected: null };
+    return commit(session, state);
+  }
   state.rolls = recordRoll(state, roll);
   state.sectionId = branch.to;
   state.pending = null;
@@ -120,8 +153,10 @@ export function holdTestRoll(session: Session, book: Book, system: SystemDef, rn
   const test = section.test;
   if (!test) throw new Error("This section has no test.");
   if (session.state.pending) throw new Error("Finish the current action before rolling.");
-  const state = cloneState(session.state);
-  state.pending = { kind: "test", sectionId: section.id, roll: judgeTest(session, section, system, rng, faces), selected: null };
+  const roll = judgeTest(session, section, system, rng, faces);
+  // A result that stays here applies its effects now, so the sheet shows them while the player chooses.
+  const state = applyEffects(session.state, system, stayEffects(test, roll.success));
+  state.pending = { kind: "test", sectionId: section.id, roll, selected: null };
   return commit(session, state);
 }
 
@@ -163,7 +198,11 @@ export function rerollTestDie(
   faces[index] = nextFace;
   const rolled = rollFaces(parsed, faces);
   const success = skillTestSuccess(rolled.faces, rolled.total, testTarget(session, section, system));
-  let state = applyEffects(session.state, system, [{ op: "adjustStat", stat: system.fortuneStat, by: -system.fortuneRerollCost }]);
+  const spend: Effect = { op: "adjustStat", stat: system.fortuneStat, by: -system.fortuneRerollCost };
+  let state =
+    success === pending.roll.success
+      ? applyEffects(session.state, system, [spend])
+      : resettle(session, system, test, pending.roll.success, success);
   state.pending = {
     kind: "test",
     sectionId: pending.sectionId,
@@ -182,7 +221,8 @@ export function acceptTest(session: Session, book: Book, system: SystemDef): Ses
   const section = requireSection(book, pending.sectionId);
   const test = section.test;
   if (!test) throw new Error("This section has no test.");
-  const branch = pending.roll.success ? test.success : test.failure;
+  const branch = resultBranch(test, pending.roll.success);
+  if (branch?.to === undefined) throw new Error("This result stays here. Choose from the options.");
   let state = applyEffects(session.state, system, branch.effects ?? []);
   state.rolls = recordRoll(state, pending.roll);
   state.sectionId = branch.to;
@@ -281,6 +321,36 @@ export function rerollCombatDie(
     state.pending = null;
   }
   return commit(session, state.sectionId === section.id ? state : arrive(book, system, state));
+}
+
+/**
+ * A Fortune re-roll turned a pass into a fail or back. Takes off the effects the old result put
+ * on the sheet and puts on the new result's, then spends the Fortune. The sheet as it was before
+ * the roll is the newest undo step with no held action; the Fortune spent on earlier re-rolls is
+ * carried over. Without that step, only stat changes can be reversed, as a fight re-roll does.
+ */
+function resettle(session: Session, system: SystemDef, test: TestDef, was: boolean, now: boolean): GameState {
+  const before = stayEffects(test, was);
+  const after = stayEffects(test, now);
+  const fortune = system.fortuneStat;
+  const cost = system.fortuneRerollCost;
+  if (before.length === 0) {
+    return applyEffects(session.state, system, [{ op: "adjustStat", stat: fortune, by: -cost }, ...after]);
+  }
+  let rerolls = 0;
+  for (let index = session.undo.length - 1; index >= 0; index -= 1) {
+    const earlier = session.undo[index];
+    if (!earlier) break;
+    if (earlier.pending === null && earlier.sectionId === session.state.sectionId) {
+      const base = cloneState(earlier);
+      const spent = cost * (rerolls + 1);
+      return applyEffects(base, system, [{ op: "adjustStat", stat: fortune, by: -spent }, ...after]);
+    }
+    if (earlier.pending?.kind !== "test") break;
+    rerolls += 1;
+  }
+  const undoStats: Effect[] = before.flatMap((effect) => (effect.op === "adjustStat" ? [{ ...effect, by: -effect.by }] : []));
+  return applyEffects(session.state, system, [...undoStats, { op: "adjustStat", stat: fortune, by: -cost }, ...after]);
 }
 
 function lastCombatRoll(rolls: readonly RollRecord[], combatId: string): number {

@@ -52,7 +52,9 @@ export type Condition =
   | { op: "ticked"; id: string }
   | { op: "statAtLeast"; stat: string; value: number }
   | { op: "not"; condition: Condition }
-  | { op: "all"; conditions: Condition[] };
+  | { op: "all"; conditions: Condition[] }
+  /** Only on a choice beside a test: true while this section's held test roll has failed. */
+  | { op: "testFailed" };
 
 export interface Choice {
   id: string;
@@ -62,8 +64,12 @@ export interface Choice {
   effects?: Effect[];
 }
 
+/**
+ * One result of a test. With `to`, the result turns there. Without it, the player stays on the
+ * section and picks one of its choices; any effects apply as soon as the roll settles.
+ */
 export interface TestBranch {
-  to: string;
+  to?: string;
   effects?: Effect[];
 }
 
@@ -76,8 +82,10 @@ export interface TestDef {
   modifier?: number;
   /** When set, the character's bonus for this skill, or the absent-skill penalty, adjusts the target before the roll is judged. */
   skill?: string;
-  success: TestBranch;
-  failure: TestBranch;
+  /** Absent when a pass stays on the section with nothing to apply. The section then needs choices. */
+  success?: TestBranch;
+  /** Absent when a fail stays on the section with nothing to apply. The section then needs choices. */
+  failure?: TestBranch;
 }
 
 export interface CombatDef {
@@ -111,6 +119,7 @@ export interface SectionEnter {
   effects?: Effect[];
 }
 
+/** A section's exit is choices, a test, a test with choices beside it, or a combat. */
 export interface Section {
   id: string;
   title: string;

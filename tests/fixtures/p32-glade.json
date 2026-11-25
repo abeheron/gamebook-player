@@ -1,0 +1,63 @@
+{
+  "id": "p32-glade",
+  "title": "The Mist Glade",
+  "author": "Gamebook Player sample",
+  "rights": "Original sample text written for this repository. It is not a published gamebook, and this repository has no chosen license for it.",
+  "system": "gnat-demo",
+  "start": "1",
+  "sections": [
+    {
+      "id": "1",
+      "title": "",
+      "body": [
+        "Mist hangs over a quiet glade where a stream bends around a fallen oak. A ring of pale blue mushrooms grows at the water's edge. They smell of honey, but you cannot recall whether they are safe to eat."
+      ],
+      "test": {
+        "id": "know-mushrooms",
+        "label": "Test Naturalist",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "naturalist",
+        "success": { "to": "14" }
+      },
+      "choices": [
+        { "id": "eat-anyway", "label": "Eat a blue mushroom anyway", "to": "23", "when": { "op": "testFailed" } },
+        { "id": "follow-stream", "label": "Follow the stream north", "to": "8" },
+        { "id": "climb-oak", "label": "Climb onto the fallen oak", "to": "31" },
+        { "id": "leave-glade", "label": "Leave the glade", "to": "40" }
+      ]
+    },
+    {
+      "id": "8",
+      "title": "",
+      "body": ["The stream narrows between mossy stones and the mist thins. Somewhere ahead, a bell rings once."],
+      "choices": [{ "id": "back-to-glade", "label": "Go back to the glade", "to": "1" }]
+    },
+    {
+      "id": "14",
+      "title": "",
+      "body": [
+        "You remember a gardener's warning: blue caps that smell of honey are harmless, and the ring around them marks clean water. You drink, and feel rested."
+      ],
+      "choices": [{ "id": "back-to-glade", "label": "Return to the glade", "to": "1" }]
+    },
+    {
+      "id": "23",
+      "title": "",
+      "body": ["The mushroom tastes of nothing at all. For a moment the mist glows, then your head swims."],
+      "choices": [{ "id": "back-to-glade", "label": "Sit down by the stream", "to": "1" }]
+    },
+    {
+      "id": "31",
+      "title": "",
+      "body": ["From the top of the oak you can see a grey roof beyond the trees, and smoke rising from it."],
+      "choices": [{ "id": "back-to-glade", "label": "Climb down", "to": "1" }]
+    },
+    {
+      "id": "40",
+      "title": "",
+      "body": ["You leave the glade by a deer path. The mist closes behind you."],
+      "choices": [{ "id": "back-to-glade", "label": "Turn back", "to": "1" }]
+    }
+  ]
+}

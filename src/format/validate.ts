@@ -13,6 +13,7 @@ import type {
   SkillRank,
   StatDef,
   SystemDef,
+  TestBranch,
   TestDef,
 } from "./types";
 
@@ -32,7 +33,7 @@ const DICE = /^(\d+)d(\d+)([+-]\d+)?$/;
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
 const EFFECT_OPS = new Set(["addItem", "removeItem", "gainKeyword", "tick", "adjustStat"]);
-const CONDITION_OPS = new Set(["hasItem", "keyword", "ticked", "statAtLeast", "not", "all"]);
+const CONDITION_OPS = new Set(["hasItem", "keyword", "ticked", "statAtLeast", "not", "all", "testFailed"]);
 
 export function validateSystem(input: unknown): SystemDef {
   const root = record(input, "system");
@@ -138,8 +139,8 @@ export function validateBook(input: unknown, system: SystemDef): Book {
       if (!ids.has(choice.to)) fail(`book.sections.${section.id}`, `choice ${choice.id} leaves the book`);
     }
     if (section.test) {
-      if (!ids.has(section.test.success.to) || !ids.has(section.test.failure.to)) {
-        fail(`book.sections.${section.id}.test`, "unknown destination");
+      for (const branch of [section.test.success, section.test.failure]) {
+        if (branch?.to !== undefined && !ids.has(branch.to)) fail(`book.sections.${section.id}.test`, "unknown destination");
       }
     }
     if (section.combat) {
@@ -199,19 +200,47 @@ function validateSection(input: unknown, path: string, system: SystemDef): Secti
     ),
   };
   if ("enter" in root) section.enter = validateEnter(root.enter, `${path}.enter`, system);
+  if ("test" in root) section.test = validateTest(root.test, `${path}.test`, system);
   if ("choices" in root) {
+    const besideTest = section.test !== undefined;
     section.choices = arrayOf(root.choices, `${path}.choices`, 1, 12).map((entry, index) =>
-      validateChoice(entry, `${path}.choices[${index}]`, system),
+      validateChoice(entry, `${path}.choices[${index}]`, system, besideTest),
     );
   }
-  if ("test" in root) section.test = validateTest(root.test, `${path}.test`, system);
   if ("combat" in root) section.combat = validateCombat(root.combat, `${path}.combat`, system);
   if ("illustration" in root) section.illustration = validateIllustration(root.illustration, `${path}.illustration`);
-  const modes = [section.choices, section.test, section.combat].filter((mode) => mode !== undefined);
-  if (modes.length !== 1) {
-    fail(path, "a section needs choices, a test, or a combat, and only one of them");
-  }
+  validateExits(section, path);
   return section;
+}
+
+/**
+ * A section's exit is choices, a test, a test with choices beside it, or a combat. A combat
+ * stands alone. A test result with no destination stays on the section, so the player needs a
+ * choice to leave by: after a pass, one that is not fail-only.
+ */
+function validateExits(section: Section, path: string): void {
+  const { choices, test, combat } = section;
+  if (combat) {
+    if (choices || test) fail(path, "a combat cannot share its section with a test or choices");
+    return;
+  }
+  if (!choices && !test) fail(path, "a section needs choices, a test, or a combat");
+  if (!test) return;
+  const open = (choices ?? []).filter((choice) => !failOnly(choice.when));
+  if (test.success?.to === undefined && open.length === 0) {
+    fail(`${path}.test.success`, "a pass that stays here needs a choice that is open after a pass");
+  }
+  if (test.failure?.to === undefined && (choices ?? []).length === 0) {
+    fail(`${path}.test.failure`, "a fail that stays here needs choices");
+  }
+}
+
+/** A choice that opens only after a failed test. */
+export function failOnly(condition: Condition | undefined): boolean {
+  if (!condition) return false;
+  if (condition.op === "testFailed") return true;
+  if (condition.op === "all") return condition.conditions.some((entry) => failOnly(entry));
+  return false;
 }
 
 function validateEnter(input: unknown, path: string, system: SystemDef): SectionEnter {
@@ -248,7 +277,7 @@ function validateIllustration(input: unknown, path: string): Illustration {
   };
 }
 
-function validateChoice(input: unknown, path: string, system: SystemDef): Choice {
+function validateChoice(input: unknown, path: string, system: SystemDef, besideTest: boolean): Choice {
   const root = record(input, path);
   requireKeys(root, ["id", "label", "to", "when", "effects"], path, ["when", "effects"]);
   const choice: Choice = {
@@ -256,7 +285,7 @@ function validateChoice(input: unknown, path: string, system: SystemDef): Choice
     label: text(root.label, `${path}.label`, 1, 160),
     to: sectionId(root.to, `${path}.to`),
   };
-  if ("when" in root) choice.when = validateCondition(root.when, `${path}.when`, system, 0);
+  if ("when" in root) choice.when = validateCondition(root.when, `${path}.when`, system, 0, besideTest);
   if ("effects" in root) {
     choice.effects = arrayOf(root.effects, `${path}.effects`, 1, 8).map((entry, index) =>
       validateEffect(entry, `${path}.effects[${index}]`, system),
@@ -267,29 +296,37 @@ function validateChoice(input: unknown, path: string, system: SystemDef): Choice
 
 function validateTest(input: unknown, path: string, system: SystemDef): TestDef {
   const root = record(input, path);
-  requireKeys(root, ["id", "label", "dice", "stat", "modifier", "skill", "success", "failure"], path, ["modifier", "skill"]);
+  requireKeys(root, ["id", "label", "dice", "stat", "modifier", "skill", "success", "failure"], path, [
+    "modifier",
+    "skill",
+    "success",
+    "failure",
+  ]);
   const test: TestDef = {
     id: identifier(root.id, `${path}.id`),
     label: text(root.label, `${path}.label`, 1, 160),
     dice: dice(root.dice, `${path}.dice`),
     stat: knownStat(root.stat, `${path}.stat`, system),
-    success: validateBranch(root.success, `${path}.success`, system),
-    failure: validateBranch(root.failure, `${path}.failure`, system),
   };
+  if ("success" in root) test.success = validateBranch(root.success, `${path}.success`, system);
+  if ("failure" in root) test.failure = validateBranch(root.failure, `${path}.failure`, system);
   if ("modifier" in root) test.modifier = integer(root.modifier, `${path}.modifier`, -20, 20);
   if ("skill" in root) test.skill = knownSkill(root.skill, `${path}.skill`, system);
   return test;
 }
 
-function validateBranch(input: unknown, path: string, system: SystemDef): TestDef["success"] {
+function validateBranch(input: unknown, path: string, system: SystemDef): TestBranch {
   const root = record(input, path);
-  requireKeys(root, ["to", "effects"], path, ["effects"]);
-  const branch: TestDef["success"] = { to: sectionId(root.to, `${path}.to`) };
+  requireKeys(root, ["to", "effects"], path, ["to", "effects"]);
+  const branch: TestBranch = {};
+  if ("to" in root) branch.to = sectionId(root.to, `${path}.to`);
   if ("effects" in root) {
     branch.effects = arrayOf(root.effects, `${path}.effects`, 1, 8).map((entry, index) =>
       validateEffect(entry, `${path}.effects[${index}]`, system),
     );
   }
+  // Leave out a result that neither moves nor changes anything.
+  if (branch.to === undefined && branch.effects === undefined) fail(path, "expected a destination or effects");
   return branch;
 }
 
@@ -349,11 +386,17 @@ function validateEffect(input: unknown, path: string, system: SystemDef): Effect
   };
 }
 
-function validateCondition(input: unknown, path: string, system: SystemDef, depth: number): Condition {
+/** `testFailed` is allowed only on a choice beside a test, and not under `not`. */
+function validateCondition(input: unknown, path: string, system: SystemDef, depth: number, besideTest = false): Condition {
   if (depth > 6) fail(path, "condition is nested too deeply");
   const root = record(input, path);
   const op = root.op;
   if (typeof op !== "string" || !CONDITION_OPS.has(op)) fail(path, "condition is not allowed");
+  if (op === "testFailed") {
+    if (!besideTest) fail(path, "testFailed needs a test on the same section");
+    requireKeys(root, ["op"], path);
+    return { op };
+  }
   if (op === "hasItem" || op === "keyword" || op === "ticked") {
     requireKeys(root, ["op", "id"], path);
     return { op, id: identifier(root.id, `${path}.id`) };
@@ -374,7 +417,7 @@ function validateCondition(input: unknown, path: string, system: SystemDef, dept
   return {
     op: "all",
     conditions: arrayOf(root.conditions, `${path}.conditions`, 1, 8).map((entry, index) =>
-      validateCondition(entry, `${path}.conditions[${index}]`, system, depth + 1),
+      validateCondition(entry, `${path}.conditions[${index}]`, system, depth + 1, besideTest),
     ),
   };
 }

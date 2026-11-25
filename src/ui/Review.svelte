@@ -188,6 +188,18 @@
                 />
               </div>
             </div>
+            {#if showTest}
+              <!-- P32: a choice beside a test can be open only after a failed test. -->
+              <label class="fail-only">
+                <input
+                  type="checkbox"
+                  data-testid="review-choice-fail-only-{index}"
+                  checked={Boolean(choice.failOnly)}
+                  onchange={(event) => patchChoice(index, { failOnly: event.currentTarget.checked })}
+                />
+                Only if the test fails
+              </label>
+            {/if}
             {@render fieldFlags(flags.choices[index] ?? [])}
           </div>
         {/each}

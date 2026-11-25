@@ -286,7 +286,7 @@ describe("test and fight wording", () => {
     expect(maze.flags).toEqual([]);
     const built = draftToBook(draft, demoSystem);
     expect(built.ok).toBe(true);
-    if (built.ok) expect(built.book.sections[0]?.test?.success.to).toBe("2");
+    if (built.ok) expect(built.book.sections[0]?.test?.success?.to).toBe("2");
   });
 
   it("does not treat an ordinary use of 'test' as a test", () => {
@@ -643,7 +643,7 @@ describe("a test told in the section, then one shared destination", () => {
 
   it("leaves the cases it cannot wire flagged", () => {
     const draft = draftOf(
-      // A test beside several ordinary choices.
+      // A test beside several ordinary choices now wires (P32), with the Wound on the fail branch.
       "1.",
       "Test your Talent. If you fail, you Take a Wound.",
       "If you want to go north, turn to 2.",
@@ -668,12 +668,202 @@ describe("a test told in the section, then one shared destination", () => {
       "Test Diplomacy. If you succeed, she pays you two gold pieces.",
       "Turn to 1.",
     );
-    for (const number of ["1", "2", "3", "5"]) {
+    expect(section(draft, "1").flags).toEqual([]);
+    expect(section(draft, "1").failEffects).toEqual([{ op: "adjustStat", stat: "vitality", by: -1 }]);
+    for (const number of ["2", "3"]) {
       expect(section(draft, number).flags).toEqual(expect.arrayContaining([FLAG.mixedExits]));
       expect(section(draft, number).passTo).toBe("");
     }
     expect(section(draft, "2").flags).toContain(FLAG.testTwice);
     expect(section(draft, "4").flags).toEqual([FLAG.testModifier]);
+    // The gold cannot be stored, so the success result stays flagged. The rest is a test with a choice.
+    expect(section(draft, "5").flags).toEqual([FLAG.passExtra]);
+    expect(section(draft, "5").passTo).toBe("");
+  });
+});
+
+describe("a test with plain choices beside it (P32)", () => {
+  it("stores a success jump, a fail-only choice, and always-open choices", () => {
+    const draft = draftOf(
+      "1.",
+      "Reeds hide a small boat. Test Naturalist and if you succeed, turn to 2.",
+      "If you fail and want to push off anyway, turn to 3.",
+      "If you want to wade along the bank, turn to 4.",
+      "If you have the keyword Oar, turn to 5.",
+      "Otherwise, you walk back to the road; turn to 6.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+      "4.", "C.", "Turn to 1.",
+      "5.", "D.", "Turn to 1.",
+      "6.", "E.", "Turn to 1.",
+    );
+    const reeds = section(draft, "1");
+    expect(reeds.flags).toEqual([]);
+    expect(reeds).toMatchObject({ passTo: "2", failTo: "", skill: "naturalist" });
+    expect(reeds.choices.map((choice) => [choice.to, Boolean(choice.failOnly)])).toEqual([
+      ["3", true],
+      ["4", false],
+      ["5", false],
+      ["6", false],
+    ]);
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    const first = built.book.sections[0];
+    expect(first?.test).toMatchObject({ skill: "naturalist", success: { to: "2" } });
+    expect(first?.test?.failure).toBeUndefined();
+    expect(first?.choices?.map((choice) => choice.when ?? null)).toEqual([{ op: "testFailed" }, null, null, null]);
+  });
+
+  it("makes every option of 'If you fail, you can either … or …' fail-only", () => {
+    const draft = draftOf(
+      "1.",
+      "A plum tree leans over the wall. Test Naturalist, and if you succeed turn to 2.",
+      "If you fail, you can either pick a plum (turn to 3)",
+      "or climb the wall (turn to 4).",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+      "4.", "C.", "Turn to 1.",
+    );
+    const plum = section(draft, "1");
+    expect(plum.flags).toEqual([]);
+    expect(plum.choices.map((choice) => [choice.to, choice.failOnly])).toEqual([
+      ["3", true],
+      ["4", true],
+    ]);
+    expect(draftToBook(draft, demoSystem).ok).toBe(true);
+  });
+
+  it("keeps a search that may be skipped, with no fail wording, beside the other way on", () => {
+    const draft = draftOf(
+      "1.",
+      "Dust covers the shelves. If you want to search the shelves, Test Search and if you are successful, turn to 2.",
+      "Otherwise, you leave by the far door; turn to 3.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+    );
+    const shelves = section(draft, "1");
+    expect(shelves.flags).toEqual([]);
+    expect(shelves.flags).not.toContain(FLAG.noFail);
+    expect(shelves.choices.map((choice) => choice.failOnly ?? false)).toEqual([false]);
+  });
+
+  it("stores a complete test beside a leave-instead choice", () => {
+    const draft = draftOf(
+      "1.",
+      "A chest sits under the window. If you want to open it, Test Larceny; if you succeed, turn to 2, but if you fail, turn to 3.",
+      "If you would rather leave it alone, turn to 4.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+      "4.", "C.", "Turn to 1.",
+    );
+    const chest = section(draft, "1");
+    expect(chest.flags).toEqual([]);
+    expect(chest).toMatchObject({ passTo: "2", failTo: "3" });
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    expect(built.book.sections[0]?.test).toMatchObject({ success: { to: "2" }, failure: { to: "3" } });
+    expect(built.book.sections[0]?.choices?.map((choice) => choice.to)).toEqual(["4"]);
+  });
+
+  it("stores both results in the section, with their steps, then the choices", () => {
+    const draft = draftOf(
+      "1.",
+      "Thorns fill the gap in the hedge. Test your Talent at -1.",
+      "If you succeed, you slip through untouched, but if you fail you Take a Wound and deduct one Talent.",
+      "If you are still alive, you look around the garden.",
+      "If you want to go to the pond, turn to 2.",
+      "If you would rather go to the shed, turn to 3.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+    );
+    const thorns = section(draft, "1");
+    expect(thorns.flags).toEqual([]);
+    expect(thorns).toMatchObject({
+      passTo: "",
+      failTo: "",
+      testModifier: "−1",
+      passEffects: [],
+      failEffects: [
+        { op: "adjustStat", stat: "vitality", by: -1 },
+        { op: "adjustStat", stat: "talent", by: -1 },
+      ],
+    });
+    const built = draftToBook(draft, demoSystem);
+    if (!built.ok) throw new Error(built.error);
+    const test = built.book.sections[0]?.test;
+    expect(test?.success).toBeUndefined();
+    expect(test?.failure).toEqual({ effects: thorns.failEffects });
+    expect(built.book.sections[0]?.choices).toHaveLength(2);
+  });
+
+  it("keeps a result step the draft cannot store flagged, without calling it mixed", () => {
+    const draft = draftOf(
+      "1.",
+      "A cold draught. Test Occult; if you succeed, you keep warm, but if you fail, the draught chills you to the bone.",
+      "If you want to go on, turn to 2.",
+      "If you want to go back, turn to 3.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+    );
+    // "Chills you to the bone" is flavour; a step the draft cannot store is flagged.
+    expect(section(draft, "1").flags).toEqual([]);
+    const loss = draftOf(
+      "1.",
+      "A cold draught. Test Occult; if you succeed, you keep warm, but if you fail, the cold steals one Talent from you.",
+      "If you want to go on, turn to 2.",
+      "If you want to go back, turn to 3.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+    );
+    expect(section(loss, "1").flags).toEqual([FLAG.failExtra]);
+  });
+
+  it("keeps a keyword bonus flagged but no longer calls a test with choices mixed", () => {
+    const draft = draftOf(
+      "1.",
+      "Runes cover the arch. To read them, Test Linguistics (with a +1 bonus if you have the keyword Chalk), and if you succeed, turn to 2.",
+      "If you want to walk through the arch, turn to 3.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+    );
+    expect(section(draft, "1").flags).toEqual([FLAG.testModifier]);
+  });
+
+  it("leaves a die-roll table, an either/or test, and a test into a fight flagged as before", () => {
+    const draft = draftOf(
+      "1.",
+      "Mud grips your boots. Test your Talent. If you succeed, you pull free, but if you fail you lose one Talent.",
+      "Roll one die to see what you meet next.",
+      "If you roll 1-3, turn to 2.",
+      "If you roll 4-6, turn to 3.",
+      "2.",
+      "To cross, you will either need to Test Climbing successfully, or use a rope.",
+      "If you can do either, turn to 3.",
+      "If you cannot, turn to 1.",
+      "3.",
+      "Test Stealth. If you fail, you must fight.",
+      "Bog toad Fight one round",
+      "If you win, turn to 1.",
+      "If you would rather run, turn to 2.",
+    );
+    expect(section(draft, "1").flags).toEqual(expect.arrayContaining([FLAG.mixedExits, FLAG.noPass, FLAG.noFail]));
+    expect(section(draft, "2").flags).toContain(FLAG.mixedExits);
+    expect(section(draft, "3").flags).toContain(FLAG.mixedExits);
+  });
+
+  it("does not let a fail-only option stand in for a fail link beside a fight", () => {
+    const draft = draftOf(
+      "1.",
+      "Test Stealth and if you succeed, turn to 2.",
+      "If you fail and want to fight the guard, turn to 3.",
+      "Guard Fight one round",
+      "If you win, turn to 2.",
+      "2.", "A.", "Turn to 1.",
+      "3.", "B.", "Turn to 1.",
+    );
+    const guard = section(draft, "1");
+    expect(guard.flags).toEqual(expect.arrayContaining([FLAG.failExtra, FLAG.mixedExits]));
+    expect(guard.choices.every((choice) => !choice.failOnly)).toBe(true);
   });
 });
 
@@ -750,7 +940,9 @@ describe("near-miss destination wording", () => {
       "If you fail and want to taste the berries anyway, turn to 2.",
     );
     for (const number of ["1", "2", "3"]) expect(section(draft, number).flags).toContain(FLAG.winExtra);
-    expect(section(draft, "4").flags).toContain(FLAG.failExtra);
+    // P32: a fail option on a test is a fail-only choice, not an extra step.
+    expect(section(draft, "4").flags).toEqual([]);
+    expect(section(draft, "4").choices).toEqual([{ label: "If you fail and want to taste the berries anyway, turn to 2.", to: "2", failOnly: true }]);
   });
 
   it("stores a tick on the success branch and keeps the ticked-box jump", () => {
