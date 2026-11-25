@@ -36,7 +36,7 @@ A test rolls its dice once. The roll passes when the total is less than or equal
 
 ## Combat
 
-Combat resolves one round per action. Each round uses the same roll-under test. A failure subtracts the wound amount from the wound stat. If that stat is then at or below `defeatAtOrBelow`, play moves to `defeatSection`. Otherwise, after `rounds` rolls, play moves to `then`. The pending round is part of the save, so a reload continues the fight and undo returns to the previous round.
+Combat resolves one round per action. Each round uses the same roll-under test. A failure subtracts the wound amount from the wound stat. If that stat is then at or below `defeatAtOrBelow`, play moves to `defeatSection`. Otherwise, after `rounds` rolls, play moves to `then`. With no `defeatSection`, a defeat ends the adventure: play stays on the fight's section and the reader shows a Game over card (P33) with New game and Library; Undo turn in the toolbar can still rewind the last round. The pending round is part of the save, so a reload continues the fight and undo returns to the previous round.
 
 ## Not in this format yet
 
