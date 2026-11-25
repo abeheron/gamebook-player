@@ -220,5 +220,15 @@ describe("P32 wording", () => {
     expect(stayHint(test, null)).toBe("If you fail, choose from the options below.");
     expect(stayHint(test, roll(false))).toBe("The test failed. Choose below.");
     expect(stayHint({ ...test, failure: { to: "23" } }, null)).toBe("");
+    expect(stayHint({ ...test, failure: { to: "23" } }, roll(false))).toBe("");
+  });
+
+  it("says only that the test passed after a pass that turns to a section", () => {
+    const test = gladeBook.sections[0]!.test!;
+    const roll = (success: boolean) => ({ id: "t", label: "t", dice: "2d6", faces: [1, 1], total: 2, success });
+    expect(stayHint(test, roll(true))).toBe("The test passed.");
+    expect(stayHint({ ...test, failure: { to: "23" } }, roll(true))).toBe("The test passed.");
+    // A pass that stays here still points to the choices.
+    expect(stayHint({ ...test, success: undefined }, roll(true))).toBe("The test passed. Choose below.");
   });
 });

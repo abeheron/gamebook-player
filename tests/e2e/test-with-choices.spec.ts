@@ -78,7 +78,7 @@ test("opens the fail-only choice after a failed test and keeps Pass locked", asy
   await expect(page.getByTestId("section-title")).toHaveText("§23");
 });
 
-test("locks the fail-only choice again when a Fortune re-roll turns the fail into a pass", async ({ page }) => {
+test("hides the choices when a Fortune re-roll turns the fail into a pass", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openGlade(page);
   await rollMyDice(page, 6, 6);
@@ -92,10 +92,36 @@ test("locks the fail-only choice again when a Fortune re-roll turns the fail int
   await expect(page.getByTestId("fortune-count")).toHaveText("Fortune 2 / 3");
   await expect(page.getByTestId("test-result")).toHaveClass(/ok/);
   await expect(page.getByTestId("destination-pass")).toBeEnabled();
-  await expect(page.getByTestId("choice-eat-anyway")).toBeDisabled();
-  await expect(page.getByTestId("choice-why-eat-anyway")).toHaveText("Only if the Naturalist test fails.");
+  await expect(page.getByTestId("test-hint")).toHaveText("The test passed.");
+  await expect(page.getByTestId("or-choose")).toHaveCount(0);
+  await expect(page.getByTestId("choices")).toHaveCount(0);
   await page.getByTestId("destination-pass").click();
   await expect(page.getByTestId("section-title")).toHaveText("§14");
+});
+
+test("brings the choices back when a Fortune re-roll turns the pass into a fail", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openGlade(page);
+  await rollMyDice(page, 1, 1);
+  await expect(page.getByTestId("test-hint")).toHaveText("The test passed.");
+  await expect(page.getByTestId("choices")).toHaveCount(0);
+  // Each re-rolled face is 6. One re-roll gives 6 + 1 = 7, still a pass; a second gives 6 + 6, a fail.
+  await page.evaluate(() => {
+    Math.random = () => 0.999;
+  });
+  await page.getByTestId("die-1").click();
+  await page.getByTestId("fortune-reroll").click();
+  await expect(page.getByTestId("fortune-count")).toHaveText("Fortune 2 / 3");
+  await page.getByTestId("die-2").click();
+  await page.getByTestId("fortune-reroll").click();
+  await expect(page.getByTestId("fortune-count")).toHaveText("Fortune 1 / 3");
+  await expect(page.getByTestId("test-result")).toHaveClass(/bad/);
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("test-hint")).toHaveText("The test failed. Choose below.");
+  await expect(page.getByTestId("or-choose")).toHaveText("Or choose:");
+  await expect(page.getByTestId("choices")).toBeVisible();
+  await expect(page.getByTestId("choice-eat-anyway")).toBeEnabled();
+  for (const id of ALWAYS_OPEN) await expect(page.getByTestId(`choice-${id}`)).toBeEnabled();
 });
 
 test("takes an always-open choice without rolling", async ({ page }) => {
@@ -112,7 +138,12 @@ test("turns to the pass section after a pass", async ({ page }) => {
   await rollMyDice(page, 1, 1);
   await expect(page.getByTestId("test-result")).toHaveClass(/ok/);
   await expect(page.getByTestId("destination-pass")).toBeEnabled();
-  await expect(page.getByTestId("choice-eat-anyway")).toBeDisabled();
+  await expect(page.getByTestId("test-hint")).toHaveText("The test passed.");
+  // Pass is the only way on: no Or choose: and no choice list, not even muted.
+  await expect(page.getByTestId("or-choose")).toHaveCount(0);
+  await expect(page.getByTestId("choices")).toHaveCount(0);
+  await expect(page.getByTestId("choice-eat-anyway")).toHaveCount(0);
+  for (const id of ALWAYS_OPEN) await expect(page.getByTestId(`choice-${id}`)).toHaveCount(0);
   await page.getByTestId("destination-pass").click();
   await expect(page.getByTestId("section-title")).toHaveText("§14");
   await expect(page.getByTestId("choice-to-back-to-glade")).toHaveText("§1");

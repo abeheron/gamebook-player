@@ -275,6 +275,8 @@
   const passTitle = $derived(passTo ? sectionTitle(book.sections, passTo) : "");
   const failTitle = $derived(failTo ? sectionTitle(book.sections, failTo) : "");
   const testHint = $derived(section.test ? stayHint(section.test, heldRoll) : "");
+  /** P32: after a pass that turns to a section, Pass is the only way on, so the choices go. */
+  const passWaiting = $derived(Boolean(heldRoll?.success && passTo));
   const combatRolls = $derived.by(() => {
     const combat = section.combat;
     if (!combat) return [];
@@ -860,7 +862,7 @@
               onRoll={onRollCombat}
               onContinue={onArriveCombat}
             />
-          {:else if !section.test || standingTest}
+          {:else if !section.test || (standingTest && !passWaiting)}
             <Choices rows={choiceRows} {ready} {onChoose} lead={standingTest ? "Or choose:" : ""} />
           {/if}
         </div>
