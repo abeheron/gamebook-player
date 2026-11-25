@@ -16,7 +16,8 @@ test("keeps Fortune beside the reroll on a desktop and under it at 390px", async
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(FIXTURE_URL);
   await expect(page.getByTestId("autosave")).toContainText("Autosaved on this device");
-  await expect(page.getByTestId("choice-take-lantern")).not.toContainText("§");
+  // P32: ordinary choice cards show their section number on the right.
+  await expect(page.getByTestId("choice-to-take-lantern")).toHaveText("§2");
   await page.getByTestId("choice-take-lantern").click();
   await page.getByTestId("choice-tick-and-study").click();
   await page.getByTestId("open-test").click();

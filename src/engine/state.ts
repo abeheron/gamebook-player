@@ -45,6 +45,11 @@ export function conditionHolds(condition: Condition, state: GameState): boolean 
       return !conditionHolds(condition.condition, state);
     case "all":
       return condition.conditions.every((entry) => conditionHolds(entry, state));
+    case "testFailed": {
+      // Only a held roll on this section counts. No roll yet, or a pass, keeps the choice locked.
+      const pending = state.pending;
+      return pending?.kind === "test" && pending.sectionId === state.sectionId && !pending.roll.success;
+    }
     default: {
       const unreachable: never = condition;
       throw new Error(`Unknown condition ${JSON.stringify(unreachable)}`);

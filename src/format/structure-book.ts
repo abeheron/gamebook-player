@@ -1,4 +1,4 @@
-import type { Book, Effect, Section, SectionEnter, SystemDef } from "./types";
+import type { Book, Choice, Effect, Section, SectionEnter, SystemDef, TestBranch } from "./types";
 import { BookValidationError, validateBook } from "./validate";
 
 export interface SourcePage {
@@ -11,6 +11,8 @@ export interface DraftChoice {
   to: string;
   /** Taking this choice ticks the section's box, as in "put a tick in the box above and turn to N". */
   tick?: boolean;
+  /** Open only after the section's test has failed, as in "If you fail and want to …, turn to N". */
+  failOnly?: boolean;
 }
 
 /** A section the reader can correct before it is stored. */
@@ -171,6 +173,12 @@ const CLAUSE = /\bif you (?:are successful|succeed|fail)\b/gi;
 const SHARED_LEAD = /^(?:if you (?:are still alive|survive)\b[^,;]*[,;]\s*|either way,\s*|in either case,\s*)/i;
 const TRAILING_TURN = /[\s;,]*(?:\band\s+)?\(?turn to \d+\)?[\s.]*$/i;
 const TURN = /turn to (\d+)/i;
+/** "If you fail and want to …, turn to N": a choice open only after a failed test. */
+const FAIL_ONLY = /^if you fail,?\s+(?:and|but)\s+(?:still\s+)?(?:you\s+)?(?:want|wish|would (?:like|rather)|decide|choose)\b/i;
+/** "If you fail, you can either … (turn to N) or … (turn to M)": every option in the sentence is fail-only. */
+const FAIL_EITHER = /^if you fail,?\s*(?:you (?:can|may|could)\s+)?(?:either|choose)\b/i;
+/** A die-roll destination table, as in "If you roll 1-2, turn to N". Not ordinary choices. */
+const DIE_ROLL = /^(?:if you roll|on a roll of|a roll of|roll(?:ed)? (?:a |an )?\d)/i;
 const TURNS = /turn to (\d+)(?:\s*\))?/gi;
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
@@ -450,12 +458,22 @@ function parseSection(
     }
     const segments = segmented[index] ?? [];
     if (test || segments.length === 0) body.push(unit);
+    /** Inside "If you fail, you can either … or …", the "or …" options are fail-only too. */
+    let failRun = false;
     if (sawFight && !winTo && segments.length === 0 && winLead(unit)) pendingWin = true;
     else if (pendingWin && segments.length === 0 && MECHANICS.test(unit)) pendingWin = false;
     for (const segment of segments) {
       if (pendingWin && !winTo && segments.length === 1 && index === lastLinkUnit && bareLink(segment)) {
         winTo = TURN.exec(segment)?.[1] ?? "";
         pendingWin = false;
+        continue;
+      }
+      // A fail-only option after a test. Undone below if the section is not a test with choices.
+      const failGate: boolean = sawTest && (FAIL_ONLY.test(segment) || FAIL_EITHER.test(segment) || (failRun && /^or\b/i.test(segment)));
+      failRun = failGate && (failRun || FAIL_EITHER.test(segment));
+      if (failGate && TURN.test(segment)) {
+        choices.push({ label: clip(segment, 160), to: TURN.exec(segment)?.[1] ?? "", failOnly: true });
+        choiceAt.push({ unit: index, body: body.length });
         continue;
       }
       const outcome = readOutcome(segment, sawFight, raw.number);
@@ -519,6 +537,31 @@ function parseSection(
     choices.length = 0;
   }
 
+  // P32: one test with plain choices beside it. Results with no destination stay here.
+  const withChoices =
+    !shared && !sawFight && tests === 1 && choices.length > 0 && extra.size === 0 &&
+    !problems.has(FLAG.secondPass) && !problems.has(FLAG.secondFail) &&
+    !choices.some((choice) => DIE_ROLL.test(choice.label)) &&
+    // "Either Test Climbing or cast a spell" is an either/or test, which the format cannot hold.
+    !/\beither\b/i.test(units[testIndex] ?? "")
+      ? stayResults(units, testIndex, testRest, choiceAt, raw.number, {
+          pass: !passTo,
+          fail: !failTo && !choices.some((choice) => choice.failOnly),
+        })
+      : null;
+  if (withChoices) {
+    if (!passTo) passEffects = withChoices.pass;
+    if (!failTo) failEffects = withChoices.fail;
+  } else {
+    // Not a test with choices: a fail-only option is an extra step on the fail link, as before.
+    for (const choice of choices) {
+      if (!choice.failOnly) continue;
+      delete choice.failOnly;
+      extra.add("fail");
+    }
+  }
+  const anyFailOnly = choices.some((choice) => choice.failOnly);
+
   if (sawFight) {
     if (!fightName) flags.push(FLAG.fightName);
     if (!validRounds(fightRounds)) flags.push(FLAG.fightRounds);
@@ -534,14 +577,17 @@ function parseSection(
     if (tests === 0) flags.push(FLAG.noTest);
     if (tests > 1) flags.push(FLAG.testTwice);
     for (const flag of [FLAG.testModifier, FLAG.testSkill]) if (problems.has(flag)) flags.push(flag);
-    if (extra.has("pass")) flags.push(FLAG.passExtra);
-    else if (!passTo) flags.push(FLAG.noPass);
+    if (extra.has("pass") || withChoices?.passExtra) flags.push(FLAG.passExtra);
+    else if (!passTo && !(withChoices && (withChoices.told || anyFailOnly) && choices.some((choice) => !choice.failOnly))) {
+      // A pass that stays here is honest only when the section says what a result does, and a choice is open after it.
+      flags.push(FLAG.noPass);
+    }
     if (problems.has(FLAG.secondPass)) flags.push(FLAG.secondPass);
-    if (extra.has("fail")) flags.push(FLAG.failExtra);
-    else if (!failTo) flags.push(FLAG.noFail);
+    if (extra.has("fail") || withChoices?.failExtra) flags.push(FLAG.failExtra);
+    else if (!failTo && !withChoices) flags.push(FLAG.noFail);
     if (problems.has(FLAG.secondFail)) flags.push(FLAG.secondFail);
   }
-  const modes = [sawFight, sawTest, choices.length > 0].filter(Boolean).length;
+  const modes = withChoices ? 1 : [sawFight, sawTest, choices.length > 0].filter(Boolean).length;
   if (modes > 1) flags.push(FLAG.mixedExits);
   if (!sawFight && !sawTest && choices.length === 0) flags.push(FLAG.noExits);
   if (problems.has(FLAG.tickCondition)) flags.push(FLAG.tickCondition);
@@ -679,6 +725,61 @@ function sharedOutcome(
   return { to, pass: [...pass, ...both.effects], fail: [...fail, ...both.effects], keep };
 }
 
+/**
+ * P32: what each result without a destination does, told in the section after the test, as in
+ * "Test your Talent. If you fail, you Take a Wound. If you are still alive, …" followed by the
+ * choices. The results are read from the test up to the next choice, and stop at the first
+ * sentence after them that is not a result. Returns null when another condition sits between the
+ * test and its results. A result with a step the draft cannot store is marked as extra.
+ */
+function stayResults(
+  units: readonly string[],
+  testIndex: number,
+  testRest: string,
+  choiceAt: readonly { unit: number }[],
+  number: string,
+  read: { pass: boolean; fail: boolean },
+): { pass: Effect[]; fail: Effect[]; passExtra: boolean; failExtra: boolean; told: boolean } | null {
+  const result = { pass: [] as Effect[], fail: [] as Effect[], passExtra: false, failExtra: false, told: false };
+  if (testIndex < 0) return null;
+  const next = choiceAt.find((entry) => entry.unit > testIndex)?.unit ?? units.length;
+  for (let index = testIndex; index < next; index += 1) {
+    const text = index === testIndex ? testRest : (units[index] ?? "");
+    if (!text) {
+      if (result.told) break;
+      continue;
+    }
+    const marks = [...text.matchAll(CLAUSE)];
+    if (marks.length === 0) {
+      if (result.told) break;
+      // Another condition before the results, such as "If you have a rope", is more than this can hold.
+      if (index > testIndex && /^if\b/i.test(text) && !SHARED_LEAD.test(text)) return null;
+      continue;
+    }
+    if (index > testIndex && (marks[0]?.index ?? 0) > 0 && /\bif\b/i.test(text.slice(0, marks[0]?.index ?? 0))) return null;
+    for (let mark = 0; mark < marks.length; mark += 1) {
+      const found = marks[mark];
+      if (!found) continue;
+      const fail = /fail/i.test(found[0]);
+      result.told = true;
+      if (fail ? !read.fail : !read.pass) continue;
+      const start = (found.index ?? 0) + found[0].length;
+      const end = marks[mark + 1]?.index ?? text.length;
+      const clause = text.slice(start, end);
+      // A result that turns somewhere was read as a link already.
+      if (TURN.test(clause)) continue;
+      const steps = readEffects(clause, number);
+      if (MECHANICS.test(steps.rest.replace(/^[\s,;]*but\b/i, ""))) {
+        if (fail) result.failExtra = true;
+        else result.passExtra = true;
+        continue;
+      }
+      (fail ? result.fail : result.pass).push(...steps.effects);
+    }
+  }
+  return result;
+}
+
 /** Steps the draft can store, in the order the text gives them, and the words left over. */
 function readEffects(text: string, number: string): { effects: Effect[]; rest: string } {
   const found: { at: number; end: number; effect: Effect }[] = [];
@@ -750,11 +851,25 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
   if (!body) return { ok: false, step: 5, error: `Section ${number || "?"} needs a passage.` };
   // A fight needs a win section. With no lose section, losing ends the adventure.
   const fightOn = Boolean(section.fightName.trim() && section.winTo.trim() && validRounds(section.fightRounds));
-  const testOn = Boolean(section.passTo.trim() && section.failTo.trim());
+  const passTo = section.passTo.trim();
+  const failTo = section.failTo.trim();
   const choices = section.choices.filter((choice) => choice.label.trim() || choice.to.trim());
-  const filled = [fightOn, testOn, choices.length > 0].filter(Boolean).length;
-  if (filled !== 1) {
+  // Beside a fight, only a complete test counts, as before. Otherwise a test label, a destination
+  // or a result step is a test, and choices may sit beside it (P32).
+  const testOn = fightOn
+    ? Boolean(passTo && failTo)
+    : Boolean(section.testLabel.trim() || passTo || failTo || section.passEffects.length || section.failEffects.length);
+  if (fightOn && (testOn || choices.length > 0)) {
     return { ok: false, step: 5, error: `Section ${number} needs one exit: choices, a test, or a fight.` };
+  }
+  if (!fightOn && !testOn && choices.length === 0) {
+    return { ok: false, step: 5, error: `Section ${number} needs one exit: choices, a test, or a fight.` };
+  }
+  if (testOn && (!passTo || !failTo) && choices.length === 0) {
+    return { ok: false, step: 5, error: `Section ${number} needs a pass and a fail section, or choices beside the test.` };
+  }
+  if (testOn && !passTo && choices.every((choice) => choice.failOnly)) {
+    return { ok: false, step: 5, error: `Section ${number} needs a choice that is open after a pass.` };
   }
   const box = boxTick(number);
   const tickTo = section.tickTo.trim();
@@ -805,6 +920,10 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
     if (section.passEffects.length > 8 || section.failEffects.length > 8) {
       return { ok: false, step: 5, error: `Section ${number} has more test steps than this format can store.` };
     }
+    const built = buildChoices(choices, number, tickTo, box);
+    if (!built.ok) return built;
+    const success = branch(passTo, section.passEffects);
+    const failure = branch(failTo, section.failEffects);
     return {
       ok: true,
       section: {
@@ -816,23 +935,42 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
           stat: "talent",
           ...(modifier === undefined ? {} : { modifier }),
           ...(section.skill ? { skill: section.skill } : {}),
-          success: { to: section.passTo.trim(), ...(section.passEffects.length ? { effects: section.passEffects } : {}) },
-          failure: { to: section.failTo.trim(), ...(section.failEffects.length ? { effects: section.failEffects } : {}) },
+          ...(success ? { success } : {}),
+          ...(failure ? { failure } : {}),
         },
+        ...(built.choices.length > 0 ? { choices: built.choices } : {}),
       },
     };
   }
+  const built = buildChoices(choices, number, tickTo, box);
+  if (!built.ok) return built;
+  return { ok: true, section: { ...base, choices: built.choices } };
+}
+
+/** A test result: a destination, steps, both, or nothing (left out, so the result stays here). */
+function branch(to: string, effects: readonly Effect[]): TestBranch | undefined {
+  if (!to && effects.length === 0) return undefined;
+  return { ...(to ? { to } : {}), ...(effects.length ? { effects: [...effects] } : {}) };
+}
+
+function buildChoices(
+  choices: readonly DraftChoice[],
+  number: string,
+  tickTo: string,
+  box: Effect,
+): { ok: true; choices: Choice[] } | { ok: false; step: 5; error: string } {
   if (choices.length > 12) return { ok: false, step: 5, error: `Section ${number} has too many choices.` };
-  const built = choices.map((choice, index) => ({
+  const built: Choice[] = choices.map((choice, index) => ({
     id: `c${index + 1}`,
     label: clip(choice.label.trim(), 160),
     to: choice.to.trim(),
+    ...(choice.failOnly ? { when: { op: "testFailed" as const } } : {}),
     ...(choice.tick && tickTo ? { effects: [box] } : {}),
   }));
   if (built.some((choice) => !choice.label || !choice.to)) {
     return { ok: false, step: 5, error: `Section ${number} has a choice without words or a destination.` };
   }
-  return { ok: true, section: { ...base, choices: built } };
+  return { ok: true, choices: built };
 }
 
 /** The box a section asks you to tick, named after the section: "box-12". */

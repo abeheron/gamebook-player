@@ -13,8 +13,8 @@ const test: TestDef = {
 
 describe("compact skill test", () => {
   it("offers only the destination that matches the settled roll", () => {
-    expect(settledDestination(test, roll(true)).to).toBe("4");
-    expect(settledDestination(test, roll(false)).to).toBe("5");
+    expect(settledDestination(test, roll(true))?.to).toBe("4");
+    expect(settledDestination(test, roll(false))?.to).toBe("5");
   });
 
   it("refuses a second roll once a result exists or a roll is in progress", () => {

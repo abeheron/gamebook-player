@@ -5,6 +5,8 @@
 
   let {
     compact,
+    standing = false,
+    hint = "",
     label,
     dice,
     formula,
@@ -30,6 +32,10 @@
     onFull,
   }: {
     compact: boolean;
+    /** A standing exit beside choices (P32): it has no Close. */
+    standing?: boolean;
+    /** The muted line under the destinations when a result stays here and the player chooses below. */
+    hint?: string;
     label: string;
     dice: string;
     formula: string;
@@ -95,6 +101,7 @@
   id={compact ? "skill-test-panel" : undefined}
   class="card test-panel"
   class:compact
+  class:standing
   data-testid={compact ? "test-panel" : "test-full"}
   aria-label="Skill test"
 >
@@ -118,7 +125,9 @@
       {resultLabel(roll, adjustment)}
     </p>
   {/if}
+  {#if passTo || failTo}
   <div class="dest">
+    {#if passTo}
     <button
       type="button"
       class="btn"
@@ -130,6 +139,8 @@
     >
       <span class="dest-keep">{passDest.prefix}</span><span class="dest-title">{passDest.title}</span>
     </button>
+    {/if}
+    {#if failTo}
     <button
       type="button"
       class="btn"
@@ -141,7 +152,12 @@
     >
       <span class="dest-keep">{failDest.prefix}</span><span class="dest-title">{failDest.title}</span>
     </button>
+    {/if}
   </div>
+  {/if}
+  {#if hint}
+    <p class="fail-hint" data-testid="test-hint">{hint}</p>
+  {/if}
   {#if !roll && !rolling && !compact}
       <div class="seg" role="group" aria-label="Dice source">
         <button type="button" aria-pressed={!manual} data-testid="dice-app" onclick={() => (manual = false)}>App dice</button>
@@ -189,7 +205,9 @@
   {#if compact}
     <div class="test-tools">
       <button type="button" class="btn ghost" data-testid="open-full-test" onclick={onFull}>Full test</button>
-      <button type="button" class="btn ghost" data-testid="close-test" onclick={onClose}>Close</button>
+      {#if !standing}
+        <button type="button" class="btn ghost" data-testid="close-test" onclick={onClose}>Close</button>
+      {/if}
     </div>
   {/if}
 </section>

@@ -70,8 +70,14 @@ export function ticksOnSection(section: Section): { id: string; label: string }[
   return ticks;
 }
 
-export function blockedBecause(condition: Condition): string {
+/**
+ * Why a choice is locked. `testName` names the section's test for a fail-only choice: the
+ * skill's label, or the stat's label (Talent) for a plain test.
+ */
+export function blockedBecause(condition: Condition, testName = "Talent"): string {
   switch (condition.op) {
+    case "testFailed":
+      return failOnlyReason(testName);
     case "not":
       return condition.condition.op === "ticked" ? "That box is already ticked." : "Not available in this sample.";
     case "ticked":
@@ -82,13 +88,26 @@ export function blockedBecause(condition: Condition): string {
       return "You do not have the keyword.";
     case "statAtLeast":
       return "A sample stat is too low.";
-    case "all":
-      return "Not every sample requirement is met.";
+    case "all": {
+      const failed = condition.conditions.find((entry) => entry.op === "testFailed");
+      return failed ? failOnlyReason(testName) : "Not every sample requirement is met.";
+    }
     default: {
       const unreachable: never = condition;
       return String(unreachable);
     }
   }
+}
+
+/** The approved P32 reason line under a locked fail-only choice. */
+export function failOnlyReason(testName: string): string {
+  return `Only if the ${testName} test fails.`;
+}
+
+/** The name a fail-only reason uses for a section's test: its skill, or its stat for a plain Talent test. */
+export function testName(system: SystemDef, test: { stat: string; skill?: string }): string {
+  if (test.skill) return system.skills.find((skill) => skill.id === test.skill)?.label ?? test.skill;
+  return statLabel(system, test.stat);
 }
 
 /** Approved P31 names and one-liners for the three starting weapon types. */

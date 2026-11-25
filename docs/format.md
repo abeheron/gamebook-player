@@ -2,7 +2,7 @@
 
 Books and system files are JSON. The TypeScript validator in `src/format/validate.ts` is the check a file has to pass before play. Unknown fields are errors. There is no `eval`, no script field, and no executable plugin.
 
-A system file names stats and their starting values, minimums, and maximums. It also names the skill list, the basic-skill bonus, the penalty for a named skill the character lacks, and the sample character's starting skills, gold, and items. A book names that system and lists numbered sections. A section has plain-text paragraphs and exactly one of: choices, a test, or a combat.
+A system file names stats and their starting values, minimums, and maximums. It also names the skill list, the basic-skill bonus, the penalty for a named skill the character lacks, and the sample character's starting skills, gold, and items. A book names that system and lists numbered sections. A section has plain-text paragraphs and an exit: choices, a test, a test with choices beside it, or a combat. A combat stands alone.
 
 ## Dice
 
@@ -18,6 +18,7 @@ Dice strings are `NdS`, `NdS+M`, or `NdS-M`, with small bounds (at most 20 dice,
 | `statAtLeast` | the stat is at least `value` |
 | `not` | the nested condition is false |
 | `all` | every nested condition is true |
+| `testFailed` | only on a choice beside a test: the section's held test roll has failed. No roll yet, or a pass, keeps the choice locked |
 
 ## Effects
 
@@ -31,7 +32,7 @@ Dice strings are `NdS`, `NdS+M`, or `NdS-M`, with small bounds (at most 20 dice,
 
 ## Test
 
-A test rolls its dice once. The roll passes when the total is less than or equal to the named stat plus an optional modifier. If the test names a skill, the character's bonus for that skill is included in the target before the roll is judged. A skill the character does not have contributes the system's absent-skill penalty instead. A test that names no skill does not apply either number. Success and failure each name a destination section and optional effects. The faces are stored on the session. The stored total is the dice total. It does not have the skill bonus added to it.
+A test rolls its dice once. The roll passes when the total is less than or equal to the named stat plus an optional modifier. If the test names a skill, the character's bonus for that skill is included in the target before the roll is judged. A skill the character does not have contributes the system's absent-skill penalty instead. A test that names no skill does not apply either number. Success and failure each name a destination section and optional effects. When the section also has choices, either result may leave out its destination, or be left out entirely: that result stays on the section and the player picks a choice. Effects on a result that stays apply as soon as the roll settles, and a Fortune re-roll that changes the result swaps them. A pass that stays needs at least one choice that is not `testFailed`. The faces are stored on the session. The stored total is the dice total. It does not have the skill bonus added to it.
 
 ## Combat
 

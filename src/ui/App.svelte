@@ -1,16 +1,16 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { demoBook, demoSystem } from "../format/demo";
+  import { demoBook, demoSystem, gladeBook } from "../format/demo";
   import { exploredSections } from "../format/import-book";
   import type { Book, Character, Illustration, RollRecord, Session } from "../format/types";
-  import { fixtureCharacter } from "../engine/creation";
+  import { fixtureCharacter, gladeCharacter } from "../engine/creation";
   import { canRestore } from "../engine/restore";
   import { conditionHolds, initialSession } from "../engine/state";
-  import { acceptTest, adventureOver, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
+  import { acceptTest, adventureOver, choicesOpen, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
   import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withIllustration, withPref, type IllustrationMode, type StoredDicePrefs } from "./dice-prefs";
-  import { canStartRoll } from "./skill-test";
+  import { canStartRoll, stayHint } from "./skill-test";
   import { detectRuntime } from "../platform/runtime";
   import { createIndexedDbStore } from "../storage/indexeddb";
   import { migrateSave } from "../storage/migrate";
@@ -26,7 +26,7 @@
   import Sheet from "./Sheet.svelte";
   import SkillTest from "./SkillTest.svelte";
   import { formatSaveClock, noteKind, readSaveHook, SAVING_DELAY_MS, type SettledSave } from "./save-status";
-  import { blockedBecause, rollFormula, sectionTitle, skillClause, statLabel, ticksOnSection } from "./wording";
+  import { blockedBecause, rollFormula, sectionTitle, skillClause, statLabel, testName, ticksOnSection } from "./wording";
 
   type ViewName = "read" | "sheet" | "test" | "log" | "rules" | "library";
   type ViewMark = { view: ViewName; scroll: number };
@@ -104,11 +104,15 @@
   let motionTimer = 0;
 
   /**
-   * Hidden test fixture, not linked anywhere: ?fixture=demo puts The Lantern Stair in play with the ready-made
-   * hero (or its existing save), so automated tests can jump into a section. Players never see that book:
-   * it is not a Library card, and a plain first launch has no book in play.
+   * Hidden test fixtures, not linked anywhere: ?fixture=demo puts The Lantern Stair in play with the ready-made
+   * hero (or its existing save), so automated tests can jump into a section. ?fixture=p32 does the same with
+   * The Mist Glade, a test with plain choices beside it, and a hero with Naturalist. Players never see these
+   * books: they are not Library cards, and a plain first launch has no book in play.
    */
-  const testFixture = typeof location !== "undefined" && new URLSearchParams(location.search).get("fixture") === "demo";
+  const fixtureName = typeof location !== "undefined" ? new URLSearchParams(location.search).get("fixture") : null;
+  const testFixture = fixtureName === "demo" || fixtureName === "p32";
+  const fixtureBook = fixtureName === "p32" ? gladeBook : demoBook;
+  const fixtureHero = fixtureName === "p32" ? gladeCharacter : fixtureCharacter;
 
   /** Keeps the derived views valid while no game is running. It is never shown or saved. */
   function placeholder(target: Book): Session {
@@ -221,14 +225,18 @@
       count: session.state.ticks[tick.id]?.count ?? 0,
     })),
   );
+  /** P32: a test with choices beside it is a standing card, always shown, with no Close. */
+  const standingTest = $derived(Boolean(section.test && section.choices));
   const choiceRows = $derived(
     (section.choices ?? []).map((choice) => {
-      const available = !arrival && (!choice.when || conditionHolds(choice.when, session.state));
-      return {
-        choice,
-        available,
-        because: arrival ? "Take the turn from this roll first." : choice.when ? blockedBecause(choice.when) : "",
-      };
+      const meets = !choice.when || conditionHolds(choice.when, session.state);
+      // A pass that turns to a section is taken as a pass always is, so the choices wait.
+      const open = choicesOpen(section, session.state);
+      const available = !arrival && open && meets;
+      let because = "";
+      if (arrival) because = "Take the turn from this roll first.";
+      else if (!meets && choice.when) because = blockedBecause(choice.when, section.test ? testName(demoSystem, section.test) : undefined);
+      return { choice, available, because };
     }),
   );
   const testSkill = $derived.by(() => {
@@ -262,10 +270,13 @@
   const heldRoll = $derived<RollRecord | null>(heldTest?.roll ?? null);
   const fortuneStat = $derived(demoSystem.stats.find((stat) => stat.id === demoSystem.fortuneStat));
   const fortuneNow = $derived(session.state.stats[demoSystem.fortuneStat] ?? 0);
-  const passTo = $derived(section.test?.success.to ?? "");
-  const failTo = $derived(section.test?.failure.to ?? "");
-  const passTitle = $derived(section.test ? sectionTitle(book.sections, section.test.success.to) : "");
-  const failTitle = $derived(section.test ? sectionTitle(book.sections, section.test.failure.to) : "");
+  const passTo = $derived(section.test?.success?.to ?? "");
+  const failTo = $derived(section.test?.failure?.to ?? "");
+  const passTitle = $derived(passTo ? sectionTitle(book.sections, passTo) : "");
+  const failTitle = $derived(failTo ? sectionTitle(book.sections, failTo) : "");
+  const testHint = $derived(section.test ? stayHint(section.test, heldRoll) : "");
+  /** P32: after a pass that turns to a section, Pass is the only way on, so the choices go. */
+  const passWaiting = $derived(Boolean(heldRoll?.success && passTo));
   const combatRolls = $derived.by(() => {
     const combat = section.combat;
     if (!combat) return [];
@@ -311,21 +322,21 @@
     window.addEventListener("keydown", onKey);
     void (async () => {
       try {
-        const record = testFixture ? await store.load(saveSlot(demoBook.id)) : null;
+        const record = testFixture ? await store.load(saveSlot(fixtureBook.id)) : null;
         imported = (await store.listBooks()).map((entry) => entry.book);
         const next: Record<string, SaveRecord | null> = {};
         for (const entry of imported) next[entry.id] = await store.load(saveSlot(entry.id));
         otherSaves = next;
         if (ignore) return;
         if (testFixture) {
-          const migrated = migrateSave(record, demoSystem, demoBook);
-          book = demoBook;
-          if (migrated && canRestore(migrated.session, demoBook, demoSystem)) {
+          const migrated = migrateSave(record, demoSystem, fixtureBook);
+          book = fixtureBook;
+          if (migrated && canRestore(migrated.session, fixtureBook, demoSystem)) {
             session = migrated.session;
             bookmarks = migrated.bookmarks;
             if (migrated.session.state.pending?.kind === "test") panelOpen = true;
           } else {
-            session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
+            session = startSession(fixtureBook, demoSystem, fixtureHero(demoSystem));
           }
           phase = "play";
         } else {
@@ -796,9 +807,11 @@
             onIllustrations={saveIllustration}
             onOpenArt={openViewer}
           />
-          {#if panelOpen && section.test}
+          {#if (panelOpen || standingTest) && section.test}
             <SkillTest
               compact
+              standing={standingTest}
+              hint={testHint}
               label={section.test.label}
               dice={section.test.dice}
               formula={testFormula}
@@ -849,8 +862,8 @@
               onRoll={onRollCombat}
               onContinue={onArriveCombat}
             />
-          {:else if !section.test}
-            <Choices rows={choiceRows} {ready} {onChoose} />
+          {:else if !section.test || (standingTest && !passWaiting)}
+            <Choices rows={choiceRows} {ready} {onChoose} lead={standingTest ? "Or choose:" : ""} />
           {/if}
         </div>
         <aside aria-label="Quick adventure sheet">
@@ -913,6 +926,7 @@
         {#if section.test}
           <SkillTest
             compact={false}
+            hint={testHint}
             label={section.test.label}
             dice={section.test.dice}
             formula={testFormula}
