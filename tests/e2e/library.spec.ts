@@ -171,9 +171,31 @@ test("a first open has no book in play: an empty Library, no Lantern Stair card,
   await expect(page.getByTestId("view-back")).toHaveCount(0);
   await expect(page.getByTestId("import-drop")).toBeVisible();
   for (const id of ["side-read", "side-character", "side-test", "side-keywords"]) {
-    await expect(page.getByTestId(id)).toBeDisabled();
+    const item = page.getByTestId(id);
+    await expect(item).toHaveAttribute("aria-disabled", "true");
+    await expect(item).not.toHaveAttribute("disabled");
+    await expect(item).toHaveAttribute("aria-describedby", "side-unlock");
+    await expect(item.locator("svg.lock")).toHaveAttribute("aria-hidden", "true");
+    await expect(item).toHaveCSS("color", "rgb(92, 83, 72)");
+    await expect(item).toHaveCSS("opacity", "1");
+    await expect(item).toHaveCSS("cursor", "default");
   }
-  await expect(page.getByTestId("side-rules")).toBeEnabled();
+  const hint = page.getByTestId("side-unlock-hint");
+  await expect(hint).toBeVisible();
+  await expect(hint).toHaveText("Import or open a book to unlock");
+  const hintBox = await hint.boundingBox();
+  const keywordsBox = await page.getByTestId("side-keywords").boundingBox();
+  const libraryBox = await page.getByTestId("side-library").boundingBox();
+  expect(hintBox && keywordsBox && libraryBox && hintBox.y > keywordsBox.y && hintBox.y < libraryBox.y).toBe(true);
+  for (const id of ["side-library", "side-rules"]) {
+    await expect(page.getByTestId(id)).not.toHaveAttribute("aria-disabled");
+    await expect(page.getByTestId(id).locator("svg.lock")).toHaveCount(0);
+  }
+  // A locked item has aria-disabled, so force a real click past Playwright's enabled check.
+  await page.getByTestId("side-read").click({ force: true });
+  await expect(page.getByTestId("library")).toBeVisible();
+  await expect(page.getByTestId("side-library")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("lock-toast")).toHaveCount(0);
   await page.getByTestId("side-rules").click();
   await expect(page.getByTestId("book-title")).toHaveText("No book in play");
   await page.getByTestId("view-back").click();
@@ -183,13 +205,36 @@ test("a first open has no book in play: an empty Library, no Lantern Stair card,
   await expect(page.getByTestId("mobile-book")).toHaveText("No book in play");
   await expect(page.getByTestId("mobile-library")).toHaveAttribute("aria-current", "page");
   for (const id of ["mobile-read", "mobile-character", "mobile-test", "mobile-keywords"]) {
-    await expect(page.getByTestId(id)).toHaveClass(/\blocked\b/);
-    await expect(page.getByTestId(id)).toHaveCSS("opacity", "0.5");
+    const item = page.getByTestId(id);
+    await expect(item).toHaveClass(/\blocked\b/);
+    await expect(item).toHaveAttribute("aria-disabled", "true");
+    await expect(item).not.toHaveAttribute("disabled");
+    await expect(item).toHaveCSS("opacity", "1");
+    await expect(item.locator(".lab")).toHaveCSS("opacity", "0.5");
+    await expect(item.locator(".lab")).toHaveCSS("color", "rgb(92, 83, 72)");
+    await expect(item.locator("svg.lock")).toHaveCSS("opacity", "1");
+    await expect(item.locator("svg.lock")).toHaveCSS("color", "rgb(92, 83, 72)");
+    await expect(item.locator("svg.lock")).toHaveAttribute("aria-hidden", "true");
   }
   for (const id of ["mobile-library", "mobile-rules"]) {
     await expect(page.getByTestId(id)).not.toHaveClass(/\blocked\b/);
+    await expect(page.getByTestId(id)).not.toHaveAttribute("aria-disabled");
+    await expect(page.getByTestId(id).locator("svg.lock")).toHaveCount(0);
     await expect(page.getByTestId(id)).toHaveCSS("opacity", "1");
   }
+  await expect(page.getByTestId("mobile-library")).toHaveCSS("color", "rgb(138, 47, 29)");
+  await expect(page.getByTestId("mobile-rules")).toHaveCSS("color", "rgb(92, 83, 72)");
+  await expect(page.getByTestId("lock-toast")).toHaveCount(0);
+  await page.getByTestId("mobile-character").click({ force: true });
+  const toast = page.getByTestId("lock-toast");
+  await expect(toast).toHaveText("Import or open a book to unlock");
+  await expect(toast.locator("svg.lock")).toBeVisible();
+  await expect(page.getByTestId("library")).toBeVisible();
+  await expect(page.getByTestId("mobile-library")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("view-back")).toHaveCount(0);
+  const toastBox = await toast.boundingBox();
+  const barBox = await page.getByTestId("mobile-nav").boundingBox();
+  expect(toastBox && barBox && toastBox.y + toastBox.height <= barBox.y && barBox.y - (toastBox.y + toastBox.height) <= 16).toBe(true);
 
   await page.reload();
   await expect(page.getByTestId("mobile-book")).toHaveText("No book in play");
@@ -308,7 +353,7 @@ test("review puts the tracker and flagged checklist above the editor and hides t
   await expect(page.getByTestId("book-title")).toHaveText("No book in play");
   await expect(page.getByTestId("library-empty")).toHaveText("No books yet. Import a book file to start.");
   await expect(page.getByTestId("creation")).toHaveCount(0);
-  await expect(page.getByTestId("side-read")).toBeDisabled();
+  await expect(page.getByTestId("side-read")).toHaveAttribute("aria-disabled", "true");
   await page.reload();
   await expect(page.getByTestId("book-title")).toHaveText("No book in play");
   await expect(page.getByTestId("library-empty")).toBeVisible();

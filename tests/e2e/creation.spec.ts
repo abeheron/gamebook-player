@@ -26,9 +26,20 @@ test("opening an imported book with no save goes through creation, trades Talent
   );
   await expect(page.getByTestId("side-new-character")).toHaveAttribute("aria-current", "step");
   for (const id of ["side-read", "side-character", "side-test", "side-keywords", "side-library", "side-rules"]) {
-    await expect(page.getByTestId(id)).toBeDisabled();
+    const item = page.getByTestId(id);
+    await expect(item).toHaveAttribute("aria-disabled", "true");
+    await expect(item).not.toHaveAttribute("disabled");
+    await expect(item).not.toHaveAttribute("aria-current");
+    await expect(item.locator("svg.lock")).toHaveAttribute("aria-hidden", "true");
+    await expect(item).toHaveCSS("color", "rgb(92, 83, 72)");
   }
   await expect(page.getByTestId("side-locked-note")).toHaveText("Other screens open after you begin.");
+  await expect(page.getByTestId("side-unlock-hint")).toHaveCount(0);
+  await expect(page.getByTestId("side-nav")).not.toContainText("Import or open a book to unlock");
+  // A locked item has aria-disabled, so force a real click past Playwright's enabled check.
+  await page.getByTestId("side-library").click({ force: true });
+  await page.getByTestId("side-rules").click({ force: true });
+  await expect(page.getByTestId("creation")).toBeVisible();
   await expect(page.getByTestId("undo")).toHaveCount(0);
   await expect(page.getByTestId("new-game")).toHaveCount(0);
   await expect(page.getByTestId("section-title")).toHaveCount(0);
@@ -157,7 +168,25 @@ test("stacks creation on a phone: character, skills, weapon, kit, then Begin", a
   await page.setViewportSize({ width: 390, height: 844 });
   await openCopperCreation(page);
   await expect(page.getByTestId("side-nav")).toBeHidden();
-  await expect(page.getByTestId("mobile-nav")).toHaveCount(0);
+  await expect(page.getByTestId("mobile-nav")).toBeVisible();
+  for (const id of ["mobile-read", "mobile-character", "mobile-test", "mobile-keywords", "mobile-library", "mobile-rules"]) {
+    const item = page.getByTestId(id);
+    await expect(item).toHaveClass(/\blocked\b/);
+    await expect(item).toHaveAttribute("aria-disabled", "true");
+    await expect(item).not.toHaveAttribute("disabled");
+    await expect(item).not.toHaveAttribute("aria-current");
+    await expect(item.locator("svg.lock")).toBeVisible();
+  }
+  await expect(page.getByTestId("mobile-new-character")).toHaveCount(0);
+  await page.getByTestId("mobile-library").click({ force: true });
+  await expect(page.getByTestId("lock-toast")).toHaveText("Other screens open after you begin.");
+  await expect(page.getByTestId("lock-toast").locator("svg.lock")).toBeVisible();
+  await expect(page.getByTestId("lock-toast")).not.toContainText("Import or open a book to unlock");
+  await expect(page.getByTestId("creation")).toBeVisible();
+  await expect(page.getByTestId("library")).toHaveCount(0);
+  const toastBox = await page.getByTestId("lock-toast").boundingBox();
+  const barBox = await page.getByTestId("mobile-nav").boundingBox();
+  expect(toastBox && barBox && toastBox.y + toastBox.height <= barBox.y).toBe(true);
   const order = ["create-summary", "create-skills", "create-weapon", "create-kit", "create-begin-card"];
   const tops: number[] = [];
   for (const id of order) {

@@ -48,6 +48,35 @@
   const creating = $derived(phase === "create");
   const noBook = $derived(phase === "loading" || phase === "none");
   const bookLine = $derived(noBook ? "No book in play" : book.title);
+  const UNLOCK_HINT = "Import or open a book to unlock";
+  const CREATION_NOTE = "Other screens open after you begin.";
+  const navItems: { view: ViewName; label: string; id: string; needsBook: boolean }[] = [
+    { view: "read", label: "Read", id: "read", needsBook: true },
+    { view: "sheet", label: "Character", id: "character", needsBook: true },
+    { view: "test", label: "Test & fight", id: "test", needsBook: true },
+    { view: "log", label: "Keywords & ticks", id: "keywords", needsBook: true },
+    { view: "library", label: "Library", id: "library", needsBook: false },
+    { view: "rules", label: "Rules", id: "rules", needsBook: false },
+  ];
+  let lockToast = $state("");
+  let lockToastTimer = 0;
+
+  /** Library and Rules lock only during creation; the rest also lock with no book in play. */
+  function isLocked(item: { needsBook: boolean }): boolean {
+    return creating || (item.needsBook && noBook);
+  }
+
+  /** A locked item never opens its screen. On the phone bar a tap shows why. */
+  function onNav(item: (typeof navItems)[number], phone: boolean): void {
+    if (!isLocked(item)) {
+      show(item.view);
+      return;
+    }
+    if (!phone) return;
+    lockToast = creating ? CREATION_NOTE : UNLOCK_HINT;
+    window.clearTimeout(lockToastTimer);
+    lockToastTimer = window.setTimeout(() => (lockToast = ""), 4000);
+  }
   let ready = $state(false);
   let saveError = $state("");
   let writes = Promise.resolve();
@@ -338,6 +367,7 @@
     clearMotion();
     stopDiceSound();
     window.clearTimeout(savingTimer);
+    window.clearTimeout(lockToastTimer);
   });
 
   function currentRecord(): SaveRecord {
@@ -699,27 +729,26 @@
     {#if creating}
       <span class="nav-step" aria-current="step" data-testid="side-new-character">New character</span>
     {/if}
-    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
-      Read
-    </button>
-    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
-      Character
-    </button>
-    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
-      Test &amp; fight
-    </button>
-    <button type="button" class:locked={creating || noBook} disabled={creating || noBook} data-testid="side-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
-      Keywords &amp; ticks
-    </button>
-    <button type="button" class:locked={creating} disabled={creating} data-testid="side-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
-      Library
-    </button>
-    <button type="button" class:locked={creating} disabled={creating} data-testid="side-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
-      Rules
-    </button>
+    {#each navItems as item, i (item.id)}
+      {@const locked = isLocked(item)}
+      {#if i === 4 && noBook && !creating}
+        <p class="unlock-hint" id="side-unlock" data-testid="side-unlock-hint">{UNLOCK_HINT}</p>
+      {/if}
+      <button
+        type="button"
+        class:locked
+        aria-disabled={locked ? "true" : undefined}
+        aria-describedby={locked ? (creating ? "side-locked-note" : "side-unlock") : undefined}
+        data-testid="side-{item.id}"
+        aria-current={!locked && view === item.view ? "page" : undefined}
+        onclick={() => onNav(item, false)}
+      >
+        {#if locked}{@render padlock()}{/if}{item.label}{#if locked}<span class="sr">, locked</span>{/if}
+      </button>
+    {/each}
     <div class="foot">
       {#if creating}
-        <p data-testid="side-locked-note">Other screens open after you begin.</p>
+        <p id="side-locked-note" data-testid="side-locked-note">{CREATION_NOTE}</p>
       {:else}
         <p>Back returns to the previous screen and keeps its scroll. It does not rewind the story.</p>
       {/if}
@@ -957,28 +986,29 @@
     {/if}
   </main>
 </div>
-{#if !creating}
-<nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
-  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-read" aria-current={view === "read" ? "page" : undefined} onclick={() => show("read")}>
-    Read
-  </button>
-  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-character" aria-current={view === "sheet" ? "page" : undefined} onclick={() => show("sheet")}>
-    Character
-  </button>
-  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-test" aria-current={view === "test" ? "page" : undefined} onclick={() => show("test")}>
-    Test &amp; fight
-  </button>
-  <button type="button" class:locked={noBook} disabled={noBook} data-testid="mobile-keywords" aria-current={view === "log" ? "page" : undefined} onclick={() => show("log")}>
-    Keywords &amp; ticks
-  </button>
-  <button type="button" data-testid="mobile-library" aria-current={view === "library" ? "page" : undefined} onclick={() => show("library")}>
-    Library
-  </button>
-  <button type="button" data-testid="mobile-rules" aria-current={view === "rules" ? "page" : undefined} onclick={() => show("rules")}>
-    Rules
-  </button>
-</nav>
-{/if}
+<div class="mobile-dock">
+  {#if lockToast && (creating || noBook)}
+    <div class="lock-toast" role="status" data-testid="lock-toast">{@render padlock()}{lockToast}</div>
+  {/if}
+  <nav class="mobilebar" aria-label="Screens" data-testid="mobile-nav">
+    {#each navItems as item (item.id)}
+      {@const locked = isLocked(item)}
+      <button
+        type="button"
+        class:locked
+        aria-disabled={locked ? "true" : undefined}
+        data-testid="mobile-{item.id}"
+        aria-current={!locked && view === item.view ? "page" : undefined}
+        onclick={() => onNav(item, true)}
+      >
+        {#if locked}{@render padlock()}<span class="lab">{item.label}</span><span class="sr">, locked</span>{:else}{item.label}{/if}
+      </button>
+    {/each}
+  </nav>
+</div>
+{#snippet padlock()}
+  <svg class="lock" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><rect x="2.25" y="5.25" width="7.5" height="5.5" rx="1.1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 5.25V3.7a2 2 0 0 1 4 0v1.55" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="8.1" r="0.7" fill="currentColor"/></svg>
+{/snippet}
 {#if viewer}
   <IllustrationViewer art={viewer} onClose={closeViewer} />
 {/if}
