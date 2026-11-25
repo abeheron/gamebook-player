@@ -121,3 +121,13 @@ export const WEAPON_TEXT: Record<WeaponType, { name: string; line: string }> = {
 export function weaponSummary(weapon: WeaponType, shield: boolean): string {
   return WEAPON_TEXT[weapon].name + (shield ? " + shield" : "");
 }
+
+/**
+ * P33: the one line on the game-over card. A fight label is a bare enemy name, so it reads
+ * "fighting the Cinder hound"; a label that already starts with an article keeps it.
+ */
+export function gameOverLine(sectionId: string, enemy: string): string {
+  const name = enemy.trim();
+  const named = /^(the|a|an)\s/i.test(name) ? name : `the ${name}`;
+  return `You fell at §${sectionId} fighting ${named}.`;
+}

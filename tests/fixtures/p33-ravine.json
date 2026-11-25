@@ -1,0 +1,82 @@
+{
+  "id": "p33-ravine",
+  "title": "The Ash Ravine",
+  "author": "Gamebook Player sample",
+  "rights": "Original sample text written for this repository. It is not a published gamebook, and this repository has no chosen license for it.",
+  "system": "gnat-demo",
+  "start": "1",
+  "sections": [
+    {
+      "id": "1",
+      "title": "",
+      "body": [
+        "Grey ash drifts down into a narrow ravine. A rope bridge sways over the gap, a shallow ford runs below it, and a slope of loose scree climbs toward the far rim."
+      ],
+      "choices": [
+        { "id": "cross-bridge", "label": "Cross the rope bridge", "to": "5" },
+        { "id": "wade-ford", "label": "Wade the ford", "to": "9" },
+        { "id": "climb-scree", "label": "Climb the scree", "to": "17" }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "",
+      "body": [
+        "Halfway across, the planks creak and a cinder hound pads out of the ash on the far side, its eyes glowing like coals. It will not let you pass."
+      ],
+      "combat": {
+        "id": "cinder-hound",
+        "label": "Cinder hound",
+        "rounds": 3,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "20"
+      }
+    },
+    {
+      "id": "9",
+      "title": "",
+      "body": [
+        "The water is cold and black. Something long and silver coils around your ankle: a ford eel, hungry and strong."
+      ],
+      "combat": {
+        "id": "ford-eel",
+        "label": "Ford eel",
+        "rounds": 3,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "defeatSection": "12",
+        "then": "20"
+      }
+    },
+    {
+      "id": "12",
+      "title": "",
+      "body": ["The eel drags you downstream and lets go at last. You crawl onto a sandbar, bruised and shivering."],
+      "choices": [{ "id": "back-to-ravine", "label": "Walk back to the ravine", "to": "1" }]
+    },
+    {
+      "id": "17",
+      "title": "",
+      "body": ["The scree shifts under every step. One wrong foothold could send you tumbling all the way down."],
+      "test": {
+        "id": "climb-scree",
+        "label": "Test Climbing",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "climbing",
+        "success": { "to": "20" },
+        "failure": { "effects": [{ "op": "adjustStat", "stat": "vitality", "by": -3 }] }
+      },
+      "choices": [{ "id": "back-down", "label": "Go back down", "to": "1" }]
+    },
+    {
+      "id": "20",
+      "title": "",
+      "body": ["You reach the far rim. Below, the ash settles on the ravine like snow."],
+      "choices": [{ "id": "look-back", "label": "Look back into the ravine", "to": "1" }]
+    }
+  ]
+}

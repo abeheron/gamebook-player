@@ -10,3 +10,10 @@ export const FIXTURE_URL = "/?fixture=demo";
  * and Talent 9, on a section with a Naturalist test and plain choices beside it (P32). Not linked anywhere.
  */
 export const P32_FIXTURE_URL = "/?fixture=p32";
+
+/**
+ * Opens The Ash Ravine (original sample text) with the hidden ready-made hero (Talent 9, Vitality 3) (P33).
+ * §5 is a three-round fight with no losing section, so a loss is game over. §9 is a fight that does have one,
+ * and §17 is a test whose fail costs 3 Vitality. Not linked anywhere.
+ */
+export const P33_FIXTURE_URL = "/?fixture=p33";

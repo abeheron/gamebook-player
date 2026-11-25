@@ -2271,3 +2271,62 @@ button.die {
 .mobilebar button.locked .lab {
   opacity: 0.5;
 }
+
+/* P33 game over: the reading column becomes one centred end card (sketch p33-game-over.html). */
+.game-over {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding: 12px 8px 24px;
+}
+
+.game-over-card {
+  width: 100%;
+  max-width: 26rem;
+  text-align: center;
+}
+
+.game-over .skull {
+  display: block;
+  width: 108px;
+  height: 126px;
+  margin: 0 auto 18px;
+  color: var(--accent);
+}
+
+.game-over-card h2 {
+  font: 600 36px/1.15 var(--serif);
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.game-over .happened {
+  font: 18px/1.45 var(--serif);
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.game-over .why {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 22px;
+}
+
+.game-over-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.game-over-actions .btn {
+  min-height: 44px;
+}
+
+/* Phone gap-fill (390px was not in the approval): the card stays centred in the stacked column, buttons full width. */
+@media (max-width: 860px) {
+  .game-over {
+    padding: 8px 0 24px;
+  }
+}

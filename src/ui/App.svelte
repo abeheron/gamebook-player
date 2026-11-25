@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { demoBook, demoSystem, gladeBook } from "../format/demo";
+  import { demoBook, demoSystem, gladeBook, ravineBook } from "../format/demo";
   import { exploredSections } from "../format/import-book";
   import type { Book, Character, Illustration, RollRecord, Session } from "../format/types";
   import { fixtureCharacter, gladeCharacter } from "../engine/creation";
@@ -18,6 +18,7 @@
   import Choices from "./Choices.svelte";
   import Combat from "./Combat.svelte";
   import Creation from "./Creation.svelte";
+  import GameOver from "./GameOver.svelte";
   import IllustrationViewer from "./IllustrationViewer.svelte";
   import Reader from "./Reader.svelte";
   import Library from "./Library.svelte";
@@ -106,12 +107,14 @@
   /**
    * Hidden test fixtures, not linked anywhere: ?fixture=demo puts The Lantern Stair in play with the ready-made
    * hero (or its existing save), so automated tests can jump into a section. ?fixture=p32 does the same with
-   * The Mist Glade, a test with plain choices beside it, and a hero with Naturalist. Players never see these
-   * books: they are not Library cards, and a plain first launch has no book in play.
+   * The Mist Glade, a test with plain choices beside it, and a hero with Naturalist. ?fixture=p33 opens The Ash
+   * Ravine with the ready-made hero: a fight with no losing section (game over), a fight with one, and a test
+   * whose fail wounds. Players never see these books: they are not Library cards, and a plain first launch has
+   * no book in play.
    */
   const fixtureName = typeof location !== "undefined" ? new URLSearchParams(location.search).get("fixture") : null;
-  const testFixture = fixtureName === "demo" || fixtureName === "p32";
-  const fixtureBook = fixtureName === "p32" ? gladeBook : demoBook;
+  const testFixture = fixtureName === "demo" || fixtureName === "p32" || fixtureName === "p33";
+  const fixtureBook = fixtureName === "p32" ? gladeBook : fixtureName === "p33" ? ravineBook : demoBook;
   const fixtureHero = fixtureName === "p32" ? gladeCharacter : fixtureCharacter;
 
   /** Keeps the derived views valid while no game is running. It is never shown or saved. */
@@ -294,6 +297,8 @@
   const continueTitle = $derived(
     arrival?.kind === "combat" ? sectionTitle(book.sections, arrival.session.state.sectionId) : "",
   );
+  /** P33: a fight with no losing section was lost. The card replaces the passage and the fight. */
+  const gameOver = $derived(phase === "play" && !arrival && adventureOver(book, session.state));
   const defeated = $derived(
     arrival?.kind === "combat" && section.combat !== undefined && arrival.session.state.sectionId === section.combat.defeatSection,
   );
@@ -795,77 +800,81 @@
       <Creation system={demoSystem} startSection={book.start} {onBegin} />
     {:else if view === "read"}
       <div class="layout">
-        <div>
-          <Reader
-            {section}
-            ticks={mentionedTicks}
-            {panelOpen}
-            onOpenTest={openPanel}
-            {bookmarked}
-            onBookmark={toggleBookmark}
-            illustrations={prefs.illus}
-            onIllustrations={saveIllustration}
-            onOpenArt={openViewer}
-          />
-          {#if (panelOpen || standingTest) && section.test}
-            <SkillTest
-              compact
-              standing={standingTest}
-              hint={testHint}
-              label={section.test.label}
-              dice={section.test.dice}
-              formula={testFormula}
-              adjustment={testAdjustment}
-              {ready}
-              roll={heldRoll}
-              rolling={diceRolling}
-              {rollingIndexes}
-              previewFaces={dicePreview}
-              {passTo}
-              {passTitle}
-              {failTo}
-              {failTitle}
-              fortune={fortuneNow}
-              fortuneMax={fortuneStat?.max ?? 0}
-              fortuneCost={demoSystem.fortuneRerollCost}
-              selected={heldTest?.selected ?? null}
-              onSelect={onSelectDie}
-              onReroll={onRerollDie}
-              onRoll={onRollTest}
-              onArrive={onArriveTest}
-              onClose={closePanel}
-              onFull={openFullTest}
+        {#if gameOver && section.combat}
+          {@render gameOverCard(section.combat.label)}
+        {:else}
+          <div>
+            <Reader
+              {section}
+              ticks={mentionedTicks}
+              {panelOpen}
+              onOpenTest={openPanel}
+              {bookmarked}
+              onBookmark={toggleBookmark}
+              illustrations={prefs.illus}
+              onIllustrations={saveIllustration}
+              onOpenArt={openViewer}
             />
-          {/if}
-          {#if section.combat}
-            <Combat
-              combat={section.combat}
-              formula={combatFormula}
-              round={(session.state.pending?.kind === "combat" ? session.state.pending.round : 0) + 1}
-              rounds={section.combat.rounds}
-              rolls={combatRolls}
-              rolling={diceRolling}
-              previewFaces={dicePreview}
-              vitality={combatVitality.current}
-              vitalityMax={combatVitality.max}
-              {ready}
-              held={arrival?.kind === "combat"}
-              {continueTo}
-              {continueTitle}
-              {defeated}
-              selected={combatSelected}
-              fortune={fortuneNow}
-              fortuneCost={demoSystem.fortuneRerollCost}
-              {rollingIndexes}
-              onSelect={onSelectCombatDie}
-              onReroll={onRerollCombat}
-              onRoll={onRollCombat}
-              onContinue={onArriveCombat}
-            />
-          {:else if !section.test || (standingTest && !passWaiting)}
-            <Choices rows={choiceRows} {ready} {onChoose} lead={standingTest ? "Or choose:" : ""} />
-          {/if}
-        </div>
+            {#if (panelOpen || standingTest) && section.test}
+              <SkillTest
+                compact
+                standing={standingTest}
+                hint={testHint}
+                label={section.test.label}
+                dice={section.test.dice}
+                formula={testFormula}
+                adjustment={testAdjustment}
+                {ready}
+                roll={heldRoll}
+                rolling={diceRolling}
+                {rollingIndexes}
+                previewFaces={dicePreview}
+                {passTo}
+                {passTitle}
+                {failTo}
+                {failTitle}
+                fortune={fortuneNow}
+                fortuneMax={fortuneStat?.max ?? 0}
+                fortuneCost={demoSystem.fortuneRerollCost}
+                selected={heldTest?.selected ?? null}
+                onSelect={onSelectDie}
+                onReroll={onRerollDie}
+                onRoll={onRollTest}
+                onArrive={onArriveTest}
+                onClose={closePanel}
+                onFull={openFullTest}
+              />
+            {/if}
+            {#if section.combat}
+              <Combat
+                combat={section.combat}
+                formula={combatFormula}
+                round={(session.state.pending?.kind === "combat" ? session.state.pending.round : 0) + 1}
+                rounds={section.combat.rounds}
+                rolls={combatRolls}
+                rolling={diceRolling}
+                previewFaces={dicePreview}
+                vitality={combatVitality.current}
+                vitalityMax={combatVitality.max}
+                {ready}
+                held={arrival?.kind === "combat"}
+                {continueTo}
+                {continueTitle}
+                {defeated}
+                selected={combatSelected}
+                fortune={fortuneNow}
+                fortuneCost={demoSystem.fortuneRerollCost}
+                {rollingIndexes}
+                onSelect={onSelectCombatDie}
+                onReroll={onRerollCombat}
+                onRoll={onRollCombat}
+                onContinue={onArriveCombat}
+              />
+            {:else if !section.test || (standingTest && !passWaiting)}
+              <Choices rows={choiceRows} {ready} {onChoose} lead={standingTest ? "Or choose:" : ""} />
+            {/if}
+          </div>
+        {/if}
         <aside aria-label="Quick adventure sheet">
           <Sheet system={demoSystem} state={session.state} brief />
           <button type="button" class="btn ghost" data-testid="open-sheet" onclick={() => show("sheet")}>Full sheet</button>
@@ -923,7 +932,9 @@
         {/if}
       </div>
       <div data-testid="test-view">
-        {#if section.test}
+        {#if gameOver && section.combat}
+          {@render gameOverCard(section.combat.label)}
+        {:else if section.test}
           <SkillTest
             compact={false}
             hint={testHint}
@@ -1020,6 +1031,9 @@
     {/each}
   </nav>
 </div>
+{#snippet gameOverCard(enemy: string)}
+  <GameOver sectionId={section.id} {enemy} {ready} onNewGame={onNewGame} onLibrary={() => show("library")} />
+{/snippet}
 {#snippet padlock()}
   <svg class="lock" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><rect x="2.25" y="5.25" width="7.5" height="5.5" rx="1.1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 5.25V3.7a2 2 0 0 1 4 0v1.55" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="8.1" r="0.7" fill="currentColor"/></svg>
 {/snippet}
