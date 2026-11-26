@@ -2434,31 +2434,19 @@ button.die {
   flex: none;
 }
 
-/* The replaced face: muted, slightly smaller, dashed, and struck through. */
+/* The replaced face: muted, slightly smaller, and dashed. */
 .die.old {
   width: 40px;
   height: 40px;
   padding: 5px;
   border: 1.5px dashed var(--muted);
   opacity: 0.7;
-  position: relative;
 }
 
 .die.old i {
   width: 6px;
   height: 6px;
   background: var(--muted);
-}
-
-.die.old::after {
-  content: "";
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  top: 50%;
-  border-top: 2px solid var(--accent);
-  transform: rotate(-30deg);
-  opacity: 0.6;
 }
 
 .die.new {
