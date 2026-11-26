@@ -109,6 +109,21 @@ export const rulesSummary: readonly RuleSection[] = [
         status: "in-app",
       },
       {
+        text: "With Advantage you may re-roll any one die once per round, after any other re-rolls, and must take the second result.",
+        page: "pp. 10–11",
+        status: "in-app",
+      },
+      {
+        text: "With Disadvantage you must re-roll the first 1 or 2 you roll each round when fighting, and take the second result. Having both Advantage and Disadvantage cancels them.",
+        page: "pp. 10–11",
+        status: "in-app",
+      },
+      {
+        text: "A two-handed weapon re-rolls the first 6 you roll each fight round, and you must take the second result.",
+        page: "pp. 10–11",
+        status: "in-app",
+      },
+      {
         text: "A fumble adds one Wound only when that round already causes one.",
         page: "p. 10",
         status: "not-yet",

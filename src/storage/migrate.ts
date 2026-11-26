@@ -3,9 +3,11 @@ import { TALENT } from "../engine/creation";
 import { SAVE_VERSION, type SaveRecord } from "./types";
 
 /**
- * Turns a version 1, 2, 3, or 4 save into version 5. A version 5 save is returned unchanged.
+ * Turns a version 1 to 5 save into version 6. A version 6 save is returned unchanged.
  * Saves before version 5 were the ready-made demo character: no trades and no chosen weapon.
  * They gain a Talent maximum at the starting Talent, a one-handed weapon, and no shield.
+ * Saves before version 6 had no fight set-up (P35): every state gains `fight: null`. Their fight
+ * rolls have no re-roll notes, which is still a valid roll.
  */
 export function migrateSave(value: unknown, system: SystemDef, book: Book): SaveRecord | null {
   if (!isRecord(value) || typeof value.savedAt !== "string") return null;
@@ -16,15 +18,36 @@ export function migrateSave(value: unknown, system: SystemDef, book: Book): Save
     if (!bookmarks) return null;
     return { version: SAVE_VERSION, savedAt: value.savedAt, session: value.session, bookmarks };
   }
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return null;
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) return null;
   if (!isSession(value.session)) return null;
   const bookmarks = version >= 3 ? parseBookmarks(value.bookmarks, book) : [];
   if (!bookmarks) return null;
   const earlier = version === 1 ? migrateSession(value.session, system) : value.session;
   if (!earlier) return null;
-  const session = equipSession(earlier, system);
+  const equipped = version === 5 ? earlier : equipSession(earlier, system);
+  if (!equipped) return null;
+  const session = withFight(equipped);
   if (!session) return null;
   return { version: SAVE_VERSION, savedAt: value.savedAt, session, bookmarks };
+}
+
+/** Adds the version 6 fight set-up, empty, to every state in an older session. */
+function withFight(session: Session): Session | null {
+  const add = (value: unknown): GameState | null => {
+    if (!isRecord(value)) return null;
+    const next = structuredClone(value) as unknown as GameState;
+    next.fight = null;
+    return next;
+  };
+  const state = add(session.state);
+  if (!state) return null;
+  const undo: GameState[] = [];
+  for (const entry of session.undo) {
+    const next = add(entry);
+    if (!next) return null;
+    undo.push(next);
+  }
+  return { bookId: session.bookId, state, undo };
 }
 
 function parseBookmarks(value: unknown, book: Book): string[] | null {

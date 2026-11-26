@@ -398,7 +398,9 @@ describe("fight condition words stay visible", () => {
     expect(fight.fightRounds).toBe("2");
     expect(fight.winTo).toBe("2");
     expect(fight.passage).toBe("A heron stabs at you: Grey heron Fight two rounds with Advantage if you carry a net");
-    expect(fight.flags).toEqual([]);
+    // P35: Advantage that holds only "if you carry a net" cannot be stored, so it is flagged, not dropped.
+    expect(fight.flags).toEqual([FLAG.edgeUnstored]);
+    expect(fight.fightEdge).toBe("");
   });
 
   it("keeps condition words that wrap onto the next line", () => {
@@ -419,9 +421,21 @@ describe("fight condition words stay visible", () => {
       "The kite swoops: Red kite Fight one round with Disadvantage unless you can shout a warding word, or if you hold a long pole",
     );
     expect(fight.flags).toEqual([]);
+    // P35: the Disadvantage and its two conditions are stored, as boxes the player ticks.
+    expect(fight.fightEdge).toBe("disadvantage");
+    expect(fight.fightUnless).toEqual(["I can shout a warding word", "I hold a long pole"]);
     const built = draftToBook(draft, demoSystem);
     expect(built.ok).toBe(true);
     if (built.ok) expect(built.book.sections[0]?.body.join(" ")).toContain("if you hold a long pole");
+    if (built.ok) {
+      expect(built.book.sections[0]?.combat).toMatchObject({
+        edge: "disadvantage",
+        unless: [
+          { id: "unless-1", label: "I can shout a warding word" },
+          { id: "unless-2", label: "I hold a long pole" },
+        ],
+      });
+    }
   });
 
   it("keeps condition words after a short name line above 'Fight one round'", () => {
@@ -439,7 +453,7 @@ describe("fight condition words stay visible", () => {
     expect(fight.fightName).toBe("Bog wraith");
     expect(fight.fightRounds).toBe("1");
     expect(fight.passage).toBe("A shape rises from the bog. Fight one round with Advantage if you carry a torch");
-    expect(fight.flags).toEqual([]);
+    expect(fight.flags).toEqual([FLAG.edgeUnstored]);
   });
 
   it("still drops a bare name and rounds line, which the fight already shows", () => {
@@ -653,7 +667,7 @@ describe("a test told in the section, then one shared destination", () => {
       "You can either Test Climbing to scale it, or Test Swimming to go round.",
       "If you fail both, lose one Talent.",
       "Turn to 1.",
-      // A test that leads into a fight.
+      // A test that leads into a fight now wires (P35): see the P35 cases below.
       "3.",
       "Test Stealth. If you fail, you fight with Disadvantage.",
       "Marsh troll Fight two rounds",
@@ -670,10 +684,10 @@ describe("a test told in the section, then one shared destination", () => {
     );
     expect(section(draft, "1").flags).toEqual([]);
     expect(section(draft, "1").failEffects).toEqual([{ op: "adjustStat", stat: "vitality", by: -1 }]);
-    for (const number of ["2", "3"]) {
-      expect(section(draft, number).flags).toEqual(expect.arrayContaining([FLAG.mixedExits]));
-      expect(section(draft, number).passTo).toBe("");
-    }
+    expect(section(draft, "2").flags).toEqual(expect.arrayContaining([FLAG.mixedExits]));
+    expect(section(draft, "2").passTo).toBe("");
+    expect(section(draft, "3").flags).toEqual([]);
+    expect(section(draft, "3").failEdge).toBe("disadvantage");
     expect(section(draft, "2").flags).toContain(FLAG.testTwice);
     expect(section(draft, "4").flags).toEqual([FLAG.testModifier]);
     // The gold cannot be stored, so the success result stays flagged. The rest is a test with a choice.
@@ -981,5 +995,242 @@ describe("near-miss destination wording", () => {
     );
     expect(section(draft, "1")).toMatchObject({ sawTest: false, winTo: "2", flags: [] });
     expect(section(draft, "2")).toMatchObject({ sawTest: false, flags: [] });
+  });
+});
+
+describe("P35: a test before a fight, and Advantage / Disadvantage", () => {
+  /** Two plain sections to turn to. */
+  const tail = ["8.", "The path goes on.", "Turn to 9.", "9.", "You rest.", "Turn to 8."];
+
+  function built(draft: ReturnType<typeof draftOf>, number: string) {
+    const book = draftToBook(draft, demoSystem);
+    if (!book.ok) throw new Error(book.error);
+    const found = book.book.sections.find((entry) => entry.id === number);
+    if (!found) throw new Error(`missing §${number}`);
+    return found;
+  }
+
+  it("wires a pass that grants Advantage, with the fail left unstated (fight still happens)", () => {
+    const draft = draftOf(
+      "1.",
+      "The poacher has his back to you. Test Stealth. If you succeed, you have Advantage in the",
+      "fight that follows:",
+      " Marsh poacher Fight one round",
+      "If you win, turn to 8.",
+      ...tail,
+    );
+    const fight = section(draft, "1");
+    expect(fight.flags).toEqual([]);
+    expect(fight.passEdge).toBe("advantage");
+    expect(fight.failEdge).toBe("");
+    expect(fight.passTo).toBe("");
+    expect(fight.testOptional).toBe(false);
+    const stored = built(draft, "1");
+    expect(stored.test).toMatchObject({ skill: "stealth", success: { edge: "advantage" } });
+    expect(stored.test?.failure).toBeUndefined();
+    expect(stored.combat).toMatchObject({ label: "Marsh poacher", rounds: 1, then: "8", afterTest: true });
+  });
+
+  it("stores an optional test (\"you can try\") as skippable", () => {
+    const draft = draftOf(
+      "1.",
+      "You can try to creep along the dyke, in which case Test Stealth; if you succeed, you have Advantage in the following battle:",
+      " Dyke otter Fight two rounds",
+      "If you win, turn to 8.",
+      ...tail,
+    );
+    const fight = section(draft, "1");
+    expect(fight.flags).toEqual([]);
+    expect(fight.testOptional).toBe(true);
+    expect(built(draft, "1").test).toMatchObject({ optional: true, success: { edge: "advantage" } });
+  });
+
+  it("wires fight as normal on a pass and Disadvantage on a fail", () => {
+    const draft = draftOf(
+      "1.",
+      "The current is strong. First Test Swimming. If you succeed, you fight as normal; if you fail, you fight with Disadvantage.",
+      " River pike Fight two rounds",
+      "If you win, turn to 8.",
+      ...tail,
+    );
+    const fight = section(draft, "1");
+    expect(fight.flags).toEqual([]);
+    expect(fight.passEdge).toBe("");
+    expect(fight.failEdge).toBe("disadvantage");
+    const stored = built(draft, "1");
+    expect(stored.test?.success).toBeUndefined();
+    expect(stored.test?.failure).toEqual({ edge: "disadvantage" });
+    expect(stored.combat?.defeatSection).toBeUndefined();
+  });
+
+  it("wires a fail that takes a Wound before the fight, including 'successfully or Take a Wound'", () => {
+    const draft = draftOf(
+      "1.",
+      "A stone flies at you. Test your Talent; if you are successful, you duck it, but if you fail, you Take a Wound.",
+      "If you are still alive, face the slinger:",
+      " Reed slinger Fight one round at -2",
+      "If you survive, turn to 8.",
+      "2.",
+      "The hedge is all thorns and you will have to Test your Talent successfully or Take a Wound from the spines.",
+      " Hedge cat Fight one round at -1",
+      "If you win, turn to 8.",
+      ...tail,
+    );
+    for (const number of ["1", "2"]) {
+      expect(section(draft, number).flags).toEqual([]);
+      expect(section(draft, number).failEffects).toEqual([{ op: "adjustStat", stat: "vitality", by: -1 }]);
+      expect(section(draft, number).passEffects).toEqual([]);
+    }
+    expect(built(draft, "1").test?.failure).toEqual({ effects: [{ op: "adjustStat", stat: "vitality", by: -1 }] });
+    expect(built(draft, "1").combat?.modifier).toBe(-2);
+  });
+
+  it("wires a pass that turns away (the fight never opens) and a fail that starts the fight", () => {
+    const draft = draftOf(
+      "1.",
+      "You try to talk your way past the bridge wardens.",
+      "Test Diplomacy.",
+      "If you succeed, they step aside; turn to 8.",
+      "If you fail, they draw their clubs and you must fight them:",
+      " Bridge wardens Fight one round at -2",
+      "If you win, you reach the far bank; turn to 8.",
+      ...tail,
+    );
+    const fight = section(draft, "1");
+    expect(fight.flags).toEqual([]);
+    expect(fight.passTo).toBe("8");
+    expect(fight.failTo).toBe("");
+    expect(fight.winTo).toBe("8");
+    const stored = built(draft, "1");
+    expect(stored.test?.success).toEqual({ to: "8" });
+    expect(stored.combat?.afterTest).toBe(true);
+  });
+
+  it("applies a closing 'If you are still alive' line after a pass and after the fight, without inventing an enemy", () => {
+    const draft = draftOf(
+      "1.",
+      "The bank gives way under the boar's charge.",
+      "Test your Talent. If you succeed, you leap clear of the tusks.",
+      "If you fail, you must hold it off with your bare hands;",
+      "Fight one round at -3.",
+      "If you are still alive, turn to 8.",
+      ...tail,
+    );
+    const fight = section(draft, "1");
+    expect(fight.passTo).toBe("8");
+    expect(fight.winTo).toBe("8");
+    expect(fight.choices).toEqual([]);
+    expect(fight.fightName).toBe("");
+    // No name is better than a guess, so the section stays flagged for its enemy only.
+    expect(fight.flags).toEqual([FLAG.fightName]);
+    const fixed = structuredClone(draft);
+    const target = fixed.sections.find((entry) => entry.number === "1");
+    if (!target) throw new Error("missing §1");
+    target.fightName = "Wild boar";
+    target.flags = [];
+    const stored = built(fixed, "1");
+    expect(stored.test?.success).toEqual({ to: "8" });
+    expect(stored.combat).toMatchObject({ label: "Wild boar", then: "8", modifier: -3, afterTest: true });
+  });
+
+  it("stores direct Disadvantage on the fight line, and Disadvantage with boxes the player ticks", () => {
+    const draft = draftOf(
+      "1.",
+      "Hornets pour out of the stump:",
+      " Hornet swarm Fight one round with Disadvantage unless you can",
+      " call down rain, or if you have a smoke pot you can light",
+      "If you win, turn to 8.",
+      "2.",
+      "The ogre swings a beam.",
+      " Mill ogre Fight two rounds at -1",
+      "Unless you have a long weapon, you fight with Disadvantage.",
+      "If you win, turn to 8.",
+      "3.",
+      "Test your Talent; if you succeed, you sidestep, but if you fail, you Take a Wound.",
+      " Tomb guard Fight two rounds at -3 with Disadvantage",
+      "If you win, turn to 8.",
+      ...tail,
+    );
+    expect(section(draft, "1").flags).toEqual([]);
+    expect(section(draft, "1").fightEdge).toBe("disadvantage");
+    expect(section(draft, "1").fightUnless).toEqual(["I can call down rain", "I have a smoke pot I can light"]);
+    expect(section(draft, "2").flags).toEqual([]);
+    expect(section(draft, "2").fightUnless).toEqual(["I have a long weapon"]);
+    expect(section(draft, "3").flags).toEqual([]);
+    expect(section(draft, "3").fightEdge).toBe("disadvantage");
+    expect(section(draft, "3").fightUnless).toEqual([]);
+    expect(built(draft, "3").combat).toMatchObject({ edge: "disadvantage", modifier: -3, afterTest: true });
+    expect(built(draft, "3").combat?.unless).toBeUndefined();
+  });
+
+  it("keeps a bargain whose result changes the gold flagged, as the draft cannot store gold", () => {
+    const draft = draftOf(
+      "1.",
+      "Before paying, you can try to haggle; Test Diplomacy and if you succeed she takes three gold pieces instead of five.",
+      "Once you have paid, her goose attacks you:",
+      " Angry goose Fight one round",
+      "If you survive, turn to 8.",
+      ...tail,
+    );
+    const fight = section(draft, "1");
+    expect(fight.flags).toEqual([FLAG.passExtra]);
+    expect(fight.testOptional).toBe(true);
+  });
+
+  it("keeps a test during the fight, an assault-value edge, and a conditional test flagged", () => {
+    const draft = draftOf(
+      "1.",
+      "The idol glows.",
+      " Idol guard Fight two rounds",
+      "While you are fighting, the idol hums and you fight with Disadvantage unless you can cast a ward or successfully Test Occult.",
+      "If you defeat the guard, turn to 8.",
+      "2.",
+      "The gate holds.",
+      " Gate watchman Fight one round If your siege score is above zero, you fight with Advantage.",
+      "If you win, turn to 8.",
+      "3.",
+      "If you have a sling and want to use it, Test your Talent; if you are successful the lookout falls.",
+      "If you have no sling, or you miss, you must rush the lookout:",
+      " Lookout Fight one round at -2",
+      "If you get past the lookout, turn to 8.",
+      ...tail,
+    );
+    expect(section(draft, "1").flags).toEqual(expect.arrayContaining([FLAG.midFight]));
+    expect(section(draft, "1").flags).not.toContain(FLAG.edgeUnstored);
+    expect(section(draft, "2").flags).toContain(FLAG.edgeUnstored);
+    expect(section(draft, "2").fightEdge).toBe("");
+    expect(section(draft, "3").flags.length).toBeGreaterThan(0);
+    expect(section(draft, "3").passEdge).toBe("");
+  });
+
+  it("reads a lost Talent and Vitality on a result before a fight", () => {
+    const draft = draftOf(
+      "1.",
+      "The slope is loose shale.",
+      "Test your Talent. If you succeed, you slide a little; deduct one Talent. If you fail, you tumble down; lose one Talent and one Vitality.",
+      "At the bottom a wildcat waits:",
+      " Shale wildcat Fight three rounds at -2",
+      "If you win, turn to 8.",
+      ...tail,
+    );
+    const fight = section(draft, "1");
+    expect(fight.flags).toEqual([]);
+    expect(fight.passEffects).toEqual([{ op: "adjustStat", stat: "talent", by: -1 }]);
+    expect(fight.failEffects).toEqual([
+      { op: "adjustStat", stat: "talent", by: -1 },
+      { op: "adjustStat", stat: "vitality", by: -1 },
+    ]);
+  });
+
+  it("still flags a test into a fight that also offers ordinary choices", () => {
+    const draft = draftOf(
+      "1.",
+      "Test Stealth. If you fail, you fight with Disadvantage.",
+      " Bog toad Fight one round",
+      "If you win, turn to 8.",
+      "If you would rather run, turn to 9.",
+      ...tail,
+    );
+    expect(section(draft, "1").flags).toContain(FLAG.mixedExits);
   });
 });

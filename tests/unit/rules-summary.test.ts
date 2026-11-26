@@ -32,7 +32,13 @@ describe("rules summary", () => {
     expect(fortune?.lines[0]?.text).toContain("Spend 1 Fortune");
     expect(fortune?.lines[1]?.status).toBe("not-yet");
     const combat = rulesSummary.find((section) => section.id === "combat");
-    expect(combat?.lines.filter((line) => line.status === "in-app").map((line) => line.page)).toEqual(["p. 8", "p. 10"]);
+    expect(combat?.lines.filter((line) => line.status === "in-app").map((line) => line.page)).toEqual([
+      "p. 8",
+      "p. 10",
+      "pp. 10–11",
+      "pp. 10–11",
+      "pp. 10–11",
+    ]);
     expect(combat?.lines.some((line) => line.text.startsWith("A fumble") && line.status === "not-yet")).toBe(true);
   });
 
@@ -54,5 +60,20 @@ describe("rules summary", () => {
     expect(stats?.lines[1]?.text).toContain("up to three trades of one Talent");
     const combat = rulesSummary.find((section) => section.id === "combat");
     expect(combat?.lines.find((line) => line.text.includes("A shield lowers"))?.status).toBe("not-yet");
+  });
+
+  it("marks Advantage, Disadvantage, and the two-handed weapon's re-roll as in the app (P35), and leaves the rest not yet", () => {
+    const combat = rulesSummary.find((section) => section.id === "combat");
+    const line = (start: string) => combat?.lines.find((entry) => entry.text.startsWith(start));
+    expect(line("With Advantage")).toMatchObject({ status: "in-app", page: "pp. 10–11" });
+    expect(line("With Advantage")?.text).toContain("once per round, after any other re-rolls");
+    expect(line("With Disadvantage")).toMatchObject({ status: "in-app", page: "pp. 10–11" });
+    expect(line("With Disadvantage")?.text).toContain("first 1 or 2");
+    expect(line("With Disadvantage")?.text).toContain("cancels them");
+    expect(line("A two-handed weapon")).toMatchObject({ status: "in-app", page: "pp. 10–11" });
+    expect(line("A two-handed weapon")?.text).toContain("first 6");
+    for (const start of ["A fumble", "Fighting unarmed", "Light, Medium, and Heavy armour"]) {
+      expect(line(start)?.status).toBe("not-yet");
+    }
   });
 });

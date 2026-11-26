@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RollRecord } from "../format/types";
+  import type { FightTestResult, RollRecord } from "../format/types";
   import Die from "./Die.svelte";
   import { sectionDestination } from "./wording";
 
@@ -7,6 +7,10 @@
     compact,
     standing = false,
     hint = "",
+    passStake = "",
+    failStake = "",
+    settled = null,
+    onSkip,
     label,
     dice,
     formula,
@@ -36,6 +40,13 @@
     standing?: boolean;
     /** The muted line under the destinations when a result stays here and the player chooses below. */
     hint?: string;
+    /** P35, a test before a fight: a result that opens the fight, as in "Pass · Fight as normal". */
+    passStake?: string;
+    failStake?: string;
+    /** P35: how the test before the fight was settled. The card stays as a settled result. */
+    settled?: FightTestResult | null;
+    /** P35: shown on a test the section offers ("you can try"), before the roll. */
+    onSkip?: () => void;
     label: string;
     dice: string;
     formula: string;
@@ -118,39 +129,47 @@
   {:else if roll}
     <div class="dice" aria-label="Dice">
       {#each roll.faces as face, index (`${roll.total}-${index}`)}
-        <Die {face} {index} selected={selected === index} onSelect={onSelect} />
+        <Die {face} {index} selected={selected === index} onSelect={settled ? undefined : onSelect} />
       {/each}
     </div>
     <p class="result {roll.success ? "ok" : "bad"}" data-testid="test-result" role="status" aria-live="polite">
       {resultLabel(roll, adjustment)}
     </p>
   {/if}
-  {#if passTo || failTo}
+  {#if passTo || failTo || passStake || failStake}
   <div class="dest">
-    {#if passTo}
+    {#if passTo || passStake}
     <button
       type="button"
       class="btn"
-      class:ghost={rolling || !roll?.success}
+      class:ghost={settled ? settled !== "pass" : rolling || !roll?.success}
       data-testid="destination-pass"
-      aria-label={passDest.name}
-      disabled={!ready || rolling || !roll?.success}
+      aria-label={passStake || passDest.name}
+      disabled={!ready || rolling || !roll?.success || settled !== null}
       onclick={onArrive}
     >
-      <span class="dest-keep">{passDest.prefix}</span><span class="dest-title">{passDest.title}</span>
+      {#if passStake}
+        <span class="dest-keep">{passStake}</span>
+      {:else}
+        <span class="dest-keep">{passDest.prefix}</span><span class="dest-title">{passDest.title}</span>
+      {/if}
     </button>
     {/if}
-    {#if failTo}
+    {#if failTo || failStake}
     <button
       type="button"
       class="btn"
-      class:ghost={rolling || !roll || roll.success}
+      class:ghost={settled ? settled !== "fail" : rolling || !roll || roll.success}
       data-testid="destination-fail"
-      aria-label={failDest.name}
-      disabled={!ready || rolling || !roll || roll.success}
+      aria-label={failStake || failDest.name}
+      disabled={!ready || rolling || !roll || roll.success || settled !== null}
       onclick={onArrive}
     >
-      <span class="dest-keep">{failDest.prefix}</span><span class="dest-title">{failDest.title}</span>
+      {#if failStake}
+        <span class="dest-keep">{failStake}</span>
+      {:else}
+        <span class="dest-keep">{failDest.prefix}</span><span class="dest-title">{failDest.title}</span>
+      {/if}
     </button>
     {/if}
   </div>
@@ -158,7 +177,7 @@
   {#if hint}
     <p class="fail-hint" data-testid="test-hint">{hint}</p>
   {/if}
-  {#if !roll && !rolling && !compact}
+  {#if !roll && !rolling && !compact && !settled}
       <div class="seg" role="group" aria-label="Dice source">
         <button type="button" aria-pressed={!manual} data-testid="dice-app" onclick={() => (manual = false)}>App dice</button>
         <button type="button" aria-pressed={manual} data-testid="dice-manual" onclick={() => (manual = true)}>My dice</button>
@@ -185,17 +204,20 @@
         {/if}
       {/if}
   {/if}
-  {#if !roll}
+  {#if !roll && !settled}
     <button type="button" class="btn" data-testid="roll-test" disabled={!ready || rolling} onclick={useDice}>
       {manual && !compact ? "Use these dice" : `Roll ${dice}`}
     </button>
+    {#if onSkip}
+      <button type="button" class="btn ghost skip-test" data-testid="skip-test" disabled={!ready || rolling} onclick={onSkip}>Skip the test</button>
+    {/if}
   {/if}
   <div class="fortune-row">
     <button
       type="button"
       class="btn ghost"
       data-testid="fortune-reroll"
-      disabled={!ready || rolling || !roll || selected === null || fortune < fortuneCost}
+      disabled={!ready || rolling || !roll || selected === null || fortune < fortuneCost || settled !== null}
       onclick={onReroll}
     >
       Spend {fortuneCost} Fortune: re-roll selected die

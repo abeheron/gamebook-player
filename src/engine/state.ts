@@ -20,6 +20,7 @@ export function initialState(sectionId: string, character: Character): GameState
     ticks: {},
     rolls: [],
     pending: null,
+    fight: null,
   };
 }
 
@@ -94,6 +95,9 @@ function applyEffect(state: GameState, system: SystemDef, effect: Effect): void 
       state.stats[effect.stat] = Math.min(ceiling, Math.max(def.min, current + effect.by));
       return;
     }
+    case "adjustGold":
+      state.gold = Math.max(0, state.gold + effect.by);
+      return;
     default: {
       const unreachable: never = effect;
       throw new Error(`Unknown effect ${JSON.stringify(unreachable)}`);

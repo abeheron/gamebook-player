@@ -4,12 +4,15 @@
     rolling = false,
     index = 0,
     selected = false,
+    replacement = false,
     onSelect,
   }: {
     face: number;
     rolling?: boolean;
     index?: number;
     selected?: boolean;
+    /** P35: the new face after an automatic re-roll. It has an accent outline. */
+    replacement?: boolean;
     onSelect?: (index: number) => void;
   } = $props();
 
@@ -30,6 +33,7 @@
     type="button"
     class="die"
     class:rolling
+    class:new={replacement}
     data-testid="die-{index + 1}"
     aria-pressed={selected}
     aria-label="Die {index + 1}: {rolling ? 'rolling' : face}{selected ? ', selected' : ''}"
@@ -40,7 +44,7 @@
     {/each}
   </button>
 {:else}
-  <span class="die" class:rolling role="img" aria-label={rolling ? "Die rolling" : `Die showing ${face}`}>
+  <span class="die" class:rolling class:new={replacement} role="img" aria-label={rolling ? "Die rolling" : `Die showing ${face}`}>
     {#each [0, 1, 2, 3, 4, 5, 6, 7, 8] as pip (pip)}
       <i class:on={on.has(pip)}></i>
     {/each}

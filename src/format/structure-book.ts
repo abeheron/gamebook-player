@@ -1,4 +1,4 @@
-import type { Book, Choice, Effect, Section, SectionEnter, SystemDef, TestBranch } from "./types";
+import type { Book, Choice, CombatDef, Effect, FightEdge, Section, SectionEnter, SystemDef, TestBranch } from "./types";
 import { BookValidationError, validateBook } from "./validate";
 
 export interface SourcePage {
@@ -31,6 +31,12 @@ export interface DraftSection {
   passEffects: Effect[];
   /** Steps taken on a fail, such as a Wound. */
   failEffects: Effect[];
+  /** P35, a test before a fight: the fight after a pass is fought with this. Empty for neither. */
+  passEdge: FightEdge | "";
+  /** P35, a test before a fight: the fight after a fail is fought with this. Empty for neither. */
+  failEdge: FightEdge | "";
+  /** P35: the section offers the test ("you can try"), so the player may skip it. */
+  testOptional: boolean;
   fightName: string;
   fightRounds: string;
   /** Signed penalty, such as "−2". Empty when the text gives none. */
@@ -38,6 +44,10 @@ export interface DraftSection {
   winTo: string;
   /** Empty when the book gives no defeat section: losing the fight ends the adventure. */
   loseTo: string;
+  /** P35: Advantage or Disadvantage the section gives the fight directly. Empty for neither. */
+  fightEdge: FightEdge | "";
+  /** P35: boxes the player ticks, as in "unless you can cast a flight spell". Any one removes fightEdge. */
+  fightUnless: string[];
   /** "If the box above is ticked, turn to N": N, or empty. The box is named after the section. */
   tickTo: string;
   /** "If not, put a tick there now and read on": the box is ticked on arrival, after the jump check. */
@@ -105,6 +115,8 @@ export const FLAG = {
   noExits: "This section has no exits.",
   tickCondition: "A ticked-box link with another condition cannot be wired yet.",
   tickNever: "Nothing in this section ticks the box above.",
+  midFight: "A test during the fight cannot be stored yet.",
+  edgeUnstored: "Advantage or Disadvantage here depends on something the draft cannot store.",
 } as const;
 
 const FLAG_FIELD: Record<string, "fight" | "win" | "lose" | "test" | "pass" | "fail"> = {
@@ -126,6 +138,8 @@ const FLAG_FIELD: Record<string, "fight" | "win" | "lose" | "test" | "pass" | "f
   [FLAG.noFail]: "fail",
   [FLAG.secondFail]: "fail",
   [FLAG.failExtra]: "fail",
+  [FLAG.midFight]: "test",
+  [FLAG.edgeUnstored]: "fight",
 };
 
 export type BuiltBook =
@@ -180,6 +194,15 @@ const FAIL_EITHER = /^if you fail,?\s*(?:you (?:can|may|could)\s+)?(?:either|cho
 /** A die-roll destination table, as in "If you roll 1-2, turn to N". Not ordinary choices. */
 const DIE_ROLL = /^(?:if you roll|on a roll of|a roll of|roll(?:ed)? (?:a |an )?\d)/i;
 const TURNS = /turn to (\d+)(?:\s*\))?/gi;
+/** P35, after a fight's round count: "with Disadvantage", optionally "unless you can …, or if you have …". */
+const FIGHT_EDGE = /^\s*with (advantage|disadvantage)\b(?:\s*,?\s*unless\s+(.+?))?[\s.]*$/i;
+/** P35, a sentence of its own: "Unless you can cast a flight spell, you fight with Disadvantage." */
+const UNLESS_EDGE = /^unless (.+?),\s*you (?:will )?fight with (advantage|disadvantage)\b[\s.!]*$/i;
+/** P35, inside a test result: "you have Advantage", "you fight with Disadvantage". */
+const CLAUSE_EDGE = /\b(?:have|fight with)\s+(advantage|disadvantage)\b/i;
+/** P35: the section offers the test, as in "You can try to sneak up …, in which case Test Stealth". */
+const OPTIONAL_TEST = /\byou (?:can|may|could) try\b/i;
+const EDGE_WORD = /\b(?:advantage|disadvantage)\b/i;
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
 /** Turn extracted pages into a draft. Uncertain structure is flagged, not guessed. */
@@ -411,6 +434,17 @@ function parseSection(
   let testModifier = "";
   let testIndex = -1;
   let testRest = "";
+  /** The words before "Test X" in the test's sentence, and where the test starts in it. */
+  let testLead = "";
+  let testAt = 0;
+  /** The sentence with the fight's round count, and where the count starts in it. */
+  let fightIndex = -1;
+  let fightAt = 0;
+  let fightEdge: FightEdge | "" = "";
+  let fightUnless: string[] = [];
+  let edgeTwice = false;
+  /** Sentences whose Advantage or Disadvantage was read into the draft. */
+  const edgeUnits = new Set<number>();
   let tickTo = "";
   let tickOnEnter = false;
   /** "If you survive, you press on." with "Turn to N" in a later sentence. */
@@ -436,13 +470,33 @@ function parseSection(
     const rounds = roundsAt ?? ROUNDS.exec(unit);
     if (rounds?.[1]) {
       fights += 1;
+      if (fightIndex < 0) {
+        fightIndex = index;
+        fightAt = rounds.index ?? 0;
+      }
       fightRounds = countValue(rounds[1]);
       if (roundsAt?.[2]) fightPenalty = normalizePenalty(roundsAt[2]);
+      // P35: "Fight one round with Disadvantage unless you can …, or if you have …".
+      const edged = FIGHT_EDGE.exec(unit.slice((rounds.index ?? 0) + rounds[0].length));
+      if (edged?.[1]) {
+        if (fightEdge) edgeTwice = true;
+        fightEdge = edged[1].toLowerCase() as FightEdge;
+        fightUnless = edged[2] ? conditionBoxes(edged[2]) : [];
+        edgeUnits.add(index);
+      }
       // Only a bare "Name Fight N rounds" line leaves the passage. Condition words stay visible.
       const rest = unit.replace(rounds[0], "").replace(fightName, "").replace(/[\s.,;:]+/g, "");
       if (!rest) return;
     }
     if (sawFight && (/^talent\b/i.test(unit) || /^vitality\b/i.test(unit) || unit === fightName)) return;
+    const unless = sawFight ? UNLESS_EDGE.exec(unit) : null;
+    if (unless?.[1] && unless[2]) {
+      // "Unless you can cast a flight spell, you fight with Disadvantage." The words stay in the passage.
+      if (fightEdge) edgeTwice = true;
+      fightEdge = unless[2].toLowerCase() as FightEdge;
+      fightUnless = conditionBoxes(unless[1]);
+      edgeUnits.add(index);
+    }
     const test = findTest(unit, system);
     if (test) {
       sawTest = true;
@@ -453,6 +507,8 @@ function parseSection(
       testModifier = test.modifier;
       testIndex = index;
       testRest = test.rest;
+      testLead = withoutSpeech(unit).slice(0, test.at);
+      testAt = test.at;
       if (test.unknownSkill) problems.add(FLAG.testSkill);
       if (test.unstorable) problems.add(FLAG.testModifier);
     }
@@ -562,6 +618,51 @@ function parseSection(
   }
   const anyFailOnly = choices.some((choice) => choice.failOnly);
 
+  // P35: one test before one fight. A result that turns away skips the fight; any other result opens it.
+  let preFight: PreFight | null = null;
+  let midFight = false;
+  let testOptional = false;
+  let passEdge: FightEdge | "" = "";
+  let failEdge: FightEdge | "" = "";
+  if (sawFight && fights === 1 && tests === 1 && testIndex >= 0 && fightIndex >= 0 && !shared && !withChoices) {
+    // "While you are fighting, … Test Occult": a test after the fight has started is later work.
+    if (testIndex > fightIndex || (testIndex === fightIndex && testAt > fightAt)) midFight = true;
+    else if (!/\b(?:if|either)\b/i.test(testLead) && !problems.has(FLAG.secondPass) && !problems.has(FLAG.secondFail)) {
+      preFight = preFightResults(units, testIndex, testRest, raw.number);
+    }
+  }
+  if (preFight) {
+    let honest = !preFight.pass.fights;
+    if (honest && preFight.fail.fights && !passTo) {
+      // "If you succeed, you escape. If you fail, Fight one round. If you are still alive, turn to N":
+      // the closing line follows both results, so a pass turns there and so does a won fight.
+      const link = choices.length === 1 ? choices[0] : undefined;
+      const to = link ? sharedLink(link.label) : "";
+      if (to && (!winTo || winTo === to)) {
+        passTo = to;
+        winTo = to;
+        choices.length = 0;
+      } else honest = false;
+    }
+    if (honest && choices.length > 0) honest = false;
+    if (!honest) preFight = null;
+  }
+  if (preFight) {
+    testOptional = OPTIONAL_TEST.test(testLead);
+    if (!passTo) {
+      passEffects = preFight.pass.effects;
+      passEdge = preFight.pass.edge;
+    }
+    if (!failTo) {
+      failEffects = preFight.fail.effects;
+      failEdge = preFight.fail.edge;
+    }
+    if (preFight.pass.extra) extra.add("pass");
+    if (preFight.fail.extra) extra.add("fail");
+    for (const unit of preFight.units) edgeUnits.add(unit);
+  }
+  if (midFight) edgeUnits.add(testIndex);
+
   if (sawFight) {
     if (!fightName) flags.push(FLAG.fightName);
     if (!validRounds(fightRounds)) flags.push(FLAG.fightRounds);
@@ -572,22 +673,25 @@ function parseSection(
     // No lose link means losing ends the adventure, so that is not a flag.
     if (extra.has("lose")) flags.push(FLAG.loseExtra);
     if (problems.has(FLAG.secondLose)) flags.push(FLAG.secondLose);
+    // Advantage or Disadvantage the draft did not read, such as one that depends on an assault value.
+    if (edgeTwice || units.some((unit, index) => EDGE_WORD.test(unit) && !edgeUnits.has(index))) flags.push(FLAG.edgeUnstored);
   }
-  if (sawTest) {
+  if (midFight) flags.push(FLAG.midFight);
+  if (sawTest && !midFight) {
     if (tests === 0) flags.push(FLAG.noTest);
     if (tests > 1) flags.push(FLAG.testTwice);
     for (const flag of [FLAG.testModifier, FLAG.testSkill]) if (problems.has(flag)) flags.push(flag);
     if (extra.has("pass") || withChoices?.passExtra) flags.push(FLAG.passExtra);
-    else if (!passTo && !(withChoices && (withChoices.told || anyFailOnly) && choices.some((choice) => !choice.failOnly))) {
+    else if (!passTo && !preFight && !(withChoices && (withChoices.told || anyFailOnly) && choices.some((choice) => !choice.failOnly))) {
       // A pass that stays here is honest only when the section says what a result does, and a choice is open after it.
       flags.push(FLAG.noPass);
     }
     if (problems.has(FLAG.secondPass)) flags.push(FLAG.secondPass);
     if (extra.has("fail") || withChoices?.failExtra) flags.push(FLAG.failExtra);
-    else if (!failTo && !withChoices) flags.push(FLAG.noFail);
+    else if (!failTo && !withChoices && !preFight) flags.push(FLAG.noFail);
     if (problems.has(FLAG.secondFail)) flags.push(FLAG.secondFail);
   }
-  const modes = withChoices ? 1 : [sawFight, sawTest, choices.length > 0].filter(Boolean).length;
+  const modes = withChoices || preFight ? 1 : [sawFight, sawTest, choices.length > 0].filter(Boolean).length;
   if (modes > 1) flags.push(FLAG.mixedExits);
   if (!sawFight && !sawTest && choices.length === 0) flags.push(FLAG.noExits);
   if (problems.has(FLAG.tickCondition)) flags.push(FLAG.tickCondition);
@@ -608,11 +712,16 @@ function parseSection(
     failTo,
     passEffects,
     failEffects,
+    passEdge,
+    failEdge,
+    testOptional: Boolean(preFight) && testOptional,
     fightName,
     fightRounds: validRounds(fightRounds) ? fightRounds : "",
     fightPenalty,
     winTo,
     loseTo,
+    fightEdge,
+    fightUnless: fightEdge ? fightUnless : [],
     tickTo,
     tickOnEnter: Boolean(tickTo) && tickOnEnter,
     sawTest,
@@ -654,6 +763,110 @@ function readOutcome(
   // A fight result cannot hold steps yet. A test result can hold the ones the draft stores.
   if (MECHANICS.test(steps.rest) || (!test && steps.effects.length > 0)) return { kind: entry.kind };
   return { kind: entry.kind, to: tail[2], effects: steps.effects };
+}
+
+interface PreFightResult {
+  edge: FightEdge | "";
+  effects: Effect[];
+  /** The result turns to a section, read as a link already. */
+  to: boolean;
+  /** The fight's own round count sits inside this result, as in "If you fail, Fight one round at -3". */
+  fights: boolean;
+  extra: boolean;
+}
+
+interface PreFight {
+  pass: PreFightResult;
+  fail: PreFightResult;
+  /** Sentences the results were read from. */
+  units: number[];
+}
+
+/**
+ * P35: what each result of a test before a fight does to it, as in "Test Swimming. If you succeed,
+ * you fight as normal, but if you fail, you fight with Disadvantage", "if you succeed, you have
+ * Advantage in the following fight", or "Test your Talent successfully or Take a Wound". A result the
+ * section does not state opens the fight with nothing changed. Reading stops at the first sentence
+ * after the results that is not a result. Returns null when the section states no result, or another
+ * condition sits between the test and its results.
+ */
+function preFightResults(units: readonly string[], testIndex: number, testRest: string, number: string): PreFight | null {
+  const empty = (): PreFightResult => ({ edge: "", effects: [], to: false, fights: false, extra: false });
+  const found: PreFight = { pass: empty(), fail: empty(), units: [] };
+  let told = false;
+  for (let index = testIndex; index < units.length; index += 1) {
+    const text = index === testIndex ? testRest : (units[index] ?? "");
+    if (!text) {
+      if (told) break;
+      continue;
+    }
+    let marks = [...text.matchAll(CLAUSE)].map((match) => ({
+      fail: /fail/i.test(match[0]),
+      start: (match.index ?? 0) + match[0].length,
+      at: match.index ?? 0,
+    }));
+    const either = index === testIndex && marks.length === 0 ? /^\s*successfully,?\s+or\s+/i.exec(text) : null;
+    if (either) marks = [{ fail: true, start: either[0].length, at: 0 }];
+    if (marks.length === 0) {
+      if (told) break;
+      if (index > testIndex && /^if\b/i.test(text) && !SHARED_LEAD.test(text)) return null;
+      continue;
+    }
+    if (index > testIndex && (marks[0]?.at ?? 0) > 0 && /\bif\b/i.test(text.slice(0, marks[0]?.at ?? 0))) return null;
+    marks.forEach((mark, position) => {
+      const result = mark.fail ? found.fail : found.pass;
+      told = true;
+      if (!found.units.includes(index)) found.units.push(index);
+      let clause = text.slice(mark.start, marks[position + 1]?.at ?? text.length);
+      if (TURN.test(clause)) {
+        result.to = true;
+        return;
+      }
+      const rounds = ROUNDS_AT.exec(clause) ?? ROUNDS.exec(clause);
+      if (rounds) {
+        result.fights = true;
+        clause = clause.replace(rounds[0], " ");
+      }
+      const edge = CLAUSE_EDGE.exec(clause);
+      if (edge?.[1]) {
+        result.edge = edge[1].toLowerCase() as FightEdge;
+        clause = clause.replace(edge[0], " ");
+      }
+      clause = clause.replace(/\bfight as normal\b/i, " ");
+      const steps = readEffects(clause, number);
+      result.effects.push(...steps.effects);
+      if (MECHANICS.test(steps.rest.replace(/^[\s,;]*but\b/i, ""))) result.extra = true;
+    });
+  }
+  return told ? found : null;
+}
+
+/** "If you are still alive, turn to N" with nothing else: N. Otherwise empty. */
+function sharedLink(label: string): string {
+  if (!SHARED_LEAD.test(label)) return "";
+  const lead = label.replace(SHARED_LEAD, "").replace(TRAILING_TURN, "");
+  if (lead.trim() && (MECHANICS.test(lead) || /^\s*(?:to|or)\b/i.test(lead))) return "";
+  return TURN.exec(label)?.[1] ?? "";
+}
+
+/**
+ * "you can cast a flight spell, or if you have a ranged weapon you can use" as boxes the player
+ * ticks, in the first person: "I can cast a flight spell", "I have a ranged weapon I can use".
+ */
+function conditionBoxes(text: string): string[] {
+  return text
+    .split(/,?\s+or if\s+|;\s*or\s+/i)
+    .map((part) =>
+      part
+        .trim()
+        .replace(/[\s.,;:]+$/, "")
+        .replace(/\byou are\b/gi, "I am")
+        .replace(/\byour\b/gi, "my")
+        .replace(/\byou\b/gi, "I"),
+    )
+    .filter(Boolean)
+    .map((part) => clip(part.charAt(0).toUpperCase() + part.slice(1), 120))
+    .slice(0, 4);
 }
 
 /** "If you survive, you press on." with no destination yet, and nothing but flavour. */
@@ -784,8 +997,13 @@ function stayResults(
 function readEffects(text: string, number: string): { effects: Effect[]; rest: string } {
   const found: { at: number; end: number; effect: Effect }[] = [];
   const amount = (word: string) => (word.toLowerCase() === "a" ? 1 : Number(countValue(word)));
-  for (const match of text.matchAll(/\b(?:lose|deduct)\s+(a|one|two|three|\d+)\s+talent\b/gi)) {
+  for (const match of text.matchAll(/\b(?:lose|deduct)\s+(a|one|two|three|\d+)\s+talent(?:\s+and\s+(a|one|two|three|\d+)\s+vitality)?\b/gi)) {
     found.push({ at: match.index ?? 0, end: (match.index ?? 0) + match[0].length, effect: { op: "adjustStat", stat: "talent", by: -amount(match[1] ?? "1") } });
+    // "lose one Talent and one Vitality": the Vitality is a second step.
+    if (match[2]) found.push({ at: (match.index ?? 0) + 1, end: (match.index ?? 0) + match[0].length, effect: { op: "adjustStat", stat: "vitality", by: -amount(match[2]) } });
+  }
+  for (const match of text.matchAll(/\b(?:lose|deduct)\s+(a|one|two|three|\d+)\s+vitality\b/gi)) {
+    found.push({ at: match.index ?? 0, end: (match.index ?? 0) + match[0].length, effect: { op: "adjustStat", stat: "vitality", by: -amount(match[1] ?? "1") } });
   }
   for (const match of text.matchAll(/\btake\s+(a|one|two|three|\d+)\s+wounds?\b/gi)) {
     found.push({ at: match.index ?? 0, end: (match.index ?? 0) + match[0].length, effect: { op: "adjustStat", stat: "vitality", by: -amount(match[1] ?? "1") } });
@@ -854,21 +1072,21 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
   const passTo = section.passTo.trim();
   const failTo = section.failTo.trim();
   const choices = section.choices.filter((choice) => choice.label.trim() || choice.to.trim());
-  // Beside a fight, only a complete test counts, as before. Otherwise a test label, a destination
-  // or a result step is a test, and choices may sit beside it (P32).
-  const testOn = fightOn
-    ? Boolean(passTo && failTo)
-    : Boolean(section.testLabel.trim() || passTo || failTo || section.passEffects.length || section.failEffects.length);
-  if (fightOn && (testOn || choices.length > 0)) {
+  // A test label, a destination, a result step or a fight edge is a test. Choices may sit beside a
+  // test (P32). Beside a fight the test comes first and its results set up the fight or skip it (P35).
+  const testOn = Boolean(
+    section.testLabel.trim() || passTo || failTo || section.passEffects.length || section.failEffects.length || section.passEdge || section.failEdge,
+  );
+  if (fightOn && choices.length > 0) {
     return { ok: false, step: 5, error: `Section ${number} needs one exit: choices, a test, or a fight.` };
   }
   if (!fightOn && !testOn && choices.length === 0) {
     return { ok: false, step: 5, error: `Section ${number} needs one exit: choices, a test, or a fight.` };
   }
-  if (testOn && (!passTo || !failTo) && choices.length === 0) {
+  if (testOn && !fightOn && (!passTo || !failTo) && choices.length === 0) {
     return { ok: false, step: 5, error: `Section ${number} needs a pass and a fail section, or choices beside the test.` };
   }
-  if (testOn && !passTo && choices.every((choice) => choice.failOnly)) {
+  if (testOn && !fightOn && !passTo && choices.every((choice) => choice.failOnly)) {
     return { ok: false, step: 5, error: `Section ${number} needs a choice that is open after a pass.` };
   }
   const box = boxTick(number);
@@ -882,29 +1100,29 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
     body,
     ...(enter ? { enter } : {}),
   };
+  let combat: CombatDef | undefined;
   if (fightOn) {
     const id = bookSlug(section.fightName) === "imported-book" ? "fight" : bookSlug(section.fightName);
     const penalty = section.fightPenalty.trim() ? penaltyModifier(section.fightPenalty) : undefined;
     if (section.fightPenalty.trim() && penalty === undefined) {
       return { ok: false, step: 5, error: `Section ${number} has a fight penalty this format cannot store.` };
     }
-    return {
-      ok: true,
-      section: {
-        ...base,
-        combat: {
-          id,
-          label: clip(section.fightName.trim(), 80),
-          rounds: Number(section.fightRounds),
-          dice: "2d6",
-          stat: "talent",
-          ...(penalty === undefined ? {} : { modifier: penalty }),
-          wound: { stat: "vitality", amount: 1, defeatAtOrBelow: 0 },
-          ...(section.loseTo.trim() ? { defeatSection: section.loseTo.trim() } : {}),
-          then: section.winTo.trim(),
-        },
-      },
+    const boxes = section.fightEdge ? section.fightUnless.map((label) => clip(label.trim(), 120)).filter(Boolean) : [];
+    combat = {
+      id,
+      label: clip(section.fightName.trim(), 80),
+      rounds: Number(section.fightRounds),
+      dice: "2d6",
+      stat: "talent",
+      ...(penalty === undefined ? {} : { modifier: penalty }),
+      wound: { stat: "vitality", amount: 1, defeatAtOrBelow: 0 },
+      ...(section.loseTo.trim() ? { defeatSection: section.loseTo.trim() } : {}),
+      then: section.winTo.trim(),
+      ...(testOn ? { afterTest: true as const } : {}),
+      ...(section.fightEdge ? { edge: section.fightEdge } : {}),
+      ...(boxes.length > 0 ? { unless: boxes.slice(0, 4).map((label, index) => ({ id: `unless-${index + 1}`, label })) } : {}),
     };
+    if (!testOn) return { ok: true, section: { ...base, combat } };
   }
   if (testOn) {
     const named = TEST.exec(section.testLabel);
@@ -922,8 +1140,8 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
     }
     const built = buildChoices(choices, number, tickTo, box);
     if (!built.ok) return built;
-    const success = branch(passTo, section.passEffects);
-    const failure = branch(failTo, section.failEffects);
+    const success = branch(passTo, section.passEffects, combat ? section.passEdge : "");
+    const failure = branch(failTo, section.failEffects, combat ? section.failEdge : "");
     return {
       ok: true,
       section: {
@@ -937,8 +1155,10 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
           ...(section.skill ? { skill: section.skill } : {}),
           ...(success ? { success } : {}),
           ...(failure ? { failure } : {}),
+          ...(combat && section.testOptional ? { optional: true as const } : {}),
         },
         ...(built.choices.length > 0 ? { choices: built.choices } : {}),
+        ...(combat ? { combat } : {}),
       },
     };
   }
@@ -947,10 +1167,14 @@ function buildSection(section: DraftSection, system: SystemDef): { ok: true; sec
   return { ok: true, section: { ...base, choices: built.choices } };
 }
 
-/** A test result: a destination, steps, both, or nothing (left out, so the result stays here). */
-function branch(to: string, effects: readonly Effect[]): TestBranch | undefined {
-  if (!to && effects.length === 0) return undefined;
-  return { ...(to ? { to } : {}), ...(effects.length ? { effects: [...effects] } : {}) };
+/**
+ * A test result: a destination, steps, both, or nothing (left out, so the result stays here). Before
+ * a fight a result without a destination may also carry Advantage or Disadvantage (P35).
+ */
+function branch(to: string, effects: readonly Effect[], edge: FightEdge | "" = ""): TestBranch | undefined {
+  const fightEdge = to ? "" : edge;
+  if (!to && effects.length === 0 && !fightEdge) return undefined;
+  return { ...(to ? { to } : {}), ...(effects.length ? { effects: [...effects] } : {}), ...(fightEdge ? { edge: fightEdge } : {}) };
 }
 
 function buildChoices(
@@ -987,6 +1211,8 @@ function monsterName(units: readonly string[], winIndex: number): string {
     const line = units[index] ?? "";
     if (!line) continue;
     if (/^talent\b/i.test(line) || /^vitality\b/i.test(line)) continue;
+    // A test sentence is not a stat block, and nothing above it names the enemy: no name is better than a guess.
+    if (/\btest\b/i.test(line)) break;
     if (ROUNDS.test(line) || ROUNDS_AT.test(line) || LOSE.test(line) || WIN.test(line)) continue;
     if (/^if you\b/i.test(line) || TURN.test(line) || line.length > 40) continue;
     return line;

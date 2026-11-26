@@ -1,6 +1,6 @@
 import type { Book, Session } from "../format/types";
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export interface SaveRecord {
   version: typeof SAVE_VERSION;

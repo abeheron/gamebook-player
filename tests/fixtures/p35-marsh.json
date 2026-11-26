@@ -1,0 +1,284 @@
+{
+  "id": "p35-marsh",
+  "title": "The Salt Marsh",
+  "author": "Gamebook Player sample",
+  "rights": "Original sample text written for this repository. It is not a published gamebook, and this repository has no chosen license for it.",
+  "system": "gnat-demo",
+  "start": "1",
+  "sections": [
+    {
+      "id": "1",
+      "title": "",
+      "body": [
+        "A causeway of grey planks runs out across the salt marsh. Reeds hiss in the wind, and every path off the planks leads to trouble of one kind or another."
+      ],
+      "choices": [
+        { "id": "reed-channel", "label": "Wade into the reed channel", "to": "10" },
+        { "id": "toll-keeper", "label": "Creep up on the toll keeper", "to": "20" },
+        { "id": "heron", "label": "Stalk the giant heron", "to": "30" },
+        { "id": "boardwalk", "label": "Cross the sinking boardwalk", "to": "40" },
+        { "id": "ferry-hut", "label": "Knock at the ferry hut", "to": "50" },
+        { "id": "mudbank", "label": "Climb onto the mudbank", "to": "60" },
+        { "id": "deep-channel", "label": "Ford the deep channel", "to": "66" },
+        { "id": "gnats", "label": "Push through the gnat cloud", "to": "70" },
+        { "id": "eel-seller", "label": "Haggle with the eel seller", "to": "80" },
+        { "id": "wight", "label": "Face the bog wight", "to": "85" }
+      ]
+    },
+    {
+      "id": "10",
+      "title": "",
+      "body": [
+        "Brown water climbs to your waist. Something long and toothy turns in the reeds: a reed pike, and it has seen you. Before the fight, Test Swimming. Pass and you fight as normal; fail and the current drags at you, so you fight with Disadvantage."
+      ],
+      "test": {
+        "id": "swim-channel",
+        "label": "Test Swimming",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "swimming",
+        "failure": { "edge": "disadvantage" }
+      },
+      "combat": {
+        "id": "reed-pike",
+        "label": "Reed pike",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true
+      }
+    },
+    {
+      "id": "20",
+      "title": "",
+      "body": [
+        "The toll keeper dozes in his booth with a cudgel across his knees. Test Stealth. If you succeed, you catch him napping and have Advantage when the fight starts."
+      ],
+      "test": {
+        "id": "creep-booth",
+        "label": "Test Stealth",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "stealth",
+        "success": { "edge": "advantage" }
+      },
+      "combat": {
+        "id": "toll-keeper",
+        "label": "Toll keeper",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true
+      }
+    },
+    {
+      "id": "30",
+      "title": "",
+      "body": [
+        "A heron taller than you stabs at frogs in the shallows. You could try to slip closer through the reeds first; if so, Test Stealth, and a success gives you Advantage in the fight that follows."
+      ],
+      "test": {
+        "id": "stalk-heron",
+        "label": "Test Stealth",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "stealth",
+        "optional": true,
+        "success": { "edge": "advantage" }
+      },
+      "combat": {
+        "id": "giant-heron",
+        "label": "Giant heron",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true
+      }
+    },
+    {
+      "id": "40",
+      "title": "",
+      "body": [
+        "A plank snaps under your heel and a thief lunges from beneath the boardwalk. Test your Talent: on a success you twist aside, on a failure his knife finds you and you Take a Wound. Either way, the fight is on."
+      ],
+      "test": {
+        "id": "twist-aside",
+        "label": "Test your Talent",
+        "dice": "2d6",
+        "stat": "talent",
+        "failure": { "effects": [{ "op": "adjustStat", "stat": "vitality", "by": -1 }] }
+      },
+      "combat": {
+        "id": "boardwalk-thief",
+        "label": "Boardwalk thief",
+        "rounds": 1,
+        "dice": "2d6",
+        "stat": "talent",
+        "modifier": -2,
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true
+      }
+    },
+    {
+      "id": "50",
+      "title": "",
+      "body": [
+        "Two ferry guards bar the hut door. Test Diplomacy. Talk well and they wave you through to the landing; talk badly and they reach for their boathooks."
+      ],
+      "test": {
+        "id": "talk-guards",
+        "label": "Test Diplomacy",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "diplomacy",
+        "success": { "to": "90" }
+      },
+      "combat": {
+        "id": "ferry-guards",
+        "label": "Ferry guards",
+        "rounds": 1,
+        "dice": "2d6",
+        "stat": "talent",
+        "modifier": -2,
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true
+      }
+    },
+    {
+      "id": "60",
+      "title": "",
+      "body": [
+        "The mudbank heaves: it is the back of a crab as wide as a cart. Test your Talent. Pass and you leap clear before the claws close. Fail and you must fight it for one round at −3. If you live through either, the landing is ahead."
+      ],
+      "test": {
+        "id": "leap-clear",
+        "label": "Test your Talent",
+        "dice": "2d6",
+        "stat": "talent",
+        "success": { "to": "90" }
+      },
+      "combat": {
+        "id": "mud-crab",
+        "label": "Mud crab",
+        "rounds": 1,
+        "dice": "2d6",
+        "stat": "talent",
+        "modifier": -3,
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true
+      }
+    },
+    {
+      "id": "66",
+      "title": "",
+      "body": [
+        "Halfway across the deep channel an eel as thick as your arm wraps your leg. If it wins, it drags you back to where you started."
+      ],
+      "combat": {
+        "id": "channel-eel",
+        "label": "Channel eel",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "defeatSection": "91",
+        "then": "90"
+      }
+    },
+    {
+      "id": "70",
+      "title": "",
+      "body": [
+        "A cloud of biting gnats boils up from the pools. You fight it with Disadvantage, unless you can call up a gust of wind or have a sling to scatter them from afar."
+      ],
+      "combat": {
+        "id": "gnat-swarm",
+        "label": "Gnat swarm",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "edge": "disadvantage",
+        "unless": [
+          { "id": "wind-spell", "label": "I can call up a gust of wind" },
+          { "id": "sling", "label": "I have a sling I can use" }
+        ]
+      }
+    },
+    {
+      "id": "80",
+      "title": "",
+      "body": [
+        "The eel seller wants six gold pieces to row you across. You may try to haggle: Test Diplomacy, and on a success he settles for three. Once you have paid, his ill-tempered dog decides it does not like you."
+      ],
+      "test": {
+        "id": "haggle",
+        "label": "Test Diplomacy",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "diplomacy",
+        "optional": true,
+        "success": { "effects": [{ "op": "adjustGold", "by": -3 }] },
+        "failure": { "effects": [{ "op": "adjustGold", "by": -6 }] }
+      },
+      "combat": {
+        "id": "eel-dog",
+        "label": "Eel seller's dog",
+        "rounds": 1,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true
+      }
+    },
+    {
+      "id": "85",
+      "title": "",
+      "body": [
+        "The ferryman lends you a blessed boathook, which gives you Advantage against the bog wight. The wight rises from deep water, so first Test Swimming: if you fail, you fight with Disadvantage as well."
+      ],
+      "test": {
+        "id": "swim-wight",
+        "label": "Test Swimming",
+        "dice": "2d6",
+        "stat": "talent",
+        "skill": "swimming",
+        "failure": { "edge": "disadvantage" }
+      },
+      "combat": {
+        "id": "bog-wight",
+        "label": "Bog wight",
+        "rounds": 2,
+        "dice": "2d6",
+        "stat": "talent",
+        "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
+        "then": "90",
+        "afterTest": true,
+        "edge": "advantage"
+      }
+    },
+    {
+      "id": "90",
+      "title": "",
+      "body": ["You reach the ferry landing, muddy to the knees. The causeway stretches back the way you came."],
+      "choices": [{ "id": "back-causeway", "label": "Walk back along the causeway", "to": "1" }]
+    },
+    {
+      "id": "91",
+      "title": "",
+      "body": ["The eel lets go only when you are back at the start of the channel, soaked and shaking."],
+      "choices": [{ "id": "back-start", "label": "Climb back onto the causeway", "to": "1" }]
+    }
+  ]
+}
