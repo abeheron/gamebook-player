@@ -14,7 +14,7 @@ export const EDGE_BADGE: Record<Exclude<EdgeNow, "none">, string> = {
 export const EDGE_RULE: Record<Exclude<EdgeNow, "none">, string> = {
   advantage: "You may re-roll any one die, after other re-rolls, and must take the second result. Once per round.",
   disadvantage: "You must re-roll the first 1 or 2 you roll each round, and take the second result.",
-  cancel: "This fight has both Advantage and Disadvantage, so they cancel and neither applies.",
+  cancel: "A magic weapon grants Advantage. If the fight also has Disadvantage, they cancel and neither applies.",
 };
 
 /**
@@ -73,26 +73,42 @@ export function stake(section: Section, state: GameState, system: SystemDef, res
   if (edge === "advantage") how = `${fight} with Advantage`;
   else if (edge === "disadvantage") how = `${fight} with Disadvantage`;
   else if (edge === "cancel") how = `${fight}; Advantage and Disadvantage cancel`;
+  // A sneak-style test: the other result grants Advantage, this one grants nothing.
+  else if (other?.edge === "advantage" && !branch?.edge && steps.length === 0) how = `${fight} without Advantage`;
   else how = steps.length > 0 || fight !== "fight" ? fight : "fight as normal";
   return steps.length > 0 ? `${steps.join(", ")}, then ${how}` : how;
 }
 
-/** "Waiting for the Swimming test. Pass: fight as normal. Fail: fight with Disadvantage." */
-export function waitingLine(testName: string, pass: string, fail: string): string {
-  return `Waiting for the ${testName} test. Pass: ${pass}. Fail: ${fail}.`;
+/**
+ * "Waiting for the Swimming test. Pass: fight as normal. Fail: fight with Disadvantage." An optional
+ * test takes the fail result on a skip: "… Fail or skip: fight without Advantage."
+ */
+export function waitingLine(testName: string, pass: string, fail: string, optional = false): string {
+  return `Waiting for the ${testName} test. Pass: ${pass}. ${optional ? "Fail or skip" : "Fail"}: ${fail}.`;
 }
 
-/** "Pass · Fight as normal". */
-export function outcomeLabel(heading: "Pass" | "Fail", words: string): string {
-  return `${heading} · ${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+/** "Pass · Fight as normal", "Skip · Fight without Advantage". */
+export function outcomeLabel(heading: "Pass" | "Fail" | "Skip", words: string): string {
+  return `${heading} · ${capital(words)}`;
 }
 
-/** The muted line under a settled test before a fight, in the P32 hint style. */
-export function settledHint(result: FightTestResult | null): string {
-  if (result === "pass") return "The test passed. Fight below.";
-  if (result === "fail") return "The test failed. Fight below.";
-  if (result === "skipped") return "You skipped the test. Fight below.";
-  return "";
+/** The muted line on a skipped optional test: "Skipped. Fight without Advantage." */
+export function skippedLine(words: string): string {
+  return `Skipped. ${capital(words)}.`;
+}
+
+/** "Win → §39. This fight has no losing section." Empty when the fight has a losing section. */
+export function noLosingNote(combat: { then: string; defeatSection?: string }): string {
+  return combat.defeatSection ? "" : `Win → §${combat.then}. This fight has no losing section.`;
+}
+
+/** The standing test card before a fight: "6 + 6 = 12. Swimming +2. Fail." even on a double. */
+export function fightTestResultLine(faces: number[], total: number, success: boolean, skill: string): string {
+  return `${faces.join(" + ")} = ${total}.${skill ? ` ${skill}.` : ""} ${success ? "Pass." : "Fail."}`;
+}
+
+function capital(words: string): string {
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }
 
 function roundsText(rounds: number, modifier = 0): string {

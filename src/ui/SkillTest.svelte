@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { FightTestResult, RollRecord } from "../format/types";
   import Die from "./Die.svelte";
+  import { fightTestResultLine } from "./fight-wording";
   import { sectionDestination } from "./wording";
 
   let {
@@ -11,6 +12,8 @@
     failStake = "",
     settled = null,
     onSkip,
+    skipLabel = "",
+    plainResult = false,
     label,
     dice,
     formula,
@@ -47,6 +50,10 @@
     settled?: FightTestResult | null;
     /** P35: shown on a test the section offers ("you can try"), before the roll. */
     onSkip?: () => void;
+    /** P35: "Skip · Fight without Advantage". */
+    skipLabel?: string;
+    /** P35: the standing test before a fight reads "6 + 6 = 12. Swimming +2. Fail." even on a double. */
+    plainResult?: boolean;
     label: string;
     dice: string;
     formula: string;
@@ -88,6 +95,7 @@
   }
 
   function resultLabel(result: RollRecord, skill: string): string {
+    if (plainResult) return fightTestResultLine(result.faces, result.total, result.success, skill);
     if (result.faces.length === 2 && result.faces[0] === 1 && result.faces[1] === 1) return "Double 1 — automatic pass";
     if (result.faces.length === 2 && result.faces[0] === 6 && result.faces[1] === 6) return "Double 6 — automatic fail";
     return `${result.faces.join(" + ")} = ${result.total}.${skill ? ` ${skill}.` : ""} ${result.success ? "Pass." : "Fail."}`;
@@ -209,7 +217,7 @@
       {manual && !compact ? "Use these dice" : `Roll ${dice}`}
     </button>
     {#if onSkip}
-      <button type="button" class="btn ghost skip-test" data-testid="skip-test" disabled={!ready || rolling} onclick={onSkip}>Skip the test</button>
+      <button type="button" class="btn ghost skip-test" data-testid="skip-test" disabled={!ready || rolling} onclick={onSkip}>{skipLabel}</button>
     {/if}
   {/if}
   <div class="fortune-row">

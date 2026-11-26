@@ -8,7 +8,7 @@
   import { canRestore } from "../engine/restore";
   import { conditionHolds, initialSession } from "../engine/state";
   import { acceptTest, adventureOver, choicesOpen, choose, combatRoundStart, currentSection, holdTestRoll, rerollCombatDie, rerollFinalRound, rerollTestDie, rollCombatRound, selectTestDie, skipTest, startSession, tickFightBox, undo } from "../engine/rules";
-  import { outcomeLabel, rerollOrder, settledHint, stake, waitingLine } from "./fight-wording";
+  import { outcomeLabel, rerollOrder, skippedLine, stake, waitingLine } from "./fight-wording";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
   import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withIllustration, withPref, type IllustrationMode, type StoredDicePrefs } from "./dice-prefs";
@@ -247,11 +247,15 @@
   const passStakeWords = $derived(preFight ? stake(section, session.state, demoSystem, "pass") : "");
   const failStakeWords = $derived(preFight ? stake(section, session.state, demoSystem, "fail") : "");
   const combatWaiting = $derived(
-    preFight && section.test ? waitingLine(testName(demoSystem, section.test), passStakeWords, failStakeWords) : "",
+    preFight && section.test
+      ? waitingLine(testName(demoSystem, section.test), passStakeWords, failStakeWords, section.test.optional === true)
+      : "",
   );
   /** Outcome buttons for results that open the fight. A result that turns away keeps the "Pass → §N" form. */
   const passStake = $derived(preFight && !section.test?.success?.to ? outcomeLabel("Pass", passStakeWords) : "");
   const failStake = $derived(preFight && !section.test?.failure?.to ? outcomeLabel("Fail", failStakeWords) : "");
+  /** An optional test takes the fail result on a skip: "Skip · Fight without Advantage". */
+  const skipLabel = $derived(preFight && section.test?.optional ? outcomeLabel("Skip", failStakeWords) : "");
   const combatBoxes = $derived(
     (section.combat?.unless ?? []).map((box) => ({
       ...box,
@@ -313,7 +317,10 @@
   const failTo = $derived(section.test?.failure?.to ?? "");
   const passTitle = $derived(passTo ? sectionTitle(book.sections, passTo) : "");
   const failTitle = $derived(failTo ? sectionTitle(book.sections, failTo) : "");
-  const testHint = $derived(preFight ? settledHint(fightResult) : section.test ? stayHint(section.test, heldRoll) : "");
+  /** P35: the settled card keeps its result and buttons; only a skip adds a muted line. */
+  const testHint = $derived(
+    preFight ? (fightResult === "skipped" ? skippedLine(failStakeWords) : "") : section.test ? stayHint(section.test, heldRoll) : "",
+  );
   /** P32: after a pass that turns to a section, Pass is the only way on, so the choices go. */
   const passWaiting = $derived(Boolean(heldRoll?.success && passTo));
   const combatRolls = $derived.by(() => {
@@ -1031,6 +1038,8 @@
       {failStake}
       settled={fightResult}
       onSkip={section.test.optional && !heldTest && !fightResult ? onSkipTest : undefined}
+      {skipLabel}
+      plainResult={preFight}
       fortune={fortuneNow}
       fortuneMax={fortuneStat?.max ?? 0}
       fortuneCost={demoSystem.fortuneRerollCost}
@@ -1063,6 +1072,7 @@
       {defeated}
       selected={combatSelected}
       fortune={combatFortune}
+      fortuneMax={fortuneStat?.max ?? 0}
       fortuneCost={demoSystem.fortuneRerollCost}
       {rollingIndexes}
       locked={combatLocked}

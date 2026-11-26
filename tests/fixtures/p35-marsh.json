@@ -46,7 +46,7 @@
         "dice": "2d6",
         "stat": "talent",
         "wound": { "stat": "vitality", "amount": 1, "defeatAtOrBelow": 0 },
-        "then": "90",
+        "then": "39",
         "afterTest": true
       }
     },
@@ -198,7 +198,7 @@
       "id": "70",
       "title": "",
       "body": [
-        "A cloud of biting gnats boils up from the pools. You fight it with Disadvantage, unless you can call up a gust of wind or have a sling to scatter them from afar."
+        "A cloud of biting gnats boils up from the pools and closes round your head. Swatting at them on foot puts you at Disadvantage. Rising above the cloud by magic would spare you that, and so would scattering it from a distance with something you can shoot or throw."
       ],
       "combat": {
         "id": "gnat-swarm",
@@ -210,8 +210,8 @@
         "then": "90",
         "edge": "disadvantage",
         "unless": [
-          { "id": "wind-spell", "label": "I can call up a gust of wind" },
-          { "id": "sling", "label": "I have a sling I can use" }
+          { "id": "flight-spell", "label": "I can cast a flight spell" },
+          { "id": "ranged-weapon", "label": "I have a ranged weapon" }
         ]
       }
     },
@@ -267,6 +267,12 @@
         "afterTest": true,
         "edge": "advantage"
       }
+    },
+    {
+      "id": "39",
+      "title": "",
+      "body": ["The reed pike sinks away into the brown water, and you haul yourself out onto a bank of firm silt, gasping."],
+      "choices": [{ "id": "silt-landing", "label": "Follow the silt bank to the ferry landing", "to": "90" }]
     },
     {
       "id": "90",

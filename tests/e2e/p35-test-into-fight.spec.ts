@@ -68,6 +68,8 @@ test("a fight waits for its test: the stakes are on the panel and Resolve is dis
   await expect(page.getByTestId("roll-combat")).toHaveText("Resolve round 1");
   await expect(page.getByTestId("roll-combat")).toBeDisabled();
   await expect(page.getByTestId("combat-summary")).toHaveText("Round 1 of 2 · 0 wounds taken");
+  await expect(page.getByTestId("combat-win-note")).toHaveText("Win → §39. This fight has no losing section.");
+  await expect(page.getByTestId("fight-fortune-count")).toHaveText("Fortune 3 / 3");
 });
 
 test("a fail opens the fight with Disadvantage; the first 1 or 2 is replaced, and Fortune can re-roll that die", async ({ page }) => {
@@ -79,9 +81,15 @@ test("a fail opens the fight with Disadvantage; the first 1 or 2 is replaced, an
 
   // The test card stays as a settled result.
   await expect(page.getByTestId("test-panel")).toBeVisible();
-  await expect(page.getByTestId("test-result")).toHaveText("Double 6 — automatic fail");
-  await expect(page.getByTestId("test-hint")).toHaveText("The test failed. Fight below.");
+  await expect(page.getByTestId("test-result")).toHaveText("6 + 6 = 12. Swimming +2. Fail.");
+  await expect(page.getByTestId("test-hint")).toHaveCount(0);
+  await expect(page.getByTestId("test-panel")).not.toContainText("Fight below");
+  // Both outcome buttons stay: the matching one filled and disabled, the other ghost and disabled.
   await expect(page.getByTestId("destination-fail")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).not.toHaveClass(/ghost/);
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("destination-pass")).toHaveClass(/ghost/);
+  await expect(page.getByTestId("open-full-test")).toBeVisible();
   await expect(page.getByTestId("roll-test")).toHaveCount(0);
   await expect(page.getByTestId("section-title")).toHaveText("§10");
 
@@ -109,22 +117,25 @@ test("a fail opens the fight with Disadvantage; the first 1 or 2 is replaced, an
   await expect(page.getByTestId("reroll-line")).toHaveText(["Disadvantage re-rolled a 2 to a 5.", "Fortune re-rolled a 5 to a 3."]);
   await expect(page.getByTestId("old-die-2")).toBeVisible();
   await expect(page.getByTestId("sheet-stat-fortune")).toContainText("2");
+  await expect(page.getByTestId("fight-fortune-count")).toHaveText("Fortune 2 / 3");
 
   // A reload keeps the settled test and the Disadvantage.
   await page.reload();
   await expect(page.getByTestId("combat-edge")).toHaveText("Disadvantage");
-  await expect(page.getByTestId("test-hint")).toHaveText("The test failed. Fight below.");
+  await expect(page.getByTestId("test-result")).toHaveText("6 + 6 = 12. Swimming +2. Fail.");
   await expect(page.getByTestId("roll-combat")).toHaveText("Resolve round 2");
 });
 
 test("a pass gives Advantage: one free re-roll a round, after Fortune, also on the round that ends the fight", async ({ page }) => {
   await openMarsh(page, "toll-keeper", "20");
   await expect(page.getByTestId("combat-waiting")).toHaveText(
-    "Waiting for the Stealth test. Pass: fight with Advantage. Fail: fight as normal.",
+    "Waiting for the Stealth test. Pass: fight with Advantage. Fail: fight without Advantage.",
   );
   await expect(page.getByTestId("test-formula")).toHaveText("2d6 ≤ Talent 9 − 2 Stealth = 7");
   await rollTest(page, 2, 3);
   await expect(page.getByTestId("destination-pass")).toHaveText("Pass · Fight with Advantage");
+  await expect(page.getByTestId("destination-fail")).toHaveText("Fail · Fight without Advantage");
+  await expect(page.getByTestId("test-result")).toHaveText("2 + 3 = 5. Stealth −2. Pass.");
   await page.getByTestId("destination-pass").click();
   await expect(page.getByTestId("combat-edge")).toHaveText("Advantage");
   await expect(page.getByTestId("combat-rule")).toHaveText(
@@ -162,9 +173,21 @@ test("a pass gives Advantage: one free re-roll a round, after Fortune, also on t
 
 test("an optional test can be skipped: the fight opens without Advantage", async ({ page }) => {
   await openMarsh(page, "heron", "30");
-  await expect(page.getByTestId("skip-test")).toHaveText("Skip the test");
+  await expect(page.getByTestId("combat-waiting")).toHaveText(
+    "Waiting for the Stealth test. Pass: fight with Advantage. Fail or skip: fight without Advantage.",
+  );
+  await expect(page.getByTestId("destination-pass")).toHaveText("Pass · Fight with Advantage");
+  await expect(page.getByTestId("destination-fail")).toHaveText("Fail · Fight without Advantage");
+  await expect(page.getByTestId("skip-test")).toHaveText("Skip · Fight without Advantage");
+  await expect(page.getByTestId("skip-test")).toHaveClass(/ghost/);
+  await expect(page.getByTestId("skip-test")).toBeEnabled();
+  const skipBox = await page.getByTestId("skip-test").boundingBox();
+  expect(skipBox?.height ?? 0).toBeGreaterThanOrEqual(44);
   await page.getByTestId("skip-test").click();
-  await expect(page.getByTestId("test-hint")).toHaveText("You skipped the test. Fight below.");
+  await expect(page.getByTestId("test-hint")).toHaveText("Skipped. Fight without Advantage.");
+  await expect(page.getByTestId("test-panel")).toBeVisible();
+  await expect(page.getByTestId("destination-pass")).toBeDisabled();
+  await expect(page.getByTestId("destination-fail")).toBeDisabled();
   await expect(page.getByTestId("skip-test")).toHaveCount(0);
   await expect(page.getByTestId("roll-test")).toHaveCount(0);
   await expect(page.getByTestId("combat")).toHaveAttribute("data-edge", "none");
@@ -179,8 +202,9 @@ test("an optional test can be skipped: the fight opens without Advantage", async
 test("a bargain test changes only the gold, then the fight opens; a skip pays the full price", async ({ page }) => {
   await openMarsh(page, "eel-seller", "80");
   await expect(page.getByTestId("combat-waiting")).toHaveText(
-    "Waiting for the Diplomacy test. Pass: pay 3 gold, then fight. Fail: pay 6 gold, then fight.",
+    "Waiting for the Diplomacy test. Pass: pay 3 gold, then fight. Fail or skip: pay 6 gold, then fight.",
   );
+  await expect(page.getByTestId("skip-test")).toHaveText("Skip · Pay 6 gold, then fight");
   await page.getByTestId("skip-test").click();
   await expect(page.getByTestId("combat")).toHaveAttribute("data-edge", "none");
   await page.getByTestId("open-sheet").click();
@@ -190,10 +214,9 @@ test("a bargain test changes only the gold, then the fight opens; a skip pays th
 test("ticking either box removes the fight's Disadvantage and its automatic re-roll", async ({ page }) => {
   await openMarsh(page, "gnats", "70");
   await expect(page.getByTestId("combat-edge")).toHaveText("Disadvantage");
-  await expect(page.getByTestId("combat-box-wind-spell")).not.toBeChecked();
-  await expect(page.getByTestId("combat-boxes")).toContainText("I can call up a gust of wind");
-  await expect(page.getByTestId("combat-boxes")).toContainText("I have a sling I can use");
-  const box = page.getByTestId("combat-box-sling");
+  await expect(page.getByTestId("combat-box-flight-spell")).not.toBeChecked();
+  await expect(page.getByTestId("combat-boxes").locator("label")).toHaveText(["I can cast a flight spell", "I have a ranged weapon"]);
+  const box = page.getByTestId("combat-box-ranged-weapon");
   const size = await box.boundingBox();
   expect(size?.width ?? 0).toBeGreaterThanOrEqual(20);
   await box.check();
@@ -202,7 +225,7 @@ test("ticking either box removes the fight's Disadvantage and its automatic re-r
   await resolve(page, 1, 1, 2);
   await expect(page.getByTestId("combat-roll")).toHaveText("1 + 2 = 3. You hold.");
   await expect(page.getByTestId("reroll-line")).toHaveCount(0);
-  await expect(page.getByTestId("combat-box-sling")).toBeDisabled();
+  await expect(page.getByTestId("combat-box-ranged-weapon")).toBeDisabled();
 });
 
 test("Advantage and Disadvantage cancel: no Advantage button, no automatic re-roll; Fortune still works", async ({ page }) => {
@@ -213,6 +236,9 @@ test("Advantage and Disadvantage cancel: no Advantage button, no automatic re-ro
   await rollTest(page, 6, 6);
   await page.getByTestId("destination-fail").click();
   await expect(page.getByTestId("combat-edge")).toHaveText("Advantage and Disadvantage cancel");
+  await expect(page.getByTestId("combat-rule")).toHaveText(
+    "A magic weapon grants Advantage. If the fight also has Disadvantage, they cancel and neither applies.",
+  );
   await expect(page.getByTestId("combat")).toHaveAttribute("data-edge", "cancel");
   await expect(page.getByTestId("reroll-order")).toHaveText(
     "No Advantage button, and no automatic re-roll of a 1 or 2. Fortune still works as usual.",
@@ -280,6 +306,7 @@ test("a fight with a losing section is unchanged", async ({ page }) => {
   await expect(page.getByTestId("combat")).toHaveAttribute("data-edge", "none");
   await expect(page.getByTestId("reroll-order")).toHaveCount(0);
   await expect(page.getByTestId("test-panel")).toHaveCount(0);
+  await expect(page.getByTestId("combat-win-note")).toHaveCount(0);
   await resolve(page, 1, 6, 6);
   await nextFaces(page, 6, 6);
   await page.getByTestId("roll-combat").click();
@@ -330,5 +357,30 @@ test("the 390px layout keeps the replaced die, the badge, and the controls on sc
     const box = await fight(page).getByTestId(id).boundingBox();
     expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
+  }
+  // Fortune: the button is full width, and the count sits on the line below, left-aligned.
+  const button = await fight(page).getByTestId("fortune-reroll").boundingBox();
+  const count = await fight(page).getByTestId("fight-fortune-count").boundingBox();
+  const panel = await fight(page).boundingBox();
+  expect(button && count && panel).toBeTruthy();
+  if (button && count && panel) {
+    expect(button.width).toBeGreaterThan(panel.width - 60);
+    expect(count.y).toBeGreaterThanOrEqual(button.y + button.height - 1);
+    expect(Math.abs(count.x - button.x)).toBeLessThanOrEqual(2);
+  }
+  await expect(page.getByTestId("combat-win-note")).toHaveText("Win → §39. This fight has no losing section.");
+});
+
+test("the 390px skip control is a full-width ghost button, 44px tall", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openMarsh(page, "heron", "30");
+  const skip = page.getByTestId("skip-test");
+  await expect(skip).toHaveText("Skip · Fight without Advantage");
+  const box = await skip.boundingBox();
+  const card = await page.getByTestId("test-panel").boundingBox();
+  expect(box && card).toBeTruthy();
+  if (box && card) {
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThan(card.width - 60);
   }
 });

@@ -2208,12 +2208,14 @@ button.die {
   }
 
   .test-panel .dest .btn,
-  .test-panel .fortune-row .btn {
+  .test-panel .fortune-row .btn,
+  .fight-panel .fortune-row .btn {
     width: 100%;
     max-width: none;
   }
 
-  .test-panel .fortune-row {
+  .test-panel .fortune-row,
+  .fight-panel .fortune-row {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -2433,17 +2435,17 @@ button.die {
 
 /* The replaced face: muted, slightly smaller, dashed, and struck through. */
 .die.old {
-  width: 62px;
-  height: 62px;
-  padding: 8px;
+  width: 40px;
+  height: 40px;
+  padding: 5px;
   border: 1.5px dashed var(--muted);
   opacity: 0.7;
   position: relative;
 }
 
 .die.old i {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
   background: var(--muted);
 }
 
@@ -2486,21 +2488,17 @@ button.die {
 
 .test-panel .skip-test {
   margin-left: 8px;
+  min-height: 44px;
+}
+
+/* P35: Fortune on the fight panel, as on the test card. */
+.fight-panel .fortune-row {
+  margin-top: 8px;
 }
 
 @media (max-width: 430px) {
-  .die.old {
-    width: 52px;
-    height: 52px;
-    padding: 7px;
-  }
-
-  .die.old i {
-    width: 8px;
-    height: 8px;
-  }
-
   .test-panel .skip-test {
     margin: 8px 0 0;
+    width: 100%;
   }
 }

@@ -21,7 +21,17 @@ import {
   tickFightBox,
   undo,
 } from "../../src/engine/rules";
-import { rerollLine, rerollOrder, stake, waitingLine } from "../../src/ui/fight-wording";
+import {
+  EDGE_RULE,
+  fightTestResultLine,
+  noLosingNote,
+  outcomeLabel,
+  rerollLine,
+  rerollOrder,
+  skippedLine,
+  stake,
+  waitingLine,
+} from "../../src/ui/fight-wording";
 
 /** An rng that rolls these faces on a d6, in order. */
 function faces(...list: number[]) {
@@ -292,18 +302,18 @@ describe("P35 a test before a fight", () => {
     const section = currentSection(marshBook, session);
     expect(fightLocked(section, session.state)).toBe(false);
     expect(edgeNow(section, session.state)).toBe("disadvantage");
-    session = tickFightBox(session, marshBook, "sling", true);
-    expect(session.state.fight).toEqual({ sectionId: "70", ticked: ["sling"] });
+    session = tickFightBox(session, marshBook, "ranged-weapon", true);
+    expect(session.state.fight).toEqual({ sectionId: "70", ticked: ["ranged-weapon"] });
     expect(session.undo).toHaveLength(1);
     expect(edgeNow(section, session.state)).toBe("none");
-    session = tickFightBox(session, marshBook, "sling", false);
+    session = tickFightBox(session, marshBook, "ranged-weapon", false);
     expect(edgeNow(section, session.state)).toBe("disadvantage");
-    session = tickFightBox(session, marshBook, "wind-spell", true);
+    session = tickFightBox(session, marshBook, "flight-spell", true);
     expect(edgeNow(section, session.state)).toBe("none");
     expect(tickFightBox(session, marshBook, "no-such-box", true)).toBe(session);
     session = rollCombatRound(session, marshBook, demoSystem, faces(1, 1));
     expect(lastRoll(session)?.rerolls).toBeUndefined();
-    expect(tickFightBox(session, marshBook, "wind-spell", false)).toBe(session);
+    expect(tickFightBox(session, marshBook, "flight-spell", false)).toBe(session);
     // Leaving the section clears the set-up.
     session = rollCombatRound(session, marshBook, demoSystem, faces(1, 1));
     expect(session.state.sectionId).toBe("90");
@@ -355,7 +365,7 @@ describe("P35 saves", () => {
     let session = settle(at("reed-channel"), [6, 6]);
     session = rollCombatRound(session, marshBook, demoSystem, faces(2, 2, 5));
     expect(canRestore(structuredClone(session), marshBook, demoSystem)).toBe(true);
-    const boxes = tickFightBox(at("gnats"), marshBook, "sling", true);
+    const boxes = tickFightBox(at("gnats"), marshBook, "ranged-weapon", true);
     expect(canRestore(structuredClone(boxes), marshBook, demoSystem)).toBe(true);
 
     const wrongSection = structuredClone(session);
@@ -403,6 +413,36 @@ describe("P35 wording", () => {
     const wight = at("wight");
     expect(stake(currentSection(marshBook, wight), wight.state, demoSystem, "pass")).toBe("fight with Advantage");
     expect(stake(currentSection(marshBook, wight), wight.state, demoSystem, "fail")).toBe("fight; Advantage and Disadvantage cancel");
+  });
+
+  it("words a sneak-style test, its skip, and a fight with no losing section", () => {
+    const heron = at("heron");
+    const section = currentSection(marshBook, heron);
+    const pass = stake(section, heron.state, demoSystem, "pass");
+    const fail = stake(section, heron.state, demoSystem, "fail");
+    expect(pass).toBe("fight with Advantage");
+    expect(fail).toBe("fight without Advantage");
+    expect(waitingLine("Stealth", pass, fail, true)).toBe(
+      "Waiting for the Stealth test. Pass: fight with Advantage. Fail or skip: fight without Advantage.",
+    );
+    expect(outcomeLabel("Pass", pass)).toBe("Pass · Fight with Advantage");
+    expect(outcomeLabel("Fail", fail)).toBe("Fail · Fight without Advantage");
+    expect(outcomeLabel("Skip", fail)).toBe("Skip · Fight without Advantage");
+    expect(skippedLine(fail)).toBe("Skipped. Fight without Advantage.");
+    const keeper = at("toll-keeper");
+    expect(stake(currentSection(marshBook, keeper), keeper.state, demoSystem, "fail")).toBe("fight without Advantage");
+    const reed = currentSection(marshBook, at("reed-channel"));
+    expect(reed.combat && noLosingNote(reed.combat)).toBe("Win → §39. This fight has no losing section.");
+    const eel = currentSection(marshBook, at("deep-channel"));
+    expect(eel.combat && noLosingNote(eel.combat)).toBe("");
+    expect(fightTestResultLine([6, 6], 12, false, "Swimming +2")).toBe("6 + 6 = 12. Swimming +2. Fail.");
+    expect(fightTestResultLine([1, 1], 2, true, "Swimming +2")).toBe("1 + 1 = 2. Swimming +2. Pass.");
+    expect(EDGE_RULE.cancel).toBe("A magic weapon grants Advantage. If the fight also has Disadvantage, they cancel and neither applies.");
+  });
+
+  it("keeps the fixture's condition boxes as the handoff names them", () => {
+    const gnats = currentSection(marshBook, at("gnats"));
+    expect(gnats.combat?.unless?.map((box) => box.label)).toEqual(["I can cast a flight spell", "I have a ranged weapon"]);
   });
 
   it("keeps the re-roll order explicit", () => {

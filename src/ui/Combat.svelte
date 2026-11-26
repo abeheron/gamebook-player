@@ -14,7 +14,7 @@
   import { advantageUsed, replacedFaces, type EdgeNow } from "../engine/fight-edge";
   import { roundMarks, roundName, roundSummary, type RoundMark } from "./combat-rounds";
   import Die from "./Die.svelte";
-  import { EDGE_BADGE, EDGE_RULE, rerollLine } from "./fight-wording";
+  import { EDGE_BADGE, EDGE_RULE, noLosingNote, rerollLine } from "./fight-wording";
   import { sectionDestination } from "./wording";
 
   let {
@@ -34,6 +34,7 @@
     defeated,
     selected,
     fortune,
+    fortuneMax = 0,
     fortuneCost,
     rollingIndexes,
     locked = false,
@@ -65,6 +66,8 @@
     defeated: boolean;
     selected: number | null;
     fortune: number;
+    /** P35: shown as "Fortune N / 3" beside the re-roll button, as on the test card. */
+    fortuneMax?: number;
     fortuneCost: number;
     rollingIndexes: number[];
     /** P35: the fight waits for the section's test. Resolve stays disabled. */
@@ -93,6 +96,7 @@
   const last = $derived(rolls[rolls.length - 1]);
   const usedAdvantage = $derived(advantageUsed(last));
   const replaced = $derived(replacedFaces(last));
+  const winNote = $derived(noLosingNote(combat));
   const canReroll = $derived(ready && !rolling && rolls.length > 0 && selected !== null && !usedAdvantage);
 
   function glyph(mark: RoundMark, roundNumber: number): string {
@@ -218,21 +222,29 @@
   {#if !locked && order}
     <p class="note" data-testid="reroll-order">{order}</p>
   {/if}
-  <button
-    type="button"
-    class="btn ghost"
-    data-testid="fortune-reroll"
-    disabled={!canReroll || fortune < fortuneCost}
-    onclick={onReroll}
-  >
-    Spend {fortuneCost} Fortune: re-roll selected die
-  </button>
+  <div class="fortune-row">
+    <button
+      type="button"
+      class="btn ghost"
+      data-testid="fortune-reroll"
+      disabled={!canReroll || fortune < fortuneCost}
+      onclick={onReroll}
+    >
+      Spend {fortuneCost} Fortune: re-roll selected die
+    </button>
+    {#if fortuneMax > 0}
+      <span class="note fortune-count" data-testid="fight-fortune-count">Fortune {fortune} / {fortuneMax}</span>
+    {/if}
+  </div>
   {#if !locked && edge === "advantage"}
     <div class="adv-row">
       <button type="button" class="btn ghost" data-testid="advantage-reroll" disabled={!canReroll} onclick={onAdvantage}>
         Re-roll one die (Advantage)
       </button>
     </div>
+  {/if}
+  {#if winNote}
+    <p class="note" data-testid="combat-win-note">{winNote}</p>
   {/if}
   {#if held}
     <div class="dest">

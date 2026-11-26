@@ -37,7 +37,7 @@ test("records a test before a fight: the waiting fight, Disadvantage's automatic
   await page.getByTestId("test-panel").scrollIntoViewIfNeeded();
   await nextFaces(page, 6, 6);
   await demoClick(page.getByTestId("roll-test"));
-  await expect(page.getByTestId("test-result")).toHaveText("Double 6 — automatic fail");
+  await expect(page.getByTestId("test-result")).toHaveText("6 + 6 = 12. Swimming +2. Fail.");
   await demoHold(page, 1500);
   await demoClick(page.getByTestId("destination-fail"));
   await expect(page.getByTestId("combat-edge")).toHaveText("Disadvantage");
@@ -103,7 +103,7 @@ test("records a test before a fight: the waiting fight, Disadvantage's automatic
   await expect(page.getByTestId("skip-test")).toBeVisible();
   await demoHold(page, 1500);
   await demoClick(page.getByTestId("skip-test"));
-  await expect(page.getByTestId("test-hint")).toHaveText("You skipped the test. Fight below.");
+  await expect(page.getByTestId("test-hint")).toHaveText("Skipped. Fight without Advantage.");
   await page.getByTestId("combat").scrollIntoViewIfNeeded();
   await demoHold(page, 3000);
 });
