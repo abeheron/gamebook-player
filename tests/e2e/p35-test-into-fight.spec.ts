@@ -69,7 +69,10 @@ test("a fight waits for its test: the stakes are on the panel and Resolve is dis
   await expect(page.getByTestId("roll-combat")).toBeDisabled();
   await expect(page.getByTestId("combat-summary")).toHaveText("Round 1 of 2 · 0 wounds taken");
   await expect(page.getByTestId("combat-win-note")).toHaveText("Win → §39. This fight has no losing section.");
-  await expect(page.getByTestId("fight-fortune-count")).toHaveText("Fortune 3 / 3");
+  // No fight dice yet: no Fortune and no Advantage on the fight panel.
+  await expect(fight.getByTestId("fortune-reroll")).toHaveCount(0);
+  await expect(page.getByTestId("fight-fortune-count")).toHaveCount(0);
+  await expect(page.getByTestId("advantage-reroll")).toHaveCount(0);
 });
 
 test("a fail opens the fight with Disadvantage; the first 1 or 2 is replaced, and Fortune can re-roll that die", async ({ page }) => {
@@ -101,6 +104,8 @@ test("a fail opens the fight with Disadvantage; the first 1 or 2 is replaced, an
     "Re-rolls: Disadvantage is automatic, before Fortune. Then Fortune, then Advantage. Advantage does not apply in this fight.",
   );
   await expect(page.getByTestId("advantage-reroll")).toHaveCount(0);
+  await expect(fight(page).getByTestId("fortune-reroll")).toHaveCount(0);
+  await expect(page.getByTestId("fight-fortune-count")).toHaveCount(0);
   await expect(page.getByTestId("roll-combat")).toBeEnabled();
 
   await resolve(page, 1, 4, 2, 5);
@@ -109,8 +114,11 @@ test("a fail opens the fight with Disadvantage; the first 1 or 2 is replaced, an
   await expect(page.getByTestId("combat-roll")).toHaveText("4 + 5 = 9. You hold.");
   await expect(page.getByTestId("reroll-line")).toHaveText("Disadvantage re-rolled a 2 to a 5.");
 
-  // Fortune on the die Disadvantage already replaced.
-  await fight(page).getByTestId("die-2").click();
+  // Fortune on the die Disadvantage already replaced: it is pre-selected, so Fortune is ready.
+  await expect(fight(page).getByTestId("die-2")).toHaveAttribute("aria-pressed", "true");
+  await expect(fight(page).getByTestId("die-1")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("fight-fortune-count")).toHaveText("Fortune 3 / 3");
+  await expect(fight(page).getByTestId("fortune-reroll")).toBeEnabled();
   await nextFaces(page, 3);
   await fight(page).getByTestId("fortune-reroll").click();
   await expect(page.getByTestId("combat-roll")).toHaveText("4 + 3 = 7. You hold.");
@@ -141,10 +149,14 @@ test("a pass gives Advantage: one free re-roll a round, after Fortune, also on t
   await expect(page.getByTestId("combat-rule")).toHaveText(
     "You may re-roll any one die, after other re-rolls, and must take the second result. Once per round.",
   );
-  await expect(page.getByTestId("advantage-reroll")).toHaveText("Re-roll one die (Advantage)");
-  await expect(page.getByTestId("advantage-reroll")).toBeDisabled();
+  // Before round 1 there are no dice to re-roll.
+  await expect(page.getByTestId("advantage-reroll")).toHaveCount(0);
+  await expect(fight(page).getByTestId("fortune-reroll")).toHaveCount(0);
 
   await resolve(page, 1, 6, 5);
+  await expect(page.getByTestId("advantage-reroll")).toHaveText("Re-roll one die (Advantage)");
+  await expect(page.getByTestId("advantage-reroll")).toBeDisabled();
+  await expect(page.getByTestId("fortune-closed")).toHaveCount(0);
   await expect(page.getByTestId("combat-roll")).toHaveText("6 + 5 = 11. You are hit.");
   await fight(page).getByTestId("die-1").click();
   await nextFaces(page, 1);
@@ -155,11 +167,13 @@ test("a pass gives Advantage: one free re-roll a round, after Fortune, also on t
   // Once a round, and nothing after it.
   await expect(page.getByTestId("advantage-reroll")).toBeDisabled();
   await expect(fight(page).getByTestId("fortune-reroll")).toBeDisabled();
+  await expect(page.getByTestId("fortune-closed")).toHaveText("Advantage has already been used this round.");
 
   // The last round: the fight is over, but Advantage still applies before you continue.
   await nextFaces(page, 6, 6);
   await page.getByTestId("roll-combat").click();
   await expect(page.getByTestId("combat-outcome")).toHaveText("You win the fight · turn to §90");
+  await expect(page.getByTestId("fortune-closed")).toHaveCount(0);
   await expect(page.getByTestId("combat-vitality")).toHaveAttribute("aria-label", "Vitality 2 of 3");
   await fight(page).getByTestId("die-2").click();
   await nextFaces(page, 2);
@@ -190,6 +204,14 @@ test("an optional test can be skipped: the fight opens without Advantage", async
   await expect(page.getByTestId("destination-fail")).toBeDisabled();
   await expect(page.getByTestId("skip-test")).toHaveCount(0);
   await expect(page.getByTestId("roll-test")).toHaveCount(0);
+  await expect(page.getByTestId("open-full-test")).toBeVisible();
+  await expect(page.getByTestId("test-formula")).toBeVisible();
+  // A skipped test has no dice: no Fortune control and no dice rules note.
+  await expect(page.getByTestId("test-panel").getByTestId("fortune-reroll")).toHaveCount(0);
+  await expect(page.getByTestId("fortune-count")).toHaveCount(0);
+  await expect(page.getByTestId("test-rules-note")).toHaveCount(0);
+  await expect(page.getByTestId("test-panel")).not.toContainText("Select a die");
+  await expect(fight(page).getByTestId("fortune-reroll")).toHaveCount(0);
   await expect(page.getByTestId("combat")).toHaveAttribute("data-edge", "none");
   await expect(page.getByTestId("combat-edge")).toHaveCount(0);
   await expect(page.getByTestId("advantage-reroll")).toHaveCount(0);
@@ -197,6 +219,8 @@ test("an optional test can be skipped: the fight opens without Advantage", async
   // Undo brings the test back.
   await page.getByTestId("undo").click();
   await expect(page.getByTestId("skip-test")).toBeVisible();
+  await expect(page.getByTestId("test-rules-note")).toBeVisible();
+  await expect(page.getByTestId("fortune-count")).toHaveText("Fortune 3 / 3");
 });
 
 test("a bargain test changes only the gold, then the fight opens; a skip pays the full price", async ({ page }) => {
@@ -225,6 +249,10 @@ test("ticking either box removes the fight's Disadvantage and its automatic re-r
   await resolve(page, 1, 1, 2);
   await expect(page.getByTestId("combat-roll")).toHaveText("1 + 2 = 3. You hold.");
   await expect(page.getByTestId("reroll-line")).toHaveCount(0);
+  // No automatic re-roll, so no die is pre-selected.
+  await expect(fight(page).getByTestId("die-1")).toHaveAttribute("aria-pressed", "false");
+  await expect(fight(page).getByTestId("die-2")).toHaveAttribute("aria-pressed", "false");
+  await expect(fight(page).getByTestId("fortune-reroll")).toBeDisabled();
   await expect(page.getByTestId("combat-box-ranged-weapon")).toBeDisabled();
 });
 
@@ -299,6 +327,9 @@ test("a two-handed weapon re-rolls the first 6 of a fight round, in any fight", 
   await expect(page.getByTestId("old-die-2")).toHaveAttribute("aria-label", "Die 2 was 6, replaced");
   await expect(page.getByTestId("combat-roll")).toHaveText("3 + 2 = 5. You hold.");
   await expect(page.getByTestId("reroll-line")).toHaveText("Two-handed weapon re-rolled a 6 to a 2.");
+  // The new die is pre-selected, so Fortune is ready straight away.
+  await expect(fight(page).getByTestId("die-2")).toHaveAttribute("aria-pressed", "true");
+  await expect(fight(page).getByTestId("fortune-reroll")).toBeEnabled();
 });
 
 test("a fight with a losing section is unchanged", async ({ page }) => {
@@ -383,4 +414,37 @@ test("the 390px skip control is a full-width ghost button, 44px tall", async ({ 
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThan(card.width - 60);
   }
+});
+
+test("the 390px Advantage re-roll is full width, like Fortune, and the closed reason sits under Fortune", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openMarsh(page, "toll-keeper", "20");
+  await rollTest(page, 2, 3);
+  await page.getByTestId("destination-pass").click();
+  await resolve(page, 1, 6, 5);
+  const panel = await fight(page).boundingBox();
+  const advantage = await page.getByTestId("advantage-reroll").boundingBox();
+  const fortune = await fight(page).getByTestId("fortune-reroll").boundingBox();
+  expect(panel && advantage && fortune).toBeTruthy();
+  if (panel && advantage && fortune) {
+    expect(advantage.width).toBeGreaterThan(panel.width - 60);
+    expect(Math.abs(advantage.width - fortune.width)).toBeLessThanOrEqual(1);
+    expect(advantage.height).toBeGreaterThanOrEqual(44);
+  }
+  await fight(page).getByTestId("die-1").click();
+  await nextFaces(page, 1);
+  await page.getByTestId("advantage-reroll").click();
+  const reason = page.getByTestId("fortune-closed");
+  await expect(reason).toHaveText("Advantage has already been used this round.");
+  await expect(reason).toHaveClass(/note/);
+  const count = await fight(page).getByTestId("fight-fortune-count").boundingBox();
+  const line = await reason.boundingBox();
+  const advantageAfter = await page.getByTestId("advantage-reroll").boundingBox();
+  expect(count && line && advantageAfter).toBeTruthy();
+  if (count && line && advantageAfter) {
+    expect(line.y).toBeGreaterThanOrEqual(count.y + count.height - 1);
+    expect(line.y + line.height).toBeLessThanOrEqual(advantageAfter.y + 1);
+  }
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(390);
 });

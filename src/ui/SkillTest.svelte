@@ -126,7 +126,9 @@
 >
   <h2>{label}</h2>
   <p class="formula" data-testid="test-formula">{formula}</p>
-  <p class="note">Double 1 always passes · double 6 always fails. Select a die, then spend Fortune to re-roll it.</p>
+  {#if settled !== "skipped"}
+    <p class="note" data-testid="test-rules-note">Double 1 always passes · double 6 always fails. Select a die, then spend Fortune to re-roll it.</p>
+  {/if}
   {#if rolling}
     <div class="dice" aria-hidden="true">
       {#each previewFaces as face, index (`roll-${index}`)}
@@ -220,6 +222,7 @@
       <button type="button" class="btn ghost skip-test" data-testid="skip-test" disabled={!ready || rolling} onclick={onSkip}>{skipLabel}</button>
     {/if}
   {/if}
+  {#if settled !== "skipped"}
   <div class="fortune-row">
     <button
       type="button"
@@ -232,6 +235,7 @@
     </button>
     <span class="note fortune-count" data-testid="fortune-count">Fortune {fortune} / {fortuneMax}</span>
   </div>
+  {/if}
   {#if compact}
     <div class="test-tools">
       <button type="button" class="btn ghost" data-testid="open-full-test" onclick={onFull}>Full test</button>

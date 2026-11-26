@@ -14,7 +14,7 @@
   import { advantageUsed, replacedFaces, type EdgeNow } from "../engine/fight-edge";
   import { roundMarks, roundName, roundSummary, type RoundMark } from "./combat-rounds";
   import Die from "./Die.svelte";
-  import { EDGE_BADGE, EDGE_RULE, noLosingNote, rerollLine } from "./fight-wording";
+  import { ADVANTAGE_USED_NOTE, EDGE_BADGE, EDGE_RULE, noLosingNote, rerollLine } from "./fight-wording";
   import { sectionDestination } from "./wording";
 
   let {
@@ -97,6 +97,8 @@
   const usedAdvantage = $derived(advantageUsed(last));
   const replaced = $derived(replacedFaces(last));
   const winNote = $derived(noLosingNote(combat));
+  /** Fortune and Advantage appear only once the round is rolled and there are dice to re-roll. */
+  const showRerolls = $derived(!locked && rolls.length > 0);
   const canReroll = $derived(ready && !rolling && rolls.length > 0 && selected !== null && !usedAdvantage);
 
   function glyph(mark: RoundMark, roundNumber: number): string {
@@ -222,6 +224,7 @@
   {#if !locked && order}
     <p class="note" data-testid="reroll-order">{order}</p>
   {/if}
+  {#if showRerolls}
   <div class="fortune-row">
     <button
       type="button"
@@ -236,12 +239,16 @@
       <span class="note fortune-count" data-testid="fight-fortune-count">Fortune {fortune} / {fortuneMax}</span>
     {/if}
   </div>
-  {#if !locked && edge === "advantage"}
+  {#if usedAdvantage}
+    <p class="note fortune-closed" data-testid="fortune-closed">{ADVANTAGE_USED_NOTE}</p>
+  {/if}
+  {#if edge === "advantage"}
     <div class="adv-row">
       <button type="button" class="btn ghost" data-testid="advantage-reroll" disabled={!canReroll} onclick={onAdvantage}>
         Re-roll one die (Advantage)
       </button>
     </div>
+  {/if}
   {/if}
   {#if winNote}
     <p class="note" data-testid="combat-win-note">{winNote}</p>

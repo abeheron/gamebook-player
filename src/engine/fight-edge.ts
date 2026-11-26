@@ -75,3 +75,9 @@ export function replacedFaces(roll: RollRecord | undefined): Map<number, number>
   }
   return old;
 }
+
+/** The die the last automatic re-roll this round replaced (Disadvantage or two-handed), or null. */
+export function autoRerolledDie(roll: RollRecord | undefined): number | null {
+  const automatic = (roll?.rerolls ?? []).filter((entry) => entry.by === "disadvantage" || entry.by === "two-handed");
+  return automatic[automatic.length - 1]?.index ?? null;
+}

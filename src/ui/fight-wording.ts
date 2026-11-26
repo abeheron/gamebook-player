@@ -140,3 +140,6 @@ function effectWords(effect: Effect, system: SystemDef, woundStat: string): stri
     }
   }
 }
+
+/** The muted reason under Fortune once Advantage's re-roll is spent this round. */
+export const ADVANTAGE_USED_NOTE = "Advantage has already been used this round.";

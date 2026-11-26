@@ -53,9 +53,9 @@ test("records a test before a fight: the waiting fight, Disadvantage's automatic
   await page.getByTestId("old-die-2").hover();
   await demoHold(page, 3000);
 
-  // Fortune may re-roll the die Disadvantage already replaced.
+  // Fortune may re-roll the die Disadvantage already replaced. It is pre-selected.
   const fight = page.getByTestId("combat");
-  await demoClick(fight.getByTestId("die-2"));
+  await expect(fight.getByTestId("die-2")).toHaveAttribute("aria-pressed", "true");
   await nextFaces(page, 3);
   await demoClick(fight.getByTestId("fortune-reroll"));
   await expect(fight.getByTestId("reroll-line")).toHaveText(["Disadvantage re-rolled a 2 to a 5.", "Fortune re-rolled a 5 to a 3."]);

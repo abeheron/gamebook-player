@@ -4,7 +4,7 @@
   import { exploredSections } from "../format/import-book";
   import type { Book, Character, GameState, Illustration, RollRecord, Session } from "../format/types";
   import { fixtureCharacter, gladeCharacter, marshCharacter } from "../engine/creation";
-  import { edgeNow, fightFor, fightLocked, fightTestResult } from "../engine/fight-edge";
+  import { autoRerolledDie, edgeNow, fightFor, fightLocked, fightTestResult } from "../engine/fight-edge";
   import { canRestore } from "../engine/restore";
   import { conditionHolds, initialSession } from "../engine/state";
   import { acceptTest, adventureOver, choicesOpen, choose, combatRoundStart, currentSection, holdTestRoll, rerollCombatDie, rerollFinalRound, rerollTestDie, rollCombatRound, selectTestDie, skipTest, startSession, tickFightBox, undo } from "../engine/rules";
@@ -577,6 +577,8 @@
     const next = rollCombatRound(before, book, demoSystem, Math.random);
     const roll = next.state.rolls[next.state.rolls.length - 1];
     startRoll(roll?.faces ?? [], () => {
+      // P35: after an automatic re-roll (Disadvantage, a two-handed first 6), the new die is selected.
+      combatSelected = autoRerolledDie(roll);
       if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next, base: before.state };
       else session = next;
     }, undefined, "combat");

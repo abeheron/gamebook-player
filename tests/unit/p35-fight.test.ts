@@ -4,7 +4,7 @@ import { demoSystem, marshBook } from "../../src/format/demo";
 import { validateBook } from "../../src/format/validate";
 import type { Session } from "../../src/format/types";
 import { marshCharacter } from "../../src/engine/creation";
-import { edgeNow, fightLocked } from "../../src/engine/fight-edge";
+import { advantageUsed, autoRerolledDie, edgeNow, fightLocked } from "../../src/engine/fight-edge";
 import { canRestore } from "../../src/engine/restore";
 import {
   acceptTest,
@@ -22,6 +22,7 @@ import {
   undo,
 } from "../../src/engine/rules";
 import {
+  ADVANTAGE_USED_NOTE,
   EDGE_RULE,
   fightTestResultLine,
   noLosingNote,
@@ -454,5 +455,39 @@ describe("P35 wording", () => {
     expect(rerollOrder("none", false)).toBe("");
     expect(rerollOrder("none", true)).toBe("Re-rolls: your two-handed weapon re-rolls the first 6 automatically, before Fortune. Then Fortune.");
     expect(rerollOrder("disadvantage", true)).toContain("then your two-handed weapon's first 6, before Fortune");
+  });
+});
+
+describe("P35 fight panel selection and closed Fortune", () => {
+  it("pre-selects the die an automatic re-roll replaced, and nothing otherwise", () => {
+    let session = settle(at("reed-channel"), [6, 6]);
+    session = rollCombatRound(session, marshBook, demoSystem, faces(4, 2, 5));
+    expect(autoRerolledDie(lastRoll(session))).toBe(1);
+    // Disadvantage, then the two-handed 6 on the same die: that die.
+    let both = settle(at("reed-channel", "two-handed"), [6, 6]);
+    both = rollCombatRound(both, marshBook, demoSystem, faces(1, 4, 6, 3));
+    expect(autoRerolledDie(lastRoll(both))).toBe(0);
+    const twoHanded = rollCombatRound(at("deep-channel", "two-handed"), marshBook, demoSystem, faces(3, 6, 2));
+    expect(autoRerolledDie(lastRoll(twoHanded))).toBe(1);
+    // No automatic re-roll: nothing is pre-selected.
+    const plain = rollCombatRound(at("deep-channel"), marshBook, demoSystem, faces(1, 2));
+    expect(autoRerolledDie(lastRoll(plain))).toBeNull();
+    expect(autoRerolledDie(undefined)).toBeNull();
+    // Fortune and Advantage re-rolls never count as automatic.
+    let keeper = settle(at("toll-keeper"), [2, 3]);
+    keeper = rollCombatRound(keeper, marshBook, demoSystem, faces(6, 5));
+    keeper = rerollCombatDie(keeper, marshBook, demoSystem, 0, faces(), 4);
+    expect(autoRerolledDie(lastRoll(keeper))).toBeNull();
+  });
+
+  it("gives the reason Fortune is closed once Advantage is used this round", () => {
+    let session = settle(at("toll-keeper"), [2, 3]);
+    session = rollCombatRound(session, marshBook, demoSystem, faces(6, 5));
+    expect(advantageUsed(lastRoll(session))).toBe(false);
+    session = rerollCombatDie(session, marshBook, demoSystem, 0, faces(), 1, "advantage");
+    expect(advantageUsed(lastRoll(session))).toBe(true);
+    expect(ADVANTAGE_USED_NOTE).toBe("Advantage has already been used this round.");
+    session = rollCombatRound(session, marshBook, demoSystem, faces(3, 3));
+    expect(advantageUsed(lastRoll(session))).toBe(false);
   });
 });
