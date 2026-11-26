@@ -93,7 +93,7 @@ describe("save migration", () => {
     );
     expect(saved?.bookmarks).toEqual(["2"]);
     expect(migrateSave({ version: 3, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: ["99"] }, demoSystem, demoBook)).toBeNull();
-    expect(migrateSave({ version: 6, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook)).toBeNull();
+    expect(migrateSave({ version: 7, savedAt: "2026-11-09T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook)).toBeNull();
     expect(migrateSave({ version: 1, session }, demoSystem, demoBook)).toBeNull();
   });
 
@@ -151,7 +151,8 @@ describe("save migration", () => {
       played.state.stats.vitality = 2;
       const record = { version, savedAt: "2026-11-12T00:00:00.000Z", session: legacy(played), bookmarks: ["2"] };
       const saved = migrateSave(record, demoSystem, demoBook);
-      expect(saved?.version).toBe(5);
+      expect(saved?.version).toBe(SAVE_VERSION);
+      expect(saved?.session.state.fight).toBeNull();
       expect(saved?.session.state).toMatchObject({
         sectionId: "2",
         gold: 14,
@@ -168,12 +169,27 @@ describe("save migration", () => {
     }
   });
 
-  it("returns a version 5 save unchanged and requires its new fields", () => {
+  it("gives a version 5 save an empty fight set-up on every state (P35)", () => {
+    const session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
+    session.state.weapon = "two-handed";
+    session.undo = [structuredClone(session.state)];
+    const older = structuredClone(session) as unknown as { state: Record<string, unknown>; undo: Record<string, unknown>[] };
+    delete older.state.fight;
+    for (const entry of older.undo) delete entry.fight;
+    expect(canRestore(older, demoBook, demoSystem)).toBe(false);
+    const saved = migrateSave({ version: 5, savedAt: "2026-11-24T00:00:00.000Z", session: older, bookmarks: ["2"] }, demoSystem, demoBook);
+    expect(saved?.version).toBe(SAVE_VERSION);
+    expect(saved?.session).toEqual(session);
+    expect(saved?.bookmarks).toEqual(["2"]);
+    expect(saved && canRestore(saved.session, demoBook, demoSystem)).toBe(true);
+  });
+
+  it("returns a version 6 save unchanged and requires its new fields", () => {
     const session = startSession(demoBook, demoSystem, fixtureCharacter(demoSystem));
     session.state.maxima = { talent: 7 };
     session.state.stats.talent = 7;
     session.state.weapon = "two-handed";
-    const saved = migrateSave({ version: 5, savedAt: "2026-11-24T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook);
+    const saved = migrateSave({ version: 6, savedAt: "2026-11-24T00:00:00.000Z", session, bookmarks: [] }, demoSystem, demoBook);
     expect(saved?.session).toEqual(session);
     expect(saved && canRestore(saved.session, demoBook, demoSystem)).toBe(true);
 

@@ -44,7 +44,9 @@ export type Effect =
   | { op: "removeItem"; id: string }
   | { op: "gainKeyword"; id: string; label: string }
   | { op: "tick"; id: string; label: string }
-  | { op: "adjustStat"; stat: string; by: number };
+  | { op: "adjustStat"; stat: string; by: number }
+  /** Coins in or out of the pouch. The pouch never goes below 0. */
+  | { op: "adjustGold"; by: number };
 
 export type Condition =
   | { op: "hasItem"; id: string }
@@ -71,6 +73,20 @@ export interface Choice {
 export interface TestBranch {
   to?: string;
   effects?: Effect[];
+  /**
+   * Only on a test before a fight (P35). The fight that follows is fought with this. A result with
+   * `to` turns there instead, and the fight never opens.
+   */
+  edge?: FightEdge;
+}
+
+/** Advantage or Disadvantage in a fight (pp.10–11). If both apply, they cancel. */
+export type FightEdge = "advantage" | "disadvantage";
+
+/** A box the player ticks before a fight, such as "I can cast a flight spell". Not read from the sheet yet. */
+export interface FightCondition {
+  id: string;
+  label: string;
 }
 
 /** One roll-under check. Crits, fumbles, and re-rolls are not part of this step. */
@@ -86,6 +102,11 @@ export interface TestDef {
   success?: TestBranch;
   /** Absent when a fail stays on the section with nothing to apply. The section then needs choices. */
   failure?: TestBranch;
+  /**
+   * Only before a fight: the section offers the test ("you can try"). The player may skip it, which
+   * takes the fail result without a roll, so the fight has no success modifier.
+   */
+  optional?: boolean;
 }
 
 export interface CombatDef {
@@ -99,6 +120,15 @@ export interface CombatDef {
   /** Where a defeat sends the player. Absent means defeat ends the adventure. */
   defeatSection?: string;
   then: string;
+  /**
+   * The fight waits until the section's test is settled (P35). Set exactly when the section also has
+   * a test: the test comes first, and its results say how the fight is fought, or skip it.
+   */
+  afterTest?: true;
+  /** Advantage or Disadvantage the section gives this fight directly. */
+  edge?: FightEdge;
+  /** Boxes the player may tick before round 1. Any one ticked removes `edge`. Only with `edge`. */
+  unless?: FightCondition[];
 }
 
 /** A section picture. The id names a bundled sample drawing. */
@@ -119,7 +149,7 @@ export interface SectionEnter {
   effects?: Effect[];
 }
 
-/** A section's exit is choices, a test, a test with choices beside it, or a combat. */
+/** A section's exit is choices, a test, a test with choices beside it, a combat, or a test before a combat. */
 export interface Section {
   id: string;
   title: string;
@@ -158,6 +188,21 @@ export interface RollRecord {
   faces: number[];
   total: number;
   success: boolean;
+  /** Fight rounds only: each die replaced this round, in the order it happened. */
+  rerolls?: DieReroll[];
+}
+
+/**
+ * Why a fight die was replaced. Disadvantage and a two-handed weapon's 6 are automatic, before
+ * Fortune; Advantage comes last (pp.10–11).
+ */
+export type RerollCause = "disadvantage" | "two-handed" | "fortune" | "advantage";
+
+export interface DieReroll {
+  index: number;
+  from: number;
+  to: number;
+  by: RerollCause;
 }
 
 /** Present only while a multi-step combat is unfinished. */
@@ -178,6 +223,22 @@ export interface PendingTest {
 }
 
 export type PendingAction = PendingCombat | PendingTest;
+
+/** How a test before a fight was settled (P35). A skip takes the fail result without a roll. */
+export type FightTestResult = "pass" | "fail" | "skipped";
+
+/**
+ * The fight on the current section, once its test before the fight is settled or a box is ticked.
+ * Cleared when the player leaves the section.
+ */
+export interface FightState {
+  sectionId: string;
+  test?: FightTestResult;
+  /** The settled roll, kept so the test card can show it. Absent after a skip. */
+  roll?: RollRecord;
+  /** Ids of the fight's `unless` boxes the player has ticked. */
+  ticked: string[];
+}
 
 /** The starting weapon is stored by type only. It has no name or bonus. */
 export type WeaponType = "one-handed" | "long" | "two-handed";
@@ -210,6 +271,8 @@ export interface GameState {
   ticks: Record<string, TickMark>;
   rolls: RollRecord[];
   pending: PendingAction | null;
+  /** P35: the current section's fight set-up. Null when there is none. */
+  fight: FightState | null;
 }
 
 export interface Session {

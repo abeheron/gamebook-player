@@ -2,7 +2,7 @@
 
 Status: approved as P09, P13, and P22, and implemented on this branch. Not merged.
 
-Test & fight, in the sidebar and the phone bar, opens the current section. A skill-test section shows the full test: formula, skill modifier, dice, and result. A fight section shows that fight. Any other section says it has no test or fight. Fights stay on their own full view. They do not use the compact panel.
+Test & fight, in the sidebar and the phone bar, opens the current section. A skill-test section shows the full test: formula, skill modifier, dice, and result. A fight section shows that fight. Any other section says it has no test or fight. Fights stay on their own full view. They do not use the compact panel. A section with a test before its fight (P35) shows both: the full test, then the fight, which waits until the test is settled.
 
 The new sample fight is the pale moth on section 10: two rounds at a penalty of −1, from the passage, not from a prototype number. A round is a Talent test at that penalty. A miss is one Wound, which is Vitality −1. Vitality at 0 ends the fight at the passage's defeat section, and the remaining rounds are not rolled. Otherwise the fight is won by finishing the rounds, even if a round was missed. Fumbles, armour, shields, unarmed fighting, and Fortune are not in this change.
 

@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { demoBook, demoSystem, gladeBook, ravineBook } from "../format/demo";
+  import { demoBook, demoSystem, gladeBook, marshBook, ravineBook } from "../format/demo";
   import { exploredSections } from "../format/import-book";
-  import type { Book, Character, Illustration, RollRecord, Session } from "../format/types";
-  import { fixtureCharacter, gladeCharacter } from "../engine/creation";
+  import type { Book, Character, GameState, Illustration, RollRecord, Session } from "../format/types";
+  import { fixtureCharacter, gladeCharacter, marshCharacter } from "../engine/creation";
+  import { autoRerolledDie, edgeNow, fightFor, fightLocked, fightTestResult } from "../engine/fight-edge";
   import { canRestore } from "../engine/restore";
   import { conditionHolds, initialSession } from "../engine/state";
-  import { acceptTest, adventureOver, choicesOpen, choose, currentSection, holdTestRoll, rerollCombatDie, rerollTestDie, rollCombatRound, selectTestDie, startSession, undo } from "../engine/rules";
+  import { acceptTest, adventureOver, choicesOpen, choose, combatRoundStart, currentSection, holdTestRoll, rerollCombatDie, rerollFinalRound, rerollTestDie, rollCombatRound, selectTestDie, skipTest, startSession, tickFightBox, undo } from "../engine/rules";
+  import { outcomeLabel, rerollOrder, skippedLine, stake, waitingLine } from "./fight-wording";
   import { skillAdjustment } from "../engine/skills";
   import { playDiceSound, stopDiceSound } from "./dice-audio";
   import { DICE_PREFS_KEY, parseStoredPrefs, resolveDicePrefs, withIllustration, withPref, type IllustrationMode, type StoredDicePrefs } from "./dice-prefs";
@@ -31,7 +33,8 @@
 
   type ViewName = "read" | "sheet" | "test" | "log" | "rules" | "library";
   type ViewMark = { view: ViewName; scroll: number };
-  type Arrival = { kind: "combat"; session: Session };
+  /** A fight round that ends the fight, held until the player continues. `base` is the state before that round. */
+  type Arrival = { kind: "combat"; session: Session; base: GameState };
   /**
    * Loading reads the save. None means no book is in play, so only the Library and Rules open.
    * Create is the new-character screen, where nothing is saved. Play has a session from Begin or a save.
@@ -100,6 +103,8 @@
   let commitBusy = false;
   let bookmarks = $state<string[]>([]);
   let diceRolling = $state(false);
+  /** Which card's dice are moving. A test before a fight and the fight are on screen together (P35). */
+  let rollTarget = $state<"test" | "combat">("test");
   let dicePreview = $state<number[]>([]);
   let motionFrame = 0;
   let motionTimer = 0;
@@ -109,13 +114,15 @@
    * hero (or its existing save), so automated tests can jump into a section. ?fixture=p32 does the same with
    * The Mist Glade, a test with plain choices beside it, and a hero with Naturalist. ?fixture=p33 opens The Ash
    * Ravine with the ready-made hero: a fight with no losing section (game over), a fight with one, and a test
-   * whose fail wounds. Players never see these books: they are not Library cards, and a plain first launch has
-   * no book in play.
+   * whose fail wounds. ?fixture=p35 opens The Salt Marsh with a hero who has Swimming: tests before fights,
+   * Advantage and Disadvantage (P35). Players never see these books: they are not Library cards, and a plain
+   * first launch has no book in play.
    */
   const fixtureName = typeof location !== "undefined" ? new URLSearchParams(location.search).get("fixture") : null;
-  const testFixture = fixtureName === "demo" || fixtureName === "p32" || fixtureName === "p33";
-  const fixtureBook = fixtureName === "p32" ? gladeBook : fixtureName === "p33" ? ravineBook : demoBook;
-  const fixtureHero = fixtureName === "p32" ? gladeCharacter : fixtureCharacter;
+  const testFixture = fixtureName === "demo" || fixtureName === "p32" || fixtureName === "p33" || fixtureName === "p35";
+  const fixtureBook =
+    fixtureName === "p32" ? gladeBook : fixtureName === "p33" ? ravineBook : fixtureName === "p35" ? marshBook : demoBook;
+  const fixtureHero = fixtureName === "p32" ? gladeCharacter : fixtureName === "p35" ? marshCharacter : fixtureCharacter;
 
   /** Keeps the derived views valid while no game is running. It is never shown or saved. */
   function placeholder(target: Book): Session {
@@ -200,8 +207,9 @@
     });
   }
 
-  function startRoll(faces: number[], commit: () => void, flickerAt?: number[]): void {
+  function startRoll(faces: number[], commit: () => void, flickerAt?: number[], target: "test" | "combat" = "test"): void {
     clearMotion();
+    rollTarget = target;
     playRollSound();
     const moving = flickerAt ?? faces.map((_, index) => index);
     if (!prefs.anim) {
@@ -228,8 +236,34 @@
       count: session.state.ticks[tick.id]?.count ?? 0,
     })),
   );
-  /** P32: a test with choices beside it is a standing card, always shown, with no Close. */
-  const standingTest = $derived(Boolean(section.test && section.choices));
+  /** P32: a test with choices beside it is a standing card, always shown, with no Close. P35: so is a test before a fight. */
+  const standingTest = $derived(Boolean(section.test && (section.choices || section.combat)));
+  /** P35: the section's test comes before its fight. */
+  const preFight = $derived(Boolean(section.test && section.combat?.afterTest));
+  const fightResult = $derived(fightTestResult(section, session.state));
+  const combatLocked = $derived(fightLocked(section, session.state));
+  const combatEdge = $derived(edgeNow(section, session.state));
+  const combatOrder = $derived(section.combat ? rerollOrder(combatEdge, session.state.weapon === "two-handed") : "");
+  const passStakeWords = $derived(preFight ? stake(section, session.state, demoSystem, "pass") : "");
+  const failStakeWords = $derived(preFight ? stake(section, session.state, demoSystem, "fail") : "");
+  const combatWaiting = $derived(
+    preFight && section.test
+      ? waitingLine(testName(demoSystem, section.test), passStakeWords, failStakeWords, section.test.optional === true)
+      : "",
+  );
+  /** Outcome buttons for results that open the fight. A result that turns away keeps the "Pass → §N" form. */
+  const passStake = $derived(preFight && !section.test?.success?.to ? outcomeLabel("Pass", passStakeWords) : "");
+  const failStake = $derived(preFight && !section.test?.failure?.to ? outcomeLabel("Fail", failStakeWords) : "");
+  /** An optional test takes the fail result on a skip: "Skip · Fight without Advantage". */
+  const skipLabel = $derived(preFight && section.test?.optional ? outcomeLabel("Skip", failStakeWords) : "");
+  const combatBoxes = $derived(
+    (section.combat?.unless ?? []).map((box) => ({
+      ...box,
+      checked: fightFor(session.state, section.id)?.ticked.includes(box.id) ?? false,
+    })),
+  );
+  /** Boxes are set before round 1, and not once the fight is over. */
+  const boxesOpen = $derived(!arrival && session.state.pending === null && !adventureOver(book, session.state));
   const choiceRows = $derived(
     (section.choices ?? []).map((choice) => {
       const meets = !choice.when || conditionHolds(choice.when, session.state);
@@ -271,13 +305,22 @@
     session.state.pending?.kind === "test" && session.state.pending.sectionId === section.id ? session.state.pending : null,
   );
   const heldRoll = $derived<RollRecord | null>(heldTest?.roll ?? null);
+  /** The roll the test card shows: the held roll, or the settled roll of a test before a fight. */
+  const shownTestRoll = $derived<RollRecord | null>(heldRoll ?? (preFight ? (fightFor(session.state, section.id)?.roll ?? null) : null));
   const fortuneStat = $derived(demoSystem.stats.find((stat) => stat.id === demoSystem.fortuneStat));
   const fortuneNow = $derived(session.state.stats[demoSystem.fortuneStat] ?? 0);
+  /** Fortune left for a fight re-roll: while a finished round is held, its own spends count. */
+  const combatFortune = $derived(
+    arrival?.kind === "combat" ? (arrival.session.state.stats[demoSystem.fortuneStat] ?? 0) : fortuneNow,
+  );
   const passTo = $derived(section.test?.success?.to ?? "");
   const failTo = $derived(section.test?.failure?.to ?? "");
   const passTitle = $derived(passTo ? sectionTitle(book.sections, passTo) : "");
   const failTitle = $derived(failTo ? sectionTitle(book.sections, failTo) : "");
-  const testHint = $derived(section.test ? stayHint(section.test, heldRoll) : "");
+  /** P35: the settled card keeps its result and buttons; only a skip adds a muted line. */
+  const testHint = $derived(
+    preFight ? (fightResult === "skipped" ? skippedLine(failStakeWords) : "") : section.test ? stayHint(section.test, heldRoll) : "",
+  );
   /** P32: after a pass that turns to a section, Pass is the only way on, so the choices go. */
   const passWaiting = $derived(Boolean(heldRoll?.success && passTo));
   const combatRolls = $derived.by(() => {
@@ -530,32 +573,70 @@
   function onRollCombat(): void {
     if (diceRolling || arrival || adventureOver(book, session.state)) return;
     combatSelected = null;
-    const next = rollCombatRound(plainSession(), book, demoSystem, Math.random);
+    const before = plainSession();
+    const next = rollCombatRound(before, book, demoSystem, Math.random);
     const roll = next.state.rolls[next.state.rolls.length - 1];
     startRoll(roll?.faces ?? [], () => {
-      if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
+      // P35: after an automatic re-roll (Disadvantage, a two-handed first 6), the new die is selected.
+      combatSelected = autoRerolledDie(roll);
+      if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next, base: before.state };
       else session = next;
-    });
+    }, undefined, "combat");
   }
 
   function onSelectCombatDie(index: number): void {
-    if (diceRolling || arrival) return;
+    if (diceRolling) return;
     combatSelected = combatSelected === index ? null : index;
   }
 
-  function onRerollCombat(): void {
-    if (diceRolling || arrival || combatSelected === null || adventureOver(book, session.state)) return;
-    if (fortuneNow < demoSystem.fortuneRerollCost) return;
+  /**
+   * Re-rolls the selected fight die with Fortune or, once a round, with Advantage. A round that has
+   * just ended the fight can still be re-rolled before the player continues.
+   */
+  function onRerollCombat(by: "fortune" | "advantage" = "fortune"): void {
+    if (diceRolling || combatSelected === null || adventureOver(book, session.state)) return;
+    if (by === "fortune" && combatFortune < demoSystem.fortuneRerollCost) return;
     const last = combatRolls[combatRolls.length - 1];
     if (!last) return;
     const index = combatSelected;
     const face = 1 + Math.floor(Math.random() * 6);
-    const next = rerollCombatDie(plainSession(), book, demoSystem, index, Math.random, face);
+    const held = arrival?.kind === "combat" ? arrival : null;
+    let next: Session;
+    let base: GameState;
+    try {
+      if (held) {
+        base = held.base;
+        next = rerollFinalRound($state.snapshot(held.session) as Session, $state.snapshot(held.base) as GameState, book, demoSystem, index, Math.random, face, by);
+      } else {
+        const before = plainSession();
+        base = combatRoundStart(before, book, demoSystem);
+        next = rerollCombatDie(before, book, demoSystem, index, Math.random, face, by);
+      }
+    } catch {
+      return;
+    }
     startRoll(last.faces, () => {
       combatSelected = null;
-      if (next.state.sectionId !== session.state.sectionId) arrival = { kind: "combat", session: next };
-      else session = next;
-    }, [index]);
+      if (next.state.sectionId !== session.state.sectionId) {
+        arrival = { kind: "combat", session: next, base };
+      } else {
+        arrival = null;
+        session = next;
+      }
+    }, [index], "combat");
+  }
+
+  /** P35: skips a test the section offers. The fight opens without the success modifier. */
+  function onSkipTest(): void {
+    if (diceRolling || commitBusy || heldTest) return;
+    commitBusy = true;
+    session = skipTest(plainSession(), book, demoSystem);
+    commitBusy = false;
+  }
+
+  function onFightBox(id: string, checked: boolean): void {
+    if (diceRolling || arrival) return;
+    session = tickFightBox(plainSession(), book, id, checked);
   }
 
   function onArriveTest(): void {
@@ -563,7 +644,8 @@
     commitBusy = true;
     const next = acceptTest(plainSession(), book, demoSystem);
     panelOpen = false;
-    if (view === "test") {
+    // P35: a result that opens the fight here keeps the player on this screen, with the fight below.
+    if (view === "test" && next.state.sectionId !== session.state.sectionId) {
       const previous = history[history.length - 1];
       if (previous?.view === "read") history = history.slice(0, -1);
       view = "read";
@@ -816,60 +898,10 @@
               onOpenArt={openViewer}
             />
             {#if (panelOpen || standingTest) && section.test}
-              <SkillTest
-                compact
-                standing={standingTest}
-                hint={testHint}
-                label={section.test.label}
-                dice={section.test.dice}
-                formula={testFormula}
-                adjustment={testAdjustment}
-                {ready}
-                roll={heldRoll}
-                rolling={diceRolling}
-                {rollingIndexes}
-                previewFaces={dicePreview}
-                {passTo}
-                {passTitle}
-                {failTo}
-                {failTitle}
-                fortune={fortuneNow}
-                fortuneMax={fortuneStat?.max ?? 0}
-                fortuneCost={demoSystem.fortuneRerollCost}
-                selected={heldTest?.selected ?? null}
-                onSelect={onSelectDie}
-                onReroll={onRerollDie}
-                onRoll={onRollTest}
-                onArrive={onArriveTest}
-                onClose={closePanel}
-                onFull={openFullTest}
-              />
+              {@render testCard(true)}
             {/if}
             {#if section.combat}
-              <Combat
-                combat={section.combat}
-                formula={combatFormula}
-                round={(session.state.pending?.kind === "combat" ? session.state.pending.round : 0) + 1}
-                rounds={section.combat.rounds}
-                rolls={combatRolls}
-                rolling={diceRolling}
-                previewFaces={dicePreview}
-                vitality={combatVitality.current}
-                vitalityMax={combatVitality.max}
-                {ready}
-                held={arrival?.kind === "combat"}
-                {continueTo}
-                {continueTitle}
-                {defeated}
-                selected={combatSelected}
-                fortune={fortuneNow}
-                fortuneCost={demoSystem.fortuneRerollCost}
-                {rollingIndexes}
-                onSelect={onSelectCombatDie}
-                onReroll={onRerollCombat}
-                onRoll={onRollCombat}
-                onContinue={onArriveCombat}
-              />
+              {@render fightCard()}
             {:else if !section.test || (standingTest && !passWaiting)}
               <Choices rows={choiceRows} {ready} {onChoose} lead={standingTest ? "Or choose:" : ""} />
             {/if}
@@ -934,59 +966,13 @@
       <div data-testid="test-view">
         {#if gameOver && section.combat}
           {@render gameOverCard(section.combat.label)}
-        {:else if section.test}
-          <SkillTest
-            compact={false}
-            hint={testHint}
-            label={section.test.label}
-            dice={section.test.dice}
-            formula={testFormula}
-            adjustment={testAdjustment}
-            {ready}
-            roll={heldRoll}
-            rolling={diceRolling}
-            {rollingIndexes}
-            previewFaces={dicePreview}
-            {passTo}
-            {passTitle}
-            {failTo}
-            {failTitle}
-            fortune={fortuneNow}
-            fortuneMax={fortuneStat?.max ?? 0}
-            fortuneCost={demoSystem.fortuneRerollCost}
-            selected={heldTest?.selected ?? null}
-            onSelect={onSelectDie}
-            onReroll={onRerollDie}
-            onRoll={onRollTest}
-            onArrive={onArriveTest}
-            onClose={closePanel}
-            onFull={openFullTest}
-          />
-        {:else if section.combat}
-          <Combat
-            combat={section.combat}
-            formula={combatFormula}
-            round={(session.state.pending?.kind === "combat" ? session.state.pending.round : 0) + 1}
-            rounds={section.combat.rounds}
-            rolls={combatRolls}
-            rolling={diceRolling}
-            previewFaces={dicePreview}
-            vitality={combatVitality.current}
-            vitalityMax={combatVitality.max}
-            {ready}
-            held={arrival?.kind === "combat"}
-            {continueTo}
-            {continueTitle}
-            {defeated}
-            selected={combatSelected}
-            fortune={fortuneNow}
-            fortuneCost={demoSystem.fortuneRerollCost}
-            {rollingIndexes}
-            onSelect={onSelectCombatDie}
-            onReroll={onRerollCombat}
-            onRoll={onRollCombat}
-            onContinue={onArriveCombat}
-          />
+        {:else if section.test || section.combat}
+          {#if section.test}
+            {@render testCard(false)}
+          {/if}
+          {#if section.combat}
+            {@render fightCard()}
+          {/if}
         {:else}
           <p data-testid="test-empty">This section has no test or fight.</p>
         {/if}
@@ -1031,6 +1017,81 @@
     {/each}
   </nav>
 </div>
+{#snippet testCard(compact: boolean)}
+  {#if section.test}
+    <SkillTest
+      {compact}
+      standing={standingTest}
+      hint={testHint}
+      label={section.test.label}
+      dice={section.test.dice}
+      formula={testFormula}
+      adjustment={testAdjustment}
+      {ready}
+      roll={shownTestRoll}
+      rolling={diceRolling && rollTarget === "test"}
+      {rollingIndexes}
+      previewFaces={dicePreview}
+      {passTo}
+      {passTitle}
+      {failTo}
+      {failTitle}
+      {passStake}
+      {failStake}
+      settled={fightResult}
+      onSkip={section.test.optional && !heldTest && !fightResult ? onSkipTest : undefined}
+      {skipLabel}
+      plainResult={preFight}
+      fortune={fortuneNow}
+      fortuneMax={fortuneStat?.max ?? 0}
+      fortuneCost={demoSystem.fortuneRerollCost}
+      selected={heldTest?.selected ?? null}
+      onSelect={onSelectDie}
+      onReroll={onRerollDie}
+      onRoll={onRollTest}
+      onArrive={onArriveTest}
+      onClose={closePanel}
+      onFull={openFullTest}
+    />
+  {/if}
+{/snippet}
+{#snippet fightCard()}
+  {#if section.combat}
+    <Combat
+      combat={section.combat}
+      formula={combatFormula}
+      round={(session.state.pending?.kind === "combat" ? session.state.pending.round : 0) + 1}
+      rounds={section.combat.rounds}
+      rolls={combatRolls}
+      rolling={diceRolling && rollTarget === "combat"}
+      previewFaces={dicePreview}
+      vitality={combatVitality.current}
+      vitalityMax={combatVitality.max}
+      {ready}
+      held={arrival?.kind === "combat"}
+      {continueTo}
+      {continueTitle}
+      {defeated}
+      selected={combatSelected}
+      fortune={combatFortune}
+      fortuneMax={fortuneStat?.max ?? 0}
+      fortuneCost={demoSystem.fortuneRerollCost}
+      {rollingIndexes}
+      locked={combatLocked}
+      waiting={combatWaiting}
+      edge={combatEdge}
+      order={combatOrder}
+      boxes={combatBoxes}
+      {boxesOpen}
+      onBox={onFightBox}
+      onSelect={onSelectCombatDie}
+      onReroll={() => onRerollCombat("fortune")}
+      onAdvantage={() => onRerollCombat("advantage")}
+      onRoll={onRollCombat}
+      onContinue={onArriveCombat}
+    />
+  {/if}
+{/snippet}
 {#snippet gameOverCard(enemy: string)}
   <GameOver sectionId={section.id} {enemy} {ready} onNewGame={onNewGame} onLibrary={() => show("library")} />
 {/snippet}

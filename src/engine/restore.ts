@@ -44,12 +44,17 @@ function isState(value: unknown, book: Book, system: SystemDef): value is GameSt
     }
   }
   if (!Array.isArray(value.rolls) || value.rolls.length > 40 || !value.rolls.every(isRoll)) return false;
+  if (!isFight(value.fight, value.sectionId as string, book)) return false;
+  // A settled test before a fight cannot also be held as a roll.
+  if (isRecord(value.fight) && value.fight.test !== undefined && isRecord(value.pending) && value.pending.kind === "test") return false;
   if (value.pending === null) return true;
   const pending = value.pending;
   if (!isRecord(pending) || pending.sectionId !== value.sectionId) return false;
   if (pending.kind === "combat") {
     const combat = sectionMap(book).get(value.sectionId)?.combat;
     if (!combat) return false;
+    // A fight that waits for its test cannot have rounds yet.
+    if (combat.afterTest && !(isRecord(value.fight) && value.fight.test !== undefined)) return false;
     const round = pending.round;
     return typeof round === "number" && Number.isInteger(round) && round >= 1 && round < combat.rounds;
   }
@@ -99,7 +104,41 @@ function isRoll(value: unknown): value is RollRecord {
   if (typeof value.dice !== "string") return false;
   if (typeof value.total !== "number" || !Number.isInteger(value.total)) return false;
   if (typeof value.success !== "boolean") return false;
+  if (value.rerolls !== undefined && !isRerolls(value.rerolls)) return false;
   return Array.isArray(value.faces) && value.faces.every((face) => typeof face === "number" && Number.isInteger(face));
+}
+
+const CAUSES = new Set(["disadvantage", "two-handed", "fortune", "advantage"]);
+
+function isRerolls(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20) return false;
+  return value.every(
+    (entry) =>
+      isRecord(entry) &&
+      Object.keys(entry).length === 4 &&
+      [entry.index, entry.from, entry.to].every((number) => typeof number === "number" && Number.isInteger(number) && number >= 0 && number <= 100) &&
+      typeof entry.by === "string" &&
+      CAUSES.has(entry.by),
+  );
+}
+
+/** P35: a fight set-up on this section's combat. Older saves have none. */
+function isFight(value: unknown, sectionId: string, book: Book): boolean {
+  if (value === null) return true;
+  if (!isRecord(value) || value.sectionId !== sectionId) return false;
+  const section = sectionMap(book).get(sectionId);
+  const combat = section?.combat;
+  if (!section || !combat) return false;
+  for (const key of Object.keys(value)) if (!["sectionId", "test", "roll", "ticked"].includes(key)) return false;
+  const ticked = value.ticked;
+  if (!Array.isArray(ticked) || new Set(ticked).size !== ticked.length) return false;
+  if (!ticked.every((id) => typeof id === "string" && (combat.unless ?? []).some((box) => box.id === id))) return false;
+  if (value.test === undefined) return value.roll === undefined;
+  const test = section.test;
+  if (!test || !combat.afterTest) return false;
+  if (value.test === "skipped") return test.optional === true && value.roll === undefined;
+  if (value.test !== "pass" && value.test !== "fail") return false;
+  return isRoll(value.roll) && value.roll.id === test.id && value.roll.success === (value.test === "pass");
 }
 
 /** Each stored ceiling names a known stat, stays inside the system bounds, and is not below the current value. */

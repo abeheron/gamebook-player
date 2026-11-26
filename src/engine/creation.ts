@@ -126,3 +126,18 @@ export function gladeCharacter(system: SystemDef): Character {
     ],
   };
 }
+
+/**
+ * The ready-made hero for the hidden P35 fixture: the starting kit, with Climbing and Swimming as
+ * the free skills, so a Swimming test reads Talent 9 + 2 Swimming = 11. One-handed weapon.
+ */
+export function marshCharacter(system: SystemDef): Character {
+  const base = fixtureCharacter(system);
+  return {
+    ...base,
+    skills: [
+      { id: "climbing", bonus: system.basicSkillBonus },
+      { id: "swimming", bonus: system.basicSkillBonus },
+    ],
+  };
+}

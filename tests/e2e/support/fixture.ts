@@ -17,3 +17,10 @@ export const P32_FIXTURE_URL = "/?fixture=p32";
  * and §17 is a test whose fail costs 3 Vitality. Not linked anywhere.
  */
 export const P33_FIXTURE_URL = "/?fixture=p33";
+
+/**
+ * Opens The Salt Marsh (original sample text) with a hidden hero who has Climbing and Swimming +2,
+ * Talent 9, Vitality 3, and a one-handed weapon (P35): tests before fights, Advantage, Disadvantage
+ * with boxes to tick, a skippable test, a bargain, a pass that skips the fight, and a cancel. Not linked anywhere.
+ */
+export const P35_FIXTURE_URL = "/?fixture=p35";

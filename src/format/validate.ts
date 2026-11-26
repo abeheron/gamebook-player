@@ -5,6 +5,8 @@ import type {
   CombatDef,
   Condition,
   Effect,
+  FightCondition,
+  FightEdge,
   Illustration,
   NamedValue,
   Section,
@@ -32,7 +34,8 @@ const SECTION_ID = /^[0-9]{1,6}$/;
 const DICE = /^(\d+)d(\d+)([+-]\d+)?$/;
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
-const EFFECT_OPS = new Set(["addItem", "removeItem", "gainKeyword", "tick", "adjustStat"]);
+const EFFECT_OPS = new Set(["addItem", "removeItem", "gainKeyword", "tick", "adjustStat", "adjustGold"]);
+const EDGES = new Set<string>(["advantage", "disadvantage"]);
 const CONDITION_OPS = new Set(["hasItem", "keyword", "ticked", "statAtLeast", "not", "all", "testFailed"]);
 
 export function validateSystem(input: unknown): SystemDef {
@@ -200,7 +203,8 @@ function validateSection(input: unknown, path: string, system: SystemDef): Secti
     ),
   };
   if ("enter" in root) section.enter = validateEnter(root.enter, `${path}.enter`, system);
-  if ("test" in root) section.test = validateTest(root.test, `${path}.test`, system);
+  // P35: a test beside a combat comes before the fight, and may change it or skip it.
+  if ("test" in root) section.test = validateTest(root.test, `${path}.test`, system, "combat" in root);
   if ("choices" in root) {
     const besideTest = section.test !== undefined;
     section.choices = arrayOf(root.choices, `${path}.choices`, 1, 12).map((entry, index) =>
@@ -214,14 +218,18 @@ function validateSection(input: unknown, path: string, system: SystemDef): Secti
 }
 
 /**
- * A section's exit is choices, a test, a test with choices beside it, or a combat. A combat
- * stands alone. A test result with no destination stays on the section, so the player needs a
- * choice to leave by: after a pass, one that is not fail-only.
+ * A section's exit is choices, a test, a test with choices beside it, a combat, or a test before a
+ * combat (P35). A combat never shares its section with choices. Beside a combat, a test result with
+ * no destination opens the fight; the combat must say it waits for the test. Elsewhere a test result
+ * with no destination stays on the section, so the player needs a choice to leave by: after a pass,
+ * one that is not fail-only.
  */
 function validateExits(section: Section, path: string): void {
   const { choices, test, combat } = section;
   if (combat) {
-    if (choices || test) fail(path, "a combat cannot share its section with a test or choices");
+    if (choices) fail(path, "a combat cannot share its section with choices");
+    if (test && !combat.afterTest) fail(`${path}.combat`, "a combat beside a test must wait for it (afterTest)");
+    if (!test && combat.afterTest) fail(`${path}.combat.afterTest`, "there is no test to wait for");
     return;
   }
   if (!choices && !test) fail(path, "a section needs choices, a test, or a combat");
@@ -294,13 +302,14 @@ function validateChoice(input: unknown, path: string, system: SystemDef, besideT
   return choice;
 }
 
-function validateTest(input: unknown, path: string, system: SystemDef): TestDef {
+function validateTest(input: unknown, path: string, system: SystemDef, beforeFight: boolean): TestDef {
   const root = record(input, path);
-  requireKeys(root, ["id", "label", "dice", "stat", "modifier", "skill", "success", "failure"], path, [
+  requireKeys(root, ["id", "label", "dice", "stat", "modifier", "skill", "success", "failure", "optional"], path, [
     "modifier",
     "skill",
     "success",
     "failure",
+    "optional",
   ]);
   const test: TestDef = {
     id: identifier(root.id, `${path}.id`),
@@ -308,16 +317,21 @@ function validateTest(input: unknown, path: string, system: SystemDef): TestDef 
     dice: dice(root.dice, `${path}.dice`),
     stat: knownStat(root.stat, `${path}.stat`, system),
   };
-  if ("success" in root) test.success = validateBranch(root.success, `${path}.success`, system);
-  if ("failure" in root) test.failure = validateBranch(root.failure, `${path}.failure`, system);
+  if ("success" in root) test.success = validateBranch(root.success, `${path}.success`, system, beforeFight);
+  if ("failure" in root) test.failure = validateBranch(root.failure, `${path}.failure`, system, beforeFight);
+  if ("optional" in root) {
+    if (root.optional !== true) fail(`${path}.optional`, "expected true");
+    if (!beforeFight) fail(`${path}.optional`, "only a test before a fight can be skipped");
+    test.optional = true;
+  }
   if ("modifier" in root) test.modifier = integer(root.modifier, `${path}.modifier`, -20, 20);
   if ("skill" in root) test.skill = knownSkill(root.skill, `${path}.skill`, system);
   return test;
 }
 
-function validateBranch(input: unknown, path: string, system: SystemDef): TestBranch {
+function validateBranch(input: unknown, path: string, system: SystemDef, beforeFight: boolean): TestBranch {
   const root = record(input, path);
-  requireKeys(root, ["to", "effects"], path, ["to", "effects"]);
+  requireKeys(root, ["to", "effects", "edge"], path, ["to", "effects", "edge"]);
   const branch: TestBranch = {};
   if ("to" in root) branch.to = sectionId(root.to, `${path}.to`);
   if ("effects" in root) {
@@ -325,18 +339,30 @@ function validateBranch(input: unknown, path: string, system: SystemDef): TestBr
       validateEffect(entry, `${path}.effects[${index}]`, system),
     );
   }
+  if ("edge" in root) {
+    if (!beforeFight) fail(`${path}.edge`, "only a test before a fight can set Advantage or Disadvantage");
+    if (branch.to !== undefined) fail(`${path}.edge`, "a result that turns away never opens the fight");
+    branch.edge = edge(root.edge, `${path}.edge`);
+  }
   // Leave out a result that neither moves nor changes anything.
-  if (branch.to === undefined && branch.effects === undefined) fail(path, "expected a destination or effects");
+  if (branch.to === undefined && branch.effects === undefined && branch.edge === undefined) {
+    fail(path, beforeFight ? "expected a destination, effects, or a fight edge" : "expected a destination or effects");
+  }
   return branch;
+}
+
+function edge(input: unknown, path: string): FightEdge {
+  if (typeof input !== "string" || !EDGES.has(input)) fail(path, "expected advantage or disadvantage");
+  return input as FightEdge;
 }
 
 function validateCombat(input: unknown, path: string, system: SystemDef): CombatDef {
   const root = record(input, path);
   requireKeys(
     root,
-    ["id", "label", "rounds", "dice", "stat", "modifier", "wound", "defeatSection", "then"],
+    ["id", "label", "rounds", "dice", "stat", "modifier", "wound", "defeatSection", "then", "afterTest", "edge", "unless"],
     path,
-    ["modifier", "defeatSection"],
+    ["modifier", "defeatSection", "afterTest", "edge", "unless"],
   );
   const wound = record(root.wound, `${path}.wound`);
   requireKeys(wound, ["stat", "amount", "defeatAtOrBelow"], `${path}.wound`);
@@ -355,7 +381,26 @@ function validateCombat(input: unknown, path: string, system: SystemDef): Combat
   };
   if ("defeatSection" in root) combat.defeatSection = sectionId(root.defeatSection, `${path}.defeatSection`);
   if ("modifier" in root) combat.modifier = integer(root.modifier, `${path}.modifier`, -20, 20);
+  if ("afterTest" in root) {
+    if (root.afterTest !== true) fail(`${path}.afterTest`, "expected true");
+    combat.afterTest = true;
+  }
+  if ("edge" in root) combat.edge = edge(root.edge, `${path}.edge`);
+  if ("unless" in root) {
+    if (!combat.edge) fail(`${path}.unless`, "a box can only remove the fight's own Advantage or Disadvantage");
+    const boxes = arrayOf(root.unless, `${path}.unless`, 1, 4).map((entry, index) =>
+      validateFightCondition(entry, `${path}.unless[${index}]`),
+    );
+    if (new Set(boxes.map((box) => box.id)).size !== boxes.length) fail(`${path}.unless`, "duplicate box");
+    combat.unless = boxes;
+  }
   return combat;
+}
+
+function validateFightCondition(input: unknown, path: string): FightCondition {
+  const root = record(input, path);
+  requireKeys(root, ["id", "label"], path);
+  return { id: identifier(root.id, `${path}.id`), label: text(root.label, `${path}.label`, 1, 120) };
 }
 
 function validateEffect(input: unknown, path: string, system: SystemDef): Effect {
@@ -377,6 +422,10 @@ function validateEffect(input: unknown, path: string, system: SystemDef): Effect
   if (op === "tick") {
     requireKeys(root, ["op", "id", "label"], path);
     return { op, id: identifier(root.id, `${path}.id`), label: text(root.label, `${path}.label`, 1, 80) };
+  }
+  if (op === "adjustGold") {
+    requireKeys(root, ["op", "by"], path);
+    return { op, by: integer(root.by, `${path}.by`, -10_000, 10_000) };
   }
   requireKeys(root, ["op", "stat", "by"], path);
   return {
